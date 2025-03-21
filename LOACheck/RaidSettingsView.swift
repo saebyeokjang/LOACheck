@@ -159,7 +159,6 @@ struct RaidSettingCardView: View {
     @Binding var alertMessage: String
     
     @State private var showGateSettings: Bool = false
-    @State private var isSingleMode: Bool = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -171,7 +170,10 @@ struct RaidSettingCardView: View {
                     set: { isSelected in
                         if isSelected {
                             selectedRaids.insert(raidGroup.name)
-                            initializeGateSettings()
+                            // 빈 딕셔너리 생성 (난이도 자동 설정하지 않음)
+                            if gateSettings[raidGroup.name] == nil {
+                                gateSettings[raidGroup.name] = [:]
+                            }
                         } else {
                             selectedRaids.remove(raidGroup.name)
                             gateSettings.removeValue(forKey: raidGroup.name)
@@ -206,22 +208,18 @@ struct RaidSettingCardView: View {
             
             // 관문 설정 패널
             if selectedRaids.contains(raidGroup.name) && showGateSettings {
-                VStack(spacing: 12) {
-                    // 각 관문별 난이도 선택
-                    let isKamen = raidGroup.name == "카멘"
+                VStack(spacing: 16) {
+                    // 난이도별 관문 가로 뷰 (싱글, 노말, 하드 순)
+                    let availableDifficulties = raidGroup.availableDifficulties.map { $0.rawValue }
                     
-                    // 모든 레이드는 기본 관문 수 표시, 카멘은 난이도와 관계없이 4관문 모두 표시
-                    let gatesCount = isKamen ? 4 : raidGroup.gateCount
-                    
-                    ForEach(0..<gatesCount, id: \.self) { gateIndex in
-                        GateSettingRow(
+                    ForEach(availableDifficulties, id: \.self) { difficulty in
+                        DifficultyRow(
                             raidName: raidGroup.name,
-                            gateIndex: gateIndex,
-                            availableDifficulties: getAvailableDifficulties(for: gateIndex),
+                            difficulty: difficulty,
+                            gateCount: getGateCount(for: difficulty),
                             gateSettings: $gateSettings,
                             showAlert: $showAlert,
-                            alertMessage: $alertMessage,
-                            isSingleMode: $isSingleMode
+                            alertMessage: $alertMessage
                         )
                     }
                 }
@@ -230,33 +228,6 @@ struct RaidSettingCardView: View {
                 .cornerRadius(8)
             }
         }
-        .onChange(of: gateSettings) { _, newValue in
-            // 레이드 선택 시 싱글 모드 상태 업데이트
-            if let settings = newValue[raidGroup.name], !settings.isEmpty {
-                let firstDiff = settings.values.first
-                isSingleMode = firstDiff == "싱글"
-                
-                // 싱글 모드일 경우 카멘의 4관문 제거
-                if isSingleMode && raidGroup.name == "카멘" {
-                    gateSettings[raidGroup.name]?.removeValue(forKey: 3)
-                }
-                // 싱글 모드가 아닐 경우 카멘의 4관문이 하드 난이도로 있는지 확인
-                else if !isSingleMode && raidGroup.name == "카멘" && gateSettings[raidGroup.name]?[3] == nil {
-                    // 4관문 추가 (하드 난이도로)
-                    gateSettings[raidGroup.name]?[3] = "하드"
-                }
-            }
-        }
-    }
-    
-    // 관문별 사용 가능한 난이도 가져오기
-    private func getAvailableDifficulties(for gateIndex: Int) -> [String] {
-        // 카멘 레이드의 경우 4관문은 하드 난이도만 사용 가능
-        if raidGroup.name == "카멘" && gateIndex == 3 {
-            return ["하드"]
-        }
-        
-        return raidGroup.availableDifficulties.map { $0.rawValue }
     }
     
     // 레이드 순서 문자열 가져오기
@@ -267,206 +238,291 @@ struct RaidSettingCardView: View {
         return ""
     }
     
-    // 기본 관문 설정 초기화
-    private func initializeGateSettings() {
-        if gateSettings[raidGroup.name] == nil {
-            // 기본 난이도 (가장 높은 난이도)
-            let highestDifficulty = raidGroup.availableDifficulties.last?.rawValue ?? "노말"
-            
-            var gateDifficulties: [Int: String] = [:]
-            
-            // 기본적으로 모든 관문을 기본 난이도로 설정
-            let gateCount = raidGroup.name == "카멘" ? 4 : raidGroup.gateCount
-            
-            for gate in 0..<gateCount {
-                // 카멘 4관문은 항상 하드
-                if raidGroup.name == "카멘" && gate == 3 {
-                    gateDifficulties[gate] = "하드"
-                } else {
-                    gateDifficulties[gate] = highestDifficulty
-                }
-            }
-            
-            // 싱글 난이도를 선택한 경우 4관문 제거
-            if raidGroup.name == "카멘" && highestDifficulty == "싱글" {
-                gateDifficulties.removeValue(forKey: 3)
-            }
-            
-            gateSettings[raidGroup.name] = gateDifficulties
+    // 난이도별 관문 수 반환
+    private func getGateCount(for difficulty: String) -> Int {
+        if raidGroup.name == "카멘" && difficulty != "하드" {
+            return 3 // 카멘 싱글/노말은 3관문까지
         }
+        return raidGroup.gateCount
     }
 }
 
-// 관문 설정 행
-struct GateSettingRow: View {
+// 난이도별 관문 행 (가로 레이아웃)
+struct DifficultyRow: View {
     var raidName: String
-    var gateIndex: Int
-    var availableDifficulties: [String]
+    var difficulty: String
+    var gateCount: Int
     @Binding var gateSettings: [String: [Int: String]]
     @Binding var showAlert: Bool
     @Binding var alertMessage: String
-    @Binding var isSingleMode: Bool
     
-    var body: some View {
-        HStack {
-            Text("\(gateIndex + 1)관문")
-                .font(.subheadline)
-                .frame(width: 60, alignment: .leading)
-            
-            Spacer()
-            
-            // 각 난이도별 선택 버튼
-            HStack(spacing: 4) {
-                ForEach(availableDifficulties, id: \.self) { difficulty in
-                    Button(action: {
-                        selectDifficulty(difficulty)
-                    }) {
-                        let isSelected = isSelectedDifficulty(difficulty)
-                        
-                        Text(difficulty)
-                            .font(.caption)
-                            .fontWeight(isSelected ? .bold : .regular)
-                            .frame(minWidth: 60)
-                            .padding(.vertical, 8)
-                            .background(isSelected ? getDifficultyColor(difficulty).opacity(0.1) : Color.gray.opacity(0.1))
-                            .foregroundColor(isSelected ? getDifficultyColor(difficulty) : .gray)
-                            .cornerRadius(6)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .stroke(isSelected ? getDifficultyColor(difficulty) : Color.clear, lineWidth: 1)
-                            )
-                    }
-                    // 싱글 모드일 때 4관문은 비활성화
-                    .disabled(shouldDisableButton(difficulty))
-                }
-            }
+    // 해당 난이도 선택된 관문 수
+    private var selectedGatesCount: Int {
+        if let settings = gateSettings[raidName] {
+            return settings.filter { $0.value == difficulty }.count
         }
-        .padding(.vertical, 2)
-        // 싱글 모드일 때 4관문 행은 숨김 처리
-        .opacity(raidName == "카멘" && gateIndex == 3 && isSingleMode ? 0 : 1)
-        .frame(height: raidName == "카멘" && gateIndex == 3 && isSingleMode ? 0 : nil)
+        return 0
     }
     
-    // 버튼 비활성화 여부 결정
-    private func shouldDisableButton(_ difficulty: String) -> Bool {
-        // 카멘 레이드의 4관문에서 하드가 아닌 난이도는 선택 불가
-        if raidName == "카멘" && gateIndex == 3 && difficulty != "하드" {
+    // 해당 난이도 총 골드 계산
+    private var totalGold: Int {
+        var total = 0
+        for i in 0..<gateCount {
+            if isGateSelected(i) {
+                total += getGoldReward(i)
+            }
+        }
+        return total
+    }
+    
+    // 싱글 난이도가 선택되었는지 확인
+    private var isSingleMode: Bool {
+        if let settings = gateSettings[raidName] {
+            return settings.values.contains("싱글")
+        }
+        return false
+    }
+    
+    // 어떤 난이도가 선택되었는지 확인
+    private var selectedDifficulty: String? {
+        if let settings = gateSettings[raidName], !settings.isEmpty {
+            // 0번 관문의 난이도를 기준으로 함
+            return settings[0]
+        }
+        return nil
+    }
+    
+    var body: some View {
+        HStack(spacing: 0) {
+            // 난이도 및 골드 표시 (첫번째 칸)
+            DifficultyHeaderCell(
+                difficulty: difficulty,
+                totalGold: totalGold,
+                isSelected: selectedGatesCount > 0,
+                onSelect: {
+                    selectAllGates()
+                }
+            )
+            
+            // 각 관문 셀
+            ForEach(0..<gateCount, id: \.self) { gateIndex in
+                GateCell(
+                    gateIndex: gateIndex,
+                    goldReward: getGoldReward(gateIndex),
+                    isSelected: isGateSelected(gateIndex),
+                    onSelect: {
+                        toggleGate(gateIndex)
+                    }
+                )
+            }
+        }
+        .background(Color.white)
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+        )
+        .disabled(shouldDisableRow())
+    }
+    
+    // 해당 행을 비활성화해야 하는지 확인
+    private func shouldDisableRow() -> Bool {
+        // 싱글 난이도가 선택되어 있고, 현재 행이 싱글이 아니면 비활성화
+        if let firstDiff = selectedDifficulty, firstDiff == "싱글" && difficulty != "싱글" {
             return true
         }
         
-        // 싱글 모드일 때 4관문은 비활성화
-        if raidName == "카멘" && gateIndex == 3 && isSingleMode {
-            return true
-        }
-        
-        // 이전 관문이 설정되지 않았으면 비활성화
-        if !isPreviousGateSet() {
+        // 노말이나 하드가 선택되어 있고, 현재 행이 싱글이면 비활성화
+        if let firstDiff = selectedDifficulty, firstDiff != "싱글" && difficulty == "싱글" {
             return true
         }
         
         return false
     }
     
-    // 이전 관문이 설정되었는지 확인
-    private func isPreviousGateSet() -> Bool {
+    // 관문 선택 여부 확인
+    private func isGateSelected(_ gateIndex: Int) -> Bool {
+        if let settings = gateSettings[raidName] {
+            return settings[gateIndex] == difficulty
+        }
+        return false
+    }
+    
+    // 관문 골드 보상 가져오기
+    private func getGoldReward(_ gateIndex: Int) -> Int {
+        return RaidData.getGoldReward(
+            raid: raidName,
+            difficulty: difficulty,
+            gate: gateIndex
+        )
+    }
+    
+    // 이전 관문이 모두 선택되었는지 확인
+    private func arePreviousGatesSelected(_ gateIndex: Int) -> Bool {
+        // 첫번째 관문은 항상 선택 가능
         if gateIndex == 0 {
             return true
         }
         
-        if let raidSettings = gateSettings[raidName] {
-            // 모든 이전 관문이 설정되어 있는지 확인
-            for i in 0..<gateIndex {
-                if raidSettings[i] == nil {
-                    return false
-                }
+        // 이전 관문들 중 하나라도 선택되지 않았으면 false
+        for i in 0..<gateIndex {
+            if !isAnyDifficultySelected(i) {
+                return false
             }
-            return true
         }
         
+        return true
+    }
+    
+    // 상위 관문이 선택되어 있는지 확인
+    private func hasLaterGatesSelected(_ gateIndex: Int) -> Bool {
+        if let settings = gateSettings[raidName] {
+            // 현재 관문 이후의 관문 중 하나라도 선택되어 있으면 true
+            for i in (gateIndex + 1)..<getMaxGateCount() {
+                if settings[i] != nil {
+                    return true
+                }
+            }
+        }
         return false
     }
     
-    // 난이도 선택
-    private func selectDifficulty(_ difficulty: String) {
+    // 전체 관문 수 가져오기 (모든 난이도 중 최대값)
+    private func getMaxGateCount() -> Int {
+        if raidName == "카멘" {
+            return 4 // 카멘은 최대 4관문
+        }
+        return gateCount
+    }
+    
+    // 해당 관문이 어떤 난이도로든 선택되었는지 확인
+    private func isAnyDifficultySelected(_ gateIndex: Int) -> Bool {
+        if let settings = gateSettings[raidName] {
+            return settings[gateIndex] != nil
+        }
+        return false
+    }
+    
+    // 관문 토글
+    private func toggleGate(_ gateIndex: Int) {
         if gateSettings[raidName] == nil {
             gateSettings[raidName] = [:]
         }
         
-        // 이전 관문이 설정되지 않았으면 알림 표시
-        if !isPreviousGateSet() {
-            alertMessage = "이전 관문의 난이도를 먼저 선택해주세요."
-            showAlert = true
-            return
-        }
-        
-        // 싱글 난이도를 선택한 경우 적용 가능한 관문만 싱글로 변경
-        if difficulty == "싱글" {
-            if raidName == "카멘" {
-                // 카멘은 1-3관문만 싱글 가능, 4관문은 제거
-                for i in 0..<3 {
-                    gateSettings[raidName]?[i] = "싱글"
-                }
-                // 4관문 제거
-                gateSettings[raidName]?.removeValue(forKey: 3)
-            } else {
-                // 다른 레이드는 모든 관문 싱글로 설정
-                let gateCount = gateSettings[raidName]?.count ?? 4
-                for i in 0..<gateCount {
-                    gateSettings[raidName]?[i] = "싱글"
-                }
+        // 이미 선택된 관문을 해제하려는 경우
+        if isGateSelected(gateIndex) {
+            // 상위 관문이 선택되어 있는지 확인
+            if hasLaterGatesSelected(gateIndex) {
+                alertMessage = "상위 관문을 먼저 해제해주세요."
+                showAlert = true
+                return
             }
-            isSingleMode = true
-        } else if isSingleMode {
-            // 싱글 모드에서 다른 난이도로 변경 시
-            if raidName == "카멘" {
-                // 카멘은 1-3관문 선택한 난이도로, 4관문은 하드로 설정
-                for i in 0..<3 {
-                    gateSettings[raidName]?[i] = difficulty
-                }
-                // 4관문 추가 (하드 난이도로)
-                gateSettings[raidName]?[3] = "하드"
-            } else {
-                // 다른 레이드는 모든 관문 동일 난이도로 설정
-                let gateCount = gateSettings[raidName]?.count ?? 4
-                for i in 0..<gateCount {
-                    gateSettings[raidName]?[i] = difficulty
-                }
-            }
-            isSingleMode = false
+            
+            // 해당 관문 해제
+            gateSettings[raidName]?.removeValue(forKey: gateIndex)
         } else {
-            // 단일 관문만 변경
+            // 새로 선택하는 경우
+            
+            // 이전 관문이 모두 선택되었는지 확인
+            if !arePreviousGatesSelected(gateIndex) {
+                alertMessage = "이전 관문의 난이도를 먼저 선택해주세요."
+                showAlert = true
+                return
+            }
+            
+            // 이미 다른 난이도로 선택되어 있으면 해제 후 변경
+            if isAnyDifficultySelected(gateIndex) {
+                gateSettings[raidName]?.removeValue(forKey: gateIndex)
+            }
+            
+            // 새로 선택
             gateSettings[raidName]?[gateIndex] = difficulty
             
-            // 카멘 레이드 처리
+            // 카멘 레이드 특별 처리
             if raidName == "카멘" {
-                // 4관문은 항상 하드 난이도
-                if gateIndex == 3 {
-                    gateSettings[raidName]?[3] = "하드"
+                // 싱글 난이도 선택 시 4관문 해제
+                if difficulty == "싱글" {
+                    gateSettings[raidName]?.removeValue(forKey: 3)
                 }
-                // 싱글 모드로 변경할 경우 4관문 제거
-                else if difficulty == "싱글" {
-                    // 모든 관문이 싱글인지 확인
-                    let allSingle = (0..<3).allSatisfy { i -> Bool in
-                        return gateSettings[raidName]?[i] == "싱글" || i == gateIndex
-                    }
-                    
-                    if allSingle {
-                        // 모든 관문이 싱글이면 4관문 제거
-                        gateSettings[raidName]?.removeValue(forKey: 3)
-                        isSingleMode = true
-                    }
+                // 4관문은 항상 하드 난이도
+                else if gateIndex == 3 {
+                    gateSettings[raidName]?[3] = "하드"
                 }
             }
         }
     }
     
-    // 선택된 난이도인지 확인
-    private func isSelectedDifficulty(_ difficulty: String) -> Bool {
-        return gateSettings[raidName]?[gateIndex] == difficulty
+    // 해당 난이도의 모든 관문 선택
+    private func selectAllGates() {
+        if gateSettings[raidName] == nil {
+            gateSettings[raidName] = [:]
+        }
+        
+        // 이미 모든 관문이 선택되어 있으면 모두 해제
+        if selectedGatesCount == gateCount {
+            // 해당 난이도로 선택된 모든 관문 해제
+            if let settings = gateSettings[raidName] {
+                // 이 난이도를 가진 관문의 키(인덱스)들을 찾음
+                let keysToRemove = settings.compactMap { (key, value) -> Int? in
+                    return value == difficulty ? key : nil
+                }
+                
+                // 찾은 키들에 해당하는 항목 제거 (가장 높은 번호부터 제거)
+                for key in keysToRemove.sorted(by: >) {
+                    gateSettings[raidName]?.removeValue(forKey: key)
+                }
+            }
+        } else {
+            // 먼저 모든 관문 해제
+            gateSettings[raidName] = [:]
+            
+            // 새로 선택
+            // 모든 관문 선택
+            for i in 0..<gateCount {
+                gateSettings[raidName]?[i] = difficulty
+            }
+            
+            // 카멘 레이드 특별 처리
+            if raidName == "카멘" {
+                if difficulty == "싱글" {
+                    // 싱글 난이도는 4관문 제거
+                    gateSettings[raidName]?.removeValue(forKey: 3)
+                } else if difficulty == "하드" {
+                    // 하드 난이도는 4관문 추가
+                    gateSettings[raidName]?[3] = "하드"
+                }
+            }
+        }
+    }
+}
+
+// 난이도 헤더 셀
+struct DifficultyHeaderCell: View {
+    var difficulty: String
+    var totalGold: Int
+    var isSelected: Bool
+    var onSelect: () -> Void
+    
+    var body: some View {
+        Button(action: onSelect) {
+            VStack(spacing: 4) {
+                Text(difficulty)
+                    .font(.headline)
+                    .foregroundColor(getDifficultyColor())
+                
+                Text("\(totalGold)G")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
+            .frame(height: 60)
+            .frame(minWidth: 0, maxWidth: .infinity)
+            .background(isSelected ? getDifficultyColor().opacity(0.1) : Color.gray.opacity(0.05))
+        }
+        .buttonStyle(PlainButtonStyle())
     }
     
     // 난이도에 따른 색상 반환
-    private func getDifficultyColor(_ difficulty: String) -> Color {
+    private func getDifficultyColor() -> Color {
         switch difficulty {
         case "하드":
             return .red
@@ -477,5 +533,31 @@ struct GateSettingRow: View {
         default:
             return .gray
         }
+    }
+}
+
+// 관문 셀
+struct GateCell: View {
+    var gateIndex: Int
+    var goldReward: Int
+    var isSelected: Bool
+    var onSelect: () -> Void
+    
+    var body: some View {
+        Button(action: onSelect) {
+            VStack(spacing: 4) {
+                Text("\(gateIndex + 1)관문")
+                    .font(.caption)
+                    .fontWeight(isSelected ? .bold : .regular)
+                
+                Text("\(goldReward)G")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
+            .frame(height: 60)
+            .frame(minWidth: 0, maxWidth: .infinity)
+            .background(isSelected ? Color.blue.opacity(0.1) : Color.white)
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
