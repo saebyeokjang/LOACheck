@@ -45,28 +45,11 @@ struct CharacterListView: View {
                     .onDelete(perform: deleteCharacters)
                 }
                 
-                Section(header: Text("통계"), footer: Text("골드 획득 캐릭터는 최대 \(maxGoldEarners)개까지 지정할 수 있습니다.")) {
-                    HStack {
-                        Text("전체 캐릭터")
-                        Spacer()
-                        Text("\(characters.count)개")
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    HStack {
-                        Text("표시 중인 캐릭터")
-                        Spacer()
-                        Text("\(characters.filter { !$0.isHidden }.count)개")
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    HStack {
-                        Text("골드 획득 캐릭터")
-                        Spacer()
-                        Text("\(goldEarnerCount)/\(maxGoldEarners)")
-                            .foregroundColor(goldEarnerCount == maxGoldEarners ? .orange : .secondary)
-                    }
-                }
+                StatisticsSection(
+                    characters: characters,
+                    maxGoldEarners: maxGoldEarners,
+                    goldEarnerCount: goldEarnerCount
+                )
             }
             .searchable(text: $searchText, prompt: "이름, 직업, 서버 검색")
             .navigationTitle("캐릭터 관리")
@@ -120,10 +103,51 @@ struct CharacterListView: View {
         isRefreshing = true
         
         Task {
-            await LostArkAPIService.shared.fetchCharacters(apiKey: apiKey, modelContext: modelContext)
+            let result = await LostArkAPIService.shared.fetchCharacters(apiKey: apiKey, modelContext: modelContext)
             
             await MainActor.run {
                 isRefreshing = false
+                
+                switch result {
+                case .success(let count):
+                    alertMessage = "캐릭터 정보를 성공적으로 불러왔습니다. (\(count)개)"
+                case .failure(let error):
+                    alertMessage = "오류가 발생했습니다: \(error.localizedDescription)"
+                }
+                
+                showAlert = true
+            }
+        }
+    }
+}
+
+// 통계 섹션 분리
+struct StatisticsSection: View {
+    let characters: [CharacterModel]
+    let maxGoldEarners: Int
+    let goldEarnerCount: Int
+    
+    var body: some View {
+        Section(header: Text("통계"), footer: Text("골드 획득 캐릭터는 최대 \(maxGoldEarners)개까지 지정할 수 있습니다.")) {
+            HStack {
+                Text("전체 캐릭터")
+                Spacer()
+                Text("\(characters.count)개")
+                    .foregroundColor(.secondary)
+            }
+            
+            HStack {
+                Text("표시 중인 캐릭터")
+                Spacer()
+                Text("\(characters.filter { !$0.isHidden }.count)개")
+                    .foregroundColor(.secondary)
+            }
+            
+            HStack {
+                Text("골드 획득 캐릭터")
+                Spacer()
+                Text("\(goldEarnerCount)/\(maxGoldEarners)")
+                    .foregroundColor(goldEarnerCount == maxGoldEarners ? .orange : .secondary)
             }
         }
     }

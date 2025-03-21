@@ -14,6 +14,8 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var characters: [CharacterModel]
     
+    @State private var resetTimer: Timer?
+    
     var body: some View {
         TabView(selection: $selectedTab) {
             CharacterPagingView()
@@ -46,18 +48,39 @@ struct ContentView: View {
                 isInitialLoad = false
             }
             
-            // 백그라운드에서 일일/주간 리셋 체크
-            TaskResetManager.shared.checkAndResetTasks(modelContext: modelContext)
+            // 리셋 타이머 설정
+            setupTaskResetTimer()
+        }
+        .onDisappear {
+            // 뷰가 사라질 때 타이머 정리
+            resetTimer?.invalidate()
+            resetTimer = nil
         }
     }
     
+    // 초기 데이터 로드
     private func loadInitialData() {
         // 처음 앱 실행 시 필요한 초기 데이터 로드
         // 예: 사용자가 등록한 API 키로 캐릭터 정보 불러오기
         if let apiKey = UserDefaults.standard.string(forKey: "apiKey"), !apiKey.isEmpty {
             Task {
-                await LostArkAPIService.shared.fetchCharacters(apiKey: apiKey, modelContext: modelContext)
+                _ = await LostArkAPIService.shared.fetchCharacters(apiKey: apiKey, modelContext: modelContext)
             }
         }
+    }
+    
+    // 리셋 타이머 설정
+    private func setupTaskResetTimer() {
+        // 이미 타이머가 있다면 취소
+        resetTimer?.invalidate()
+        
+        // 주기적으로 리셋 체크 (30분마다)
+        resetTimer = Timer.scheduledTimer(withTimeInterval: 30 * 60, repeats: true) { _ in
+            Logger.debug("Running scheduled task reset check")
+            TaskResetManager.shared.checkAndResetTasks(modelContext: modelContext)
+        }
+        
+        // 앱 시작 시 즉시 한번 실행
+        TaskResetManager.shared.checkAndResetTasks(modelContext: modelContext)
     }
 }

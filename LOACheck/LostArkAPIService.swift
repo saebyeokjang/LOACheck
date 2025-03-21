@@ -29,6 +29,36 @@ struct CharacterResponse: Decodable {
     var characterImage: String? { nil } // API에서 제공하지 않음
 }
 
+// MARK: - API 에러 타입
+enum APIError: Error, LocalizedError {
+    case invalidResponse
+    case unauthorized
+    case forbidden
+    case rateLimit
+    case serviceUnavailable
+    case unknown(Int)
+    case networkError(Error)
+    
+    var errorDescription: String? {
+        switch self {
+        case .invalidResponse:
+            return "유효하지 않은 응답입니다."
+        case .unauthorized:
+            return "API 키가 유효하지 않거나 형식이 잘못되었습니다."
+        case .forbidden:
+            return "API 접근 권한이 없습니다."
+        case .rateLimit:
+            return "API 호출 한도를 초과했습니다. 잠시 후 다시 시도해주세요."
+        case .serviceUnavailable:
+            return "로스트아크 API 서비스가 현재 점검 중입니다."
+        case .unknown(let code):
+            return "예상치 못한 오류가 발생했습니다 (코드: \(code))"
+        case .networkError(let error):
+            return "네트워크 오류: \(error.localizedDescription)"
+        }
+    }
+}
+
 // MARK: - API 서비스
 class LostArkAPIService {
     static let shared = LostArkAPIService()
@@ -38,118 +68,124 @@ class LostArkAPIService {
     private let baseURL = "https://developer-lostark.game.onstove.com"
     
     // 캐릭터 정보 가져오기
-    func fetchCharacters(apiKey: String, modelContext: ModelContext) async {
+    func fetchCharacters(apiKey: String, modelContext: ModelContext) async -> Result<Int, APIError> {
         do {
-            // 대표 캐릭터 이름 가져오기
             let characterName = UserDefaults.standard.string(forKey: "representativeCharacter") ?? ""
             
             if characterName.isEmpty {
-                print("API Error: No representative character name")
-                return
+                Logger.error("No representative character name")
+                return .failure(.invalidResponse)
             }
             
-            // 전체 API 요청 로깅
-            print("API Request: Fetching siblings for \(characterName)")
+            Logger.debug("API Request: Fetching siblings for \(characterName)")
             
-            // siblings API 호출
             let encodedName = characterName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? characterName
             let url = URL(string: "\(baseURL)/characters/\(encodedName)/siblings")!
             
             var request = URLRequest(url: url)
             request.httpMethod = "GET"
-            
-            // API 가이드에 따른 헤더 설정
             request.addValue("application/json", forHTTPHeaderField: "accept")
-            request.addValue("bearer \(apiKey)", forHTTPHeaderField: "authorization") // 소문자 'bearer'와 공백 사용
+            request.addValue("bearer \(apiKey)", forHTTPHeaderField: "authorization")
             
-            // 모든 요청 헤더 로깅
-            print("Request Headers: \(request.allHTTPHeaderFields ?? [:])")
+            Logger.debug("Request Headers: \(request.allHTTPHeaderFields ?? [:])")
             
             let (data, response) = try await URLSession.shared.data(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse else {
-                print("API Error: Invalid response")
-                return
+                return .failure(.invalidResponse)
             }
             
             // 응답 헤더 확인 (요청 제한 정보)
             if let limitValue = httpResponse.value(forHTTPHeaderField: "X-RateLimit-Limit"),
                let remainingValue = httpResponse.value(forHTTPHeaderField: "X-RateLimit-Remaining") {
-                print("API Rate Limit: \(limitValue), Remaining: \(remainingValue)")
+                Logger.debug("API Rate Limit: \(limitValue), Remaining: \(remainingValue)")
             }
             
-            // 응답 내용 로깅 (디버깅용)
+            // 디버그 모드에서만 응답 로깅
+            #if DEBUG
             let responseString = String(data: data, encoding: .utf8) ?? "Unable to decode response"
-            print("API Response Status: \(httpResponse.statusCode)")
-            print("API Response: \(responseString)")
+            Logger.debug("API Response Status: \(httpResponse.statusCode)")
+            Logger.debug("API Response: \(responseString)")
+            #endif
             
-            if httpResponse.statusCode == 200 {
-                // JSON 배열 형태의 응답 파싱
+            switch httpResponse.statusCode {
+            case 200:
                 let decoder = JSONDecoder()
                 let charactersData = try decoder.decode([CharacterResponse].self, from: data)
                 
-                print("Successfully decoded \(charactersData.count) characters")
+                Logger.debug("Successfully decoded \(charactersData.count) characters")
                 
-                // 메인 스레드에서 데이터 저장
                 await MainActor.run {
-                    for characterData in charactersData {
-                        // 이미 존재하는 캐릭터인지 확인
-                        let characterName = characterData.characterName
-                        let fetchDescriptor = FetchDescriptor<CharacterModel>(
-                            predicate: #Predicate<CharacterModel> { character in
-                                character.name == characterName
-                            }
-                        )
-                        let existingCharacters = try? modelContext.fetch(fetchDescriptor)
-                        
-                        if let existingCharacter = existingCharacters?.first {
-                            // 기존 캐릭터 업데이트
-                            existingCharacter.server = characterData.serverName
-                            existingCharacter.characterClass = characterData.characterClassName
-                            existingCharacter.level = characterData.itemLevel
-                            existingCharacter.lastUpdated = Date()
-                            // 레이드는 사용자가 직접 설정하도록 수정
-                            // updateAvailableRaids 메서드를 더 이상 사용하지 않음
-                            print("Updated character: \(characterData.characterName)")
-                        } else {
-                            // 새 캐릭터 추가
-                            let newCharacter = CharacterModel(
-                                name: characterData.characterName,
-                                server: characterData.serverName,
-                                characterClass: characterData.characterClassName,
-                                level: characterData.itemLevel
-                            )
-                            modelContext.insert(newCharacter)
-                            print("Added new character: \(characterData.characterName)")
-                        }
-                    }
-                }
-            } else {
-                // 오류 응답 처리
-                print("API Error (\(httpResponse.statusCode)): \(responseString)")
-                
-                // API 오류 코드에 따른 처리
-                switch httpResponse.statusCode {
-                case 401:
-                    print("Authorization failed: Invalid API key or format")
-                case 403:
-                    print("Access forbidden: Insufficient permissions")
-                case 429:
-                    print("Rate limit exceeded: Too many requests")
-                case 503:
-                    print("Service unavailable: Maintenance in progress")
-                default:
-                    print("Unexpected error occurred")
+                    self.updateCharacterModels(charactersData: charactersData, modelContext: modelContext)
                 }
                 
-                // 에러가 발생했을 경우 단일 캐릭터라도 추가하기 위한 시도
-                if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
-                    print("Trying to add single character manually...")
-                    await addSingleCharacterManually(characterName: characterName, modelContext: modelContext)
-                }
+                return .success(charactersData.count)
+                
+            case 401:
+                Logger.error("Authorization failed: Invalid API key or format")
+                
+                // 오류 시 단일 캐릭터 추가 시도
+                await addSingleCharacterManually(characterName: characterName, modelContext: modelContext)
+                return .failure(.unauthorized)
+                
+            case 403:
+                Logger.error("Access forbidden: Insufficient permissions")
+                
+                await addSingleCharacterManually(characterName: characterName, modelContext: modelContext)
+                return .failure(.forbidden)
+                
+            case 429:
+                Logger.error("Rate limit exceeded: Too many requests")
+                return .failure(.rateLimit)
+                
+            case 503:
+                Logger.error("Service unavailable: Maintenance in progress")
+                return .failure(.serviceUnavailable)
+                
+            default:
+                Logger.error("Unexpected error occurred with status code: \(httpResponse.statusCode)")
+                return .failure(.unknown(httpResponse.statusCode))
             }
         } catch {
-            print("API Error: \(error.localizedDescription)")
+            Logger.error("API Error", error: error)
+            return .failure(.networkError(error))
+        }
+    }
+    
+    // 캐릭터 데이터 업데이트를 위한 별도 메소드
+    @MainActor
+    private func updateCharacterModels(charactersData: [CharacterResponse], modelContext: ModelContext) {
+        for characterData in charactersData {
+            // 이미 존재하는 캐릭터인지 확인
+            let characterName = characterData.characterName
+            let fetchDescriptor = FetchDescriptor<CharacterModel>(
+                predicate: #Predicate<CharacterModel> { character in
+                    character.name == characterName
+                }
+            )
+            
+            let existingCharacters = try? modelContext.fetch(fetchDescriptor)
+            
+            if let existingCharacter = existingCharacters?.first {
+                // 기존 캐릭터 업데이트
+                existingCharacter.server = characterData.serverName
+                existingCharacter.characterClass = characterData.characterClassName
+                existingCharacter.level = characterData.itemLevel
+                existingCharacter.lastUpdated = Date()
+                
+                Logger.debug("Updated character: \(characterData.characterName)")
+            } else {
+                // 새 캐릭터 추가
+                let newCharacter = CharacterModel(
+                    name: characterData.characterName,
+                    server: characterData.serverName,
+                    characterClass: characterData.characterClassName,
+                    level: characterData.itemLevel
+                )
+                modelContext.insert(newCharacter)
+                
+                Logger.debug("Added new character: \(characterData.characterName)")
+            }
         }
     }
     
@@ -191,7 +227,7 @@ class LostArkAPIService {
                 level: 1500.0  // 예시 레벨
             )
             modelContext.insert(newCharacter)
-            print("Added representative character manually: \(characterName)")
+            Logger.debug("Added representative character manually: \(characterName)")
         }
     }
 }

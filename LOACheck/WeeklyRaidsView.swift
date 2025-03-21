@@ -24,13 +24,8 @@ struct WeeklyRaidsView: View {
                 Button(action: {
                     isShowingRaidSettings = true
                 }) {
-                    Label("레이드 설정", systemImage: "gear")
-                        .font(.caption)
+                    Image(systemName: "gearshape.fill")
                 }
-                .padding(.vertical, 4)
-                .padding(.horizontal, 8)
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(6)
             }
             
             Divider()
