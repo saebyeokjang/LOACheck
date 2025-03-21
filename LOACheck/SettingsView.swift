@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 
 struct SettingsView: View {
-    @AppStorage("apiKey") private var apiKey: String = ""
+    @AppStorage("apiKey") private var apiKey: String = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsIng1dCI6IktYMk40TkRDSTJ5NTA5NWpjTWk5TllqY2lyZyIsImtpZCI6IktYMk40TkRDSTJ5NTA5NWpjTWk5TllqY2lyZyJ9.eyJpc3MiOiJodHRwczovL2x1ZHkuZ2FtZS5vbnN0b3ZlLmNvbSIsImF1ZCI6Imh0dHBzOi8vbHVkeS5nYW1lLm9uc3RvdmUuY29tL3Jlc291cmNlcyIsImNsaWVudF9pZCI6IjEwMDAwMDAwMDAxNTQxNDQifQ.A9Bjw7h72Wz17Mjj47rs2bTsV11WBwFLC734G5XAn5kBDDyqQAOINwsU93SrSOfErCzy3XaU8F0rorpAPWIXj18YE5etud5veJZ4-6-KEgfQiDpDOM98JJjHD0DKxD6im9op1KoPSGgNqXtrDEtxXgp2ll0yM-PXC52ZWsnXGlu3T1VyznrR-fgKI79btydeN36c8df67g3OzvbRDOSi6PuhID1OtEql5RSqCFxzj8VZt2HVy50s6YXdClyQatCb4yGfTox5CC_TQxnCG8Z5NM-VVj9_1VGl3SWd4JZC6TwG4xRVXiqu706dKF-fLhAHfUEMxVJlh4Vc4o9KtEifcw"
     @State private var tempApiKey: String = ""
     
     @AppStorage("representativeCharacter") private var representativeCharacter: String = ""

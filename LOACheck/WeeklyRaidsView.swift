@@ -74,7 +74,7 @@ struct RaidListCardView: View {
         // 레이드별로 그룹화
         let groupedGates = Dictionary(grouping: raidGates) { $0.raid }
         
-        // 레이드 이름 정렬 (레벨 기준)
+        // 레이드 순서를 설정시트 순서대로 유지 (레벨 기준)
         let sortedRaidNames = groupedGates.keys.sorted { raid1, raid2 in
             let level1 = RaidData.raidLevelRequirements["\(raid1)-하드"] ??
                          RaidData.raidLevelRequirements["\(raid1)-노말"] ?? 0
@@ -131,7 +131,7 @@ struct RaidListCardView: View {
                 .cornerRadius(8)
             }
             
-            // 각 레이드 카드
+            // 각 레이드 카드 (순서 고정)
             ForEach(sortedRaidNames, id: \.self) { raidName in
                 if let gates = groupedGates[raidName] {
                     RaidCardView(
@@ -198,18 +198,13 @@ struct RaidCardView: View {
                 
                 Spacer()
                 
-                // 전체 완료 버튼
+                // 전체 완료 버튼 (체크표시로 변경)
                 Button(action: {
                     toggleAllGates()
                 }) {
-                    Text("완료")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.gray.opacity(0.8))
-                        .cornerRadius(4)
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 22))
+                        .foregroundColor(isAllCompleted ? .green : .gray)
                 }
             }
             .padding(.horizontal, 16)
@@ -218,10 +213,9 @@ struct RaidCardView: View {
                 Color.yellow.opacity(0.05) : Color.gray.opacity(0.05))
             
             // 레이드 관문 그리드
-            // 카멘의 경우 난이도에 따라 관문 수 다르게 표시
             let displayGates = getSortedGates()
             
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: displayGates.count > 0 ? min(3, displayGates.count) : 1), spacing: 0) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: displayGates.count > 0 ? min(4, displayGates.count) : 1), spacing: 0) {
                 ForEach(displayGates) { gate in
                     GateButton(
                         gate: gate,
@@ -239,24 +233,24 @@ struct RaidCardView: View {
         .opacity(isTopRaid || !isGoldEarner ? 1.0 : 0.7)  // 상위 레이드가 아니면 흐리게
         .onAppear {
             // 모든 관문이 완료되었는지 확인
-            isAllCompleted = !getSortedGates().contains(where: { !$0.isCompleted })
+            updateCompletionStatus()
+        }
+        .onChange(of: gates.map { $0.isCompleted }) { _, _ in
+            // 관문 완료 상태가 변경될 때마다 전체 상태 갱신
+            updateCompletionStatus()
         }
     }
     
-    // 정렬된 관문 (카멘은 난이도에 따라 관문 수 조정)
+    // 완료 상태 업데이트
+    private func updateCompletionStatus() {
+        let displayGates = getSortedGates()
+        isAllCompleted = !displayGates.isEmpty && !displayGates.contains(where: { !$0.isCompleted })
+    }
+    
+    // 정렬된 관문
     private func getSortedGates() -> [RaidGate] {
         // 관문 번호로 정렬
-        let sortedGates = gates.sorted { $0.gate < $1.gate }
-        
-        // 카멘 하드가 아닌 경우 4관문 제외
-        if raidName == "카멘" {
-            let difficulty = sortedGates.first?.difficulty ?? ""
-            if difficulty != "하드" {
-                return sortedGates.filter { $0.gate < 3 }  // 1, 2, 3관문만 표시
-            }
-        }
-        
-        return sortedGates
+        return gates.sorted { $0.gate < $1.gate }
     }
     
     // 레이드 순서 문자열 가져오기
