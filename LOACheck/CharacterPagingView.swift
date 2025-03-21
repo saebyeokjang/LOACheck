@@ -10,17 +10,19 @@ import SwiftData
 
 struct CharacterPagingView: View {
     @Query var characters: [CharacterModel]
+    var goToSettingsAction: (() -> Void)?
     
-    init() {
+    init(goToSettingsAction: (() -> Void)? = nil) {
         var descriptor = FetchDescriptor<CharacterModel>(predicate: #Predicate<CharacterModel> { !$0.isHidden })
         descriptor.sortBy = [SortDescriptor(\CharacterModel.level, order: .reverse)]
         _characters = Query(descriptor)
+        self.goToSettingsAction = goToSettingsAction
     }
     
     var body: some View {
         VStack {
             if characters.isEmpty {
-                EmptyCharactersView()
+                EmptyCharactersView(goToSettingsAction: goToSettingsAction)
             } else {
                 TabView {
                     ForEach(characters) { character in
@@ -36,7 +38,7 @@ struct CharacterPagingView: View {
 }
 
 struct EmptyCharactersView: View {
-    @State private var isShowingSettings = false
+    var goToSettingsAction: (() -> Void)?
     
     var body: some View {
         VStack(spacing: 20) {
@@ -54,7 +56,7 @@ struct EmptyCharactersView: View {
                 .foregroundColor(.gray)
             
             Button(action: {
-                isShowingSettings = true
+                goToSettingsAction?() // 클로저 호출
             }) {
                 Text("설정으로 이동")
                     .fontWeight(.semibold)
@@ -66,9 +68,6 @@ struct EmptyCharactersView: View {
             }
         }
         .padding()
-        .navigationDestination(isPresented: $isShowingSettings) {
-            SettingsView()
-        }
     }
 }
 

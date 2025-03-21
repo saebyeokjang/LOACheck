@@ -18,11 +18,14 @@ struct ContentView: View {
     
     var body: some View {
         TabView(selection: $selectedTab) {
-            CharacterPagingView()
-                .tabItem {
-                    Label("캐릭터", systemImage: "person.fill")
-                }
-                .tag(0)
+            CharacterPagingView(goToSettingsAction: {
+                // 설정 탭으로 이동하는 클로저
+                selectedTab = 3
+            })
+            .tabItem {
+                Label("캐릭터", systemImage: "person.fill")
+            }
+            .tag(0)
             
             CharacterListView()
                 .tabItem {
@@ -48,11 +51,9 @@ struct ContentView: View {
                 isInitialLoad = false
             }
             
-            // 리셋 타이머 설정
             setupTaskResetTimer()
         }
         .onDisappear {
-            // 뷰가 사라질 때 타이머 정리
             resetTimer?.invalidate()
             resetTimer = nil
         }

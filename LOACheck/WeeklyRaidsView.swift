@@ -25,6 +25,7 @@ struct WeeklyRaidsView: View {
                     isShowingRaidSettings = true
                 }) {
                     Image(systemName: "gearshape.fill")
+                        .foregroundStyle(.gray)
                 }
             }
             
@@ -80,6 +81,12 @@ struct RaidListCardView: View {
                          RaidData.raidLevelRequirements["\(raid1)-노말"] ?? 0
             let level2 = RaidData.raidLevelRequirements["\(raid2)-하드"] ??
                          RaidData.raidLevelRequirements["\(raid2)-노말"] ?? 0
+            
+            // 레벨이 같은 경우 레이드 이름으로 보조 정렬
+            if level1 == level2 {
+                return raid1 < raid2
+            }
+            
             return level1 > level2
         }
         
@@ -256,7 +263,7 @@ struct RaidCardView: View {
     // 레이드 순서 문자열 가져오기
     private func getOrderString(for raidName: String) -> String {
         if raidName.contains("모르둠") { return "3막" }
-        if raidName.contains("아브렐슈드") && raidName.contains("2막") { return "2막" }
+        if raidName.starts(with: "2막 아브렐슈드") { return "" }
         if raidName.contains("에기르") { return "1막" }
         return ""
     }
