@@ -17,7 +17,7 @@ struct LOACheckApp: App {
         .modelContainer(for: [
             CharacterModel.self,
             DailyTask.self,
-            WeeklyRaid.self
+            RaidGate.self
         ])
     }
 }

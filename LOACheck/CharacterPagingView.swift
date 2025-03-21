@@ -9,7 +9,6 @@ import SwiftUI
 import SwiftData
 
 struct CharacterPagingView: View {
-    @Environment(\.modelContext) private var modelContext
     @Query var characters: [CharacterModel]
     
     init() {
@@ -88,9 +87,7 @@ struct CharacterDetailView: View {
                 }
                 
                 // 주간 레이드 섹션
-                if let weeklyRaids = character.weeklyRaids, !weeklyRaids.isEmpty {
-                    WeeklyRaidsView(raids: weeklyRaids, character: character)
-                }
+                WeeklyRaidsView(character: character)
                 
                 Spacer()
             }
@@ -99,43 +96,12 @@ struct CharacterDetailView: View {
     }
 }
 
+// 캐릭터 헤더 뷰 추가
 struct CharacterHeaderView: View {
     var character: CharacterModel
     
     var body: some View {
         VStack(spacing: 12) {
-            // 캐릭터 이미지
-            if let imageURL = character.imageURL, let url = URL(string: imageURL) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .empty:
-                        ProgressView()
-                            .frame(width: 120, height: 120)
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 120, height: 120)
-                            .clipShape(Circle())
-                            .overlay(Circle().stroke(Color.blue, lineWidth: 2))
-                    case .failure:
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 60))
-                            .frame(width: 120, height: 120)
-                            .background(Color.gray.opacity(0.2))
-                            .clipShape(Circle())
-                    @unknown default:
-                        EmptyView()
-                    }
-                }
-            } else {
-                Image(systemName: "person.fill")
-                    .font(.system(size: 60))
-                    .frame(width: 120, height: 120)
-                    .background(Color.gray.opacity(0.2))
-                    .clipShape(Circle())
-            }
-            
             // 캐릭터 이름 및 정보
             Text(character.name)
                 .font(.title)
@@ -181,10 +147,6 @@ struct DailyTasksView: View {
                     .fontWeight(.bold)
                 
                 Spacer()
-                
-                Text("매일 06:00 초기화")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
             }
             
             Divider()
@@ -232,88 +194,4 @@ struct TaskRowView: View {
     }
 }
 
-struct WeeklyRaidsView: View {
-    var raids: [WeeklyRaid]
-    var character: CharacterModel
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("주간 레이드")
-                    .font(.headline)
-                    .fontWeight(.bold)
-                
-                Spacer()
-                
-                Text("매주 수요일 06:00 초기화")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            Divider()
-            
-            if raids.isEmpty {
-                Text("참여 가능한 레이드가 없습니다")
-                    .foregroundColor(.secondary)
-                    .padding(.vertical)
-            } else {
-                ForEach(raids) { raid in
-                    RaidRowView(raid: raid, isGoldEarner: character.isGoldEarner)
-                }
-                
-                // 골드 획득 캐릭터가 아닌 경우 알림 표시
-                if !character.isGoldEarner && !raids.isEmpty {
-                    Text("골드 획득 캐릭터로 지정되지 않아 골드를 획득할 수 없습니다")
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                        .padding(.top, 8)
-                }
-            }
-        }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
-    }
-}
-
-struct RaidRowView: View {
-    @Bindable var raid: WeeklyRaid
-    var isGoldEarner: Bool
-    
-    var body: some View {
-        HStack {
-            Button(action: {
-                raid.isCompleted.toggle()
-                if raid.isCompleted {
-                    raid.lastCompletedAt = Date()
-                }
-            }) {
-                Image(systemName: raid.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
-                    .foregroundColor(raid.isCompleted ? .green : .gray)
-            }
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(raid.name) (\(raid.difficulty))")
-                    .strikethrough(raid.isCompleted)
-                    .foregroundColor(raid.isCompleted ? .secondary : .primary)
-                
-                if isGoldEarner {
-                    Text("\(raid.goldReward) 골드")
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                }
-            }
-            
-            Spacer()
-            
-            if let lastCompletedAt = raid.lastCompletedAt {
-                Text(lastCompletedAt, style: .date)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-        }
-        .padding(.vertical, 4)
-    }
-}
+// WeeklyRaidsView는 별도 파일로 분리되었으므로 여기서는 제거

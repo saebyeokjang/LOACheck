@@ -1,0 +1,427 @@
+//
+//  WeeklyRaidsView.swift
+//  LOACheck
+//
+//  Created by Saebyeok Jang on 3/21/25.
+//
+
+import SwiftUI
+import SwiftData
+
+struct WeeklyRaidsView: View {
+    var character: CharacterModel
+    @State private var isShowingRaidSettings = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("주간 레이드")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                
+                Spacer()
+                
+                Button(action: {
+                    isShowingRaidSettings = true
+                }) {
+                    Label("레이드 설정", systemImage: "gear")
+                        .font(.caption)
+                }
+                .padding(.vertical, 4)
+                .padding(.horizontal, 8)
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(6)
+            }
+            
+            Divider()
+            
+            if let raidGates = character.raidGates, !raidGates.isEmpty {
+                // 레이드별로 그룹화 및 표시
+                RaidListCardView(character: character, raidGates: raidGates)
+            } else {
+                HStack {
+                    Spacer()
+                    VStack(spacing: 12) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 30))
+                            .foregroundColor(.gray)
+                        
+                        Text("설정된 레이드가 없습니다")
+                            .foregroundColor(.secondary)
+                        
+                        Text("레이드 설정 버튼을 눌러 레이드를 추가하세요")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                            .multilineTextAlignment(.center)
+                    }
+                    Spacer()
+                }
+                .padding(.vertical, 20)
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+        .sheet(isPresented: $isShowingRaidSettings) {
+            RaidSettingsView(character: character)
+        }
+    }
+}
+
+// 새로운 카드 스타일 레이드 리스트 뷰
+struct RaidListCardView: View {
+    var character: CharacterModel
+    var raidGates: [RaidGate]
+    @Environment(\.modelContext) private var modelContext
+    
+    var body: some View {
+        // 레이드별로 그룹화
+        let groupedGates = Dictionary(grouping: raidGates) { $0.raid }
+        
+        // 레이드 이름 정렬 (레벨 기준)
+        let sortedRaidNames = groupedGates.keys.sorted { raid1, raid2 in
+            let level1 = RaidData.raidLevelRequirements["\(raid1)-하드"] ??
+                         RaidData.raidLevelRequirements["\(raid1)-노말"] ?? 0
+            let level2 = RaidData.raidLevelRequirements["\(raid2)-하드"] ??
+                         RaidData.raidLevelRequirements["\(raid2)-노말"] ?? 0
+            return level1 > level2
+        }
+        
+        // 골드 획득할 수 있는 상위 3개 레이드 선택 (골드 보상 기준)
+        let raidTotalGolds = sortedRaidNames.map { raidName -> (name: String, gold: Int) in
+            let gates = groupedGates[raidName] ?? []
+            let totalGold = gates.reduce(0) { $0 + $1.goldReward }
+            return (name: raidName, gold: totalGold)
+        }.sorted { $0.gold > $1.gold }
+        
+        let topRaidNames = character.isGoldEarner ?
+            Array(raidTotalGolds.prefix(3)).map { $0.name } : []
+        
+        // 전체 골드 계산
+        let totalGold = character.isGoldEarner ? raidTotalGolds
+            .filter { topRaidNames.contains($0.name) }
+            .reduce(0) { $0 + $1.gold } : 0
+        
+        // 획득 골드 계산
+        let earnedGold = character.isGoldEarner ? groupedGates
+            .filter { topRaidNames.contains($0.key) }
+            .flatMap { $0.value }
+            .filter { $0.isCompleted }
+            .reduce(0) { $0 + $1.goldReward } : 0
+        
+        VStack(spacing: 16) {
+            // 골드 요약 정보
+            if character.isGoldEarner {
+                HStack {
+                    Text("획득량 / 주간 골드")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    HStack(spacing: 4) {
+                        Image(systemName: "circle.fill")
+                            .font(.system(size: 8))
+                            .foregroundColor(.yellow)
+                        
+                        Text("\(earnedGold) / \(totalGold) G")
+                            .fontWeight(.semibold)
+                            .foregroundColor(.orange)
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.yellow.opacity(0.1))
+                .cornerRadius(8)
+            }
+            
+            // 각 레이드 카드
+            ForEach(sortedRaidNames, id: \.self) { raidName in
+                if let gates = groupedGates[raidName] {
+                    RaidCardView(
+                        raidName: raidName,
+                        gates: gates,
+                        isGoldEarner: character.isGoldEarner,
+                        isTopRaid: character.isGoldEarner && topRaidNames.contains(raidName),
+                        modelContext: modelContext
+                    )
+                }
+            }
+            
+            // 골드 획득 캐릭터가 아닌 경우 알림 표시
+            if !character.isGoldEarner && !raidGates.isEmpty {
+                Text("골드 획득 캐릭터로 지정되지 않아 골드를 획득할 수 없습니다")
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+            }
+            
+            // 골드 획득 캐릭터이고 레이드가 3개 이상인 경우 안내 문구 표시
+            if character.isGoldEarner && sortedRaidNames.count > 3 {
+                Text("※ 골드 보상이 높은 상위 3개 레이드만 골드를 획득합니다")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+            }
+        }
+    }
+}
+
+// 레이드 카드 뷰
+struct RaidCardView: View {
+    var raidName: String
+    var gates: [RaidGate]
+    var isGoldEarner: Bool
+    var isTopRaid: Bool  // 상위 3개 레이드인지 여부
+    var modelContext: ModelContext
+    @State private var isAllCompleted: Bool = false
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // 레이드 헤더
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(getOrderString(for: raidName)) \(raidName)")
+                        .font(.headline)
+                        .foregroundColor(isTopRaid || !isGoldEarner ? .primary : .gray)
+                    
+                    if isGoldEarner {
+                        // 레이드 총 골드 계산
+                        let totalGold = gates.reduce(0) { $0 + $1.goldReward }
+                        let earnedGold = gates.filter { $0.isCompleted }.reduce(0) { $0 + $1.goldReward }
+                        
+                        Text("\(earnedGold) / \(totalGold) G")
+                            .font(.caption)
+                            .foregroundColor(isTopRaid ? .orange : .gray)
+                    }
+                }
+                
+                Spacer()
+                
+                // 전체 완료 버튼
+                Button(action: {
+                    toggleAllGates()
+                }) {
+                    Text("완료")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.gray.opacity(0.8))
+                        .cornerRadius(4)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(isTopRaid && isGoldEarner ?
+                Color.yellow.opacity(0.05) : Color.gray.opacity(0.05))
+            
+            // 레이드 관문 그리드
+            // 카멘의 경우 난이도에 따라 관문 수 다르게 표시
+            let displayGates = getSortedGates()
+            
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: displayGates.count > 0 ? min(3, displayGates.count) : 1), spacing: 0) {
+                ForEach(displayGates) { gate in
+                    GateButton(
+                        gate: gate,
+                        isGoldEarner: isGoldEarner,
+                        isTopRaid: isTopRaid,
+                        allGates: displayGates
+                    )
+                }
+            }
+        }
+        .background(Color.white)
+        .cornerRadius(10)
+        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
+        .padding(.vertical, 4)
+        .opacity(isTopRaid || !isGoldEarner ? 1.0 : 0.7)  // 상위 레이드가 아니면 흐리게
+        .onAppear {
+            // 모든 관문이 완료되었는지 확인
+            isAllCompleted = !getSortedGates().contains(where: { !$0.isCompleted })
+        }
+    }
+    
+    // 정렬된 관문 (카멘은 난이도에 따라 관문 수 조정)
+    private func getSortedGates() -> [RaidGate] {
+        // 관문 번호로 정렬
+        let sortedGates = gates.sorted { $0.gate < $1.gate }
+        
+        // 카멘 하드가 아닌 경우 4관문 제외
+        if raidName == "카멘" {
+            let difficulty = sortedGates.first?.difficulty ?? ""
+            if difficulty != "하드" {
+                return sortedGates.filter { $0.gate < 3 }  // 1, 2, 3관문만 표시
+            }
+        }
+        
+        return sortedGates
+    }
+    
+    // 레이드 순서 문자열 가져오기
+    private func getOrderString(for raidName: String) -> String {
+        if raidName.contains("모르둠") { return "3막" }
+        if raidName.contains("아브렐슈드") && raidName.contains("2막") { return "2막" }
+        if raidName.contains("에기르") { return "1막" }
+        return ""
+    }
+    
+    // 모든 관문 토글
+    private func toggleAllGates() {
+        // 모든 관문의 상태를 현재와 반대로
+        let newState = !isAllCompleted
+        let displayGates = getSortedGates()
+        
+        if newState {
+            // 모두 완료로 설정
+            for gate in displayGates {
+                gate.isCompleted = true
+                gate.lastCompletedAt = Date()
+            }
+        } else {
+            // 모두 미완료로 설정
+            for gate in displayGates {
+                gate.isCompleted = false
+                gate.lastCompletedAt = nil
+            }
+        }
+        
+        isAllCompleted = newState
+    }
+}
+
+// 관문 버튼
+struct GateButton: View {
+    @Bindable var gate: RaidGate
+    var isGoldEarner: Bool
+    var isTopRaid: Bool  // 상위 3개 레이드인지 여부
+    var allGates: [RaidGate]  // 같은 레이드의 모든 관문
+    
+    var body: some View {
+        Button(action: {
+            toggleGate()
+        }) {
+            VStack(spacing: 4) {
+                // 관문 번호와 난이도 표시
+                HStack(spacing: 4) {
+                    Text("\(gate.gate + 1)관문")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .strikethrough(gate.isCompleted)
+                    
+                    // 난이도 텍스트로 표시
+                    Text(gate.difficulty)
+                        .font(.caption2)
+                        .foregroundColor(getDifficultyColor(gate.difficulty))
+                        .strikethrough(gate.isCompleted)
+                }
+                
+                // 골드 보상
+                Text("\(gate.goldReward)G")
+                    .font(.caption)
+                    .foregroundColor(isTopRaid && isGoldEarner ? .orange : .gray)
+                    .strikethrough(gate.isCompleted)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(getBackgroundColor())
+            .overlay(
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(getBorderColor(), lineWidth: 1)
+            )
+            .foregroundColor(gate.isCompleted ? .secondary : .primary)
+            .cornerRadius(4)
+        }
+        .padding(4)
+        .disabled(!canToggleGate())  // 이전 관문이 완료되지 않으면 비활성화
+    }
+    
+    // 이 관문을 토글할 수 있는지 확인
+    private func canToggleGate() -> Bool {
+        // 이미 완료된 상태면 토글 가능 (체크 해제)
+        if gate.isCompleted {
+            return true
+        }
+        
+        // 완료되지 않은 상태에서는 이전 관문이 모두 완료되어야 토글 가능
+        // 1관문이면 항상 토글 가능
+        if gate.gate == 0 {
+            return true
+        }
+        
+        // 이전 관문들이 모두 완료되었는지 확인
+        let previousGates = allGates.filter { $0.gate < gate.gate }
+        return !previousGates.contains { !$0.isCompleted }
+    }
+    
+    // 관문 토글
+    private func toggleGate() {
+        if gate.isCompleted {
+            // 체크 해제하는 경우 뒷 관문도 모두 해제
+            let laterGates = allGates.filter { $0.gate > gate.gate }
+            for laterGate in laterGates {
+                laterGate.isCompleted = false
+                laterGate.lastCompletedAt = nil
+            }
+            
+            gate.isCompleted = false
+            gate.lastCompletedAt = nil
+        } else {
+            // 체크하는 경우 이전 관문도 모두 체크
+            let previousGates = allGates.filter { $0.gate < gate.gate }
+            for previousGate in previousGates {
+                if !previousGate.isCompleted {
+                    previousGate.isCompleted = true
+                    previousGate.lastCompletedAt = Date()
+                }
+            }
+            
+            gate.isCompleted = true
+            gate.lastCompletedAt = Date()
+        }
+    }
+    
+    // 난이도에 따른 색상 반환
+    private func getDifficultyColor(_ difficulty: String) -> Color {
+        switch difficulty {
+        case "하드":
+            return .red
+        case "노말":
+            return .blue
+        case "싱글":
+            return .green
+        default:
+            return .gray
+        }
+    }
+    
+    // 배경색 결정
+    private func getBackgroundColor() -> Color {
+        if !canToggleGate() && !gate.isCompleted {
+            return Color.gray.opacity(0.05)  // 비활성화 상태
+        } else if gate.isCompleted {
+            return Color.gray.opacity(0.1)
+        } else {
+            return Color.white
+        }
+    }
+    
+    // 테두리 색상 결정
+    private func getBorderColor() -> Color {
+        if !canToggleGate() && !gate.isCompleted {
+            return Color.gray.opacity(0.2)  // 비활성화 상태
+        } else if gate.isCompleted {
+            return Color.gray.opacity(0.3)
+        } else {
+            return gate.difficulty == "하드" ? Color.red.opacity(0.3) :
+                   gate.difficulty == "노말" ? Color.blue.opacity(0.3) :
+                   Color.green.opacity(0.3)
+        }
+    }
+}

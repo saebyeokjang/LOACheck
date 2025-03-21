@@ -61,7 +61,7 @@ class TaskResetManager {
         
         // 이번 주 수요일 06시를 지났고, 마지막 리셋이 이번 주 수요일 06시 이전인 경우 리셋 실행
         if now >= thisWeekResetTime && lastWeeklyReset < thisWeekResetTime {
-            resetWeeklyRaids(modelContext: modelContext)
+            resetRaidGates(modelContext: modelContext)
             UserDefaults.standard.set(now, forKey: "lastWeeklyReset")
         }
     }
@@ -79,16 +79,16 @@ class TaskResetManager {
         }
     }
     
-    // 주간 레이드 리셋
-    private func resetWeeklyRaids(modelContext: ModelContext) {
-        let fetchDescriptor = FetchDescriptor<WeeklyRaid>()
+    // 주간 레이드 관문 리셋 (WeeklyRaid 대신 RaidGate 사용)
+    private func resetRaidGates(modelContext: ModelContext) {
+        let fetchDescriptor = FetchDescriptor<RaidGate>()
         do {
-            let allWeeklyRaids = try modelContext.fetch(fetchDescriptor)
-            for raid in allWeeklyRaids {
-                raid.reset()
+            let allRaidGates = try modelContext.fetch(fetchDescriptor)
+            for gate in allRaidGates {
+                gate.reset()
             }
         } catch {
-            print("Failed to reset weekly raids: \(error.localizedDescription)")
+            print("Failed to reset raid gates: \(error.localizedDescription)")
         }
     }
 }

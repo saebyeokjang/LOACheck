@@ -22,7 +22,7 @@ final class CharacterModel {
     var lastUpdated: Date
     
     @Relationship(deleteRule: .cascade) var dailyTasks: [DailyTask]?
-    @Relationship(deleteRule: .cascade) var weeklyRaids: [WeeklyRaid]?
+    @Relationship(deleteRule: .cascade) var raidGates: [RaidGate]?  // 관문별 레이드로 변경
     
     init(
         name: String,
@@ -49,88 +49,77 @@ final class CharacterModel {
             DailyTask(type: .guardianRaid, isCompleted: false)
         ]
         
-        // 캐릭터 레벨에 맞는 주간 레이드 추가
-        self.weeklyRaids = []
-        self.updateAvailableRaids()
+        // 레이드 관문은 빈 배열로 초기화 (사용자가 직접 설정)
+        self.raidGates = []
     }
     
-    func updateAvailableRaids() {
-        // 기존 레이드 상태 저장
-        var existingRaids: [String: WeeklyRaid] = [:]
-        if let raids = weeklyRaids {
-            for raid in raids {
-                let key = "\(raid.name)-\(raid.difficulty)"
-                existingRaids[key] = raid
-            }
-        }
+    // 캐릭터에 대한 주간 골드 보상 계산 (최대 3개 레이드만 적용)
+    func calculateWeeklyGoldReward() -> Int {
+        guard isGoldEarner, let gates = raidGates else { return 0 }
         
-        // 레벨에 따라 가능한 레이드 결정
-        var availableRaids: [WeeklyRaid] = []
+        // 레이드별로 그룹화
+        let groupedGates = Dictionary(grouping: gates) { $0.raid }
         
-        // 아브렐슈드
-        if level >= 1580 {
-            let abyssalRaid = createOrUpdateRaid(name: "아브렐슈드", difficulty: "하드", goldReward: 4500, existingRaids: existingRaids)
-            availableRaids.append(abyssalRaid)
-        } else if level >= 1520 {
-            let abyssalRaid = createOrUpdateRaid(name: "아브렐슈드", difficulty: "노말", goldReward: 3000, existingRaids: existingRaids)
-            availableRaids.append(abyssalRaid)
-        }
+        // 각 레이드의 총 골드 계산
+        let raidGolds = groupedGates.map { raidName, gates -> (name: String, gold: Int) in
+            let totalGold = gates.reduce(0) { $0 + $1.goldReward }
+            return (name: raidName, gold: totalGold)
+        }.sorted { $0.gold > $1.gold }
         
-        // 카양겔
-        if level >= 1580 {
-            let kayangel = createOrUpdateRaid(name: "카양겔", difficulty: "하드", goldReward: 4500, existingRaids: existingRaids)
-            availableRaids.append(kayangel)
-        } else if level >= 1540 {
-            let kayangel = createOrUpdateRaid(name: "카양겔", difficulty: "노말", goldReward: 3000, existingRaids: existingRaids)
-            availableRaids.append(kayangel)
-        }
+        // 상위 3개 레이드의 골드만 합산
+        let topRaids = raidGolds.prefix(3)
+        let totalGold = topRaids.reduce(0) { $0 + $1.gold }
         
-        // 쿠크세이튼
-        if level >= 1475 {
-            let kouku = createOrUpdateRaid(name: "쿠크세이튼", difficulty: "하드", goldReward: 4500, existingRaids: existingRaids)
-            availableRaids.append(kouku)
-        } else if level >= 1445 {
-            let kouku = createOrUpdateRaid(name: "쿠크세이튼", difficulty: "노말", goldReward: 3000, existingRaids: existingRaids)
-            availableRaids.append(kouku)
-        }
-        
-        // 비아키스
-        if level >= 1460 {
-            let vykas = createOrUpdateRaid(name: "비아키스", difficulty: "하드", goldReward: 2500, existingRaids: existingRaids)
-            availableRaids.append(vykas)
-        } else if level >= 1430 {
-            let vykas = createOrUpdateRaid(name: "비아키스", difficulty: "노말", goldReward: 1500, existingRaids: existingRaids)
-            availableRaids.append(vykas)
-        }
-        
-        // 발탄
-        if level >= 1445 {
-            let valtan = createOrUpdateRaid(name: "발탄", difficulty: "하드", goldReward: 1500, existingRaids: existingRaids)
-            availableRaids.append(valtan)
-        } else if level >= 1415 {
-            let valtan = createOrUpdateRaid(name: "발탄", difficulty: "노말", goldReward: 800, existingRaids: existingRaids)
-            availableRaids.append(valtan)
-        }
-        
-        // 아르고스
-        if level >= 1370 {
-            let argos = createOrUpdateRaid(name: "아르고스", difficulty: "하드", goldReward: 1600, existingRaids: existingRaids)
-            availableRaids.append(argos)
-        }
-        
-        self.weeklyRaids = availableRaids
+        return totalGold
     }
     
-    private func createOrUpdateRaid(name: String, difficulty: String, goldReward: Int, existingRaids: [String: WeeklyRaid]) -> WeeklyRaid {
-        let key = "\(name)-\(difficulty)"
-        if let existingRaid = existingRaids[key] {
-            // 기존 레이드 업데이트
-            existingRaid.goldReward = goldReward
-            return existingRaid
-        } else {
-            // 새 레이드 생성
-            return WeeklyRaid(name: name, difficulty: difficulty, goldReward: goldReward, isCompleted: false)
-        }
+    // 실제 획득한 골드 계산
+    func calculateEarnedGoldReward() -> Int {
+        guard isGoldEarner, let gates = raidGates else { return 0 }
+        
+        // 레이드별로 그룹화
+        let groupedGates = Dictionary(grouping: gates) { $0.raid }
+        
+        // 각 레이드의 총 골드 계산
+        let raidGolds = groupedGates.map { raidName, gates -> (name: String, gold: Int, earnedGold: Int) in
+            let totalGold = gates.reduce(0) { $0 + $1.goldReward }
+            let earnedGold = gates.filter { $0.isCompleted }.reduce(0) { $0 + $1.goldReward }
+            return (name: raidName, gold: totalGold, earnedGold: earnedGold)
+        }.sorted { $0.gold > $1.gold }
+        
+        // 상위 3개 레이드의 획득 골드만 합산
+        let topRaids = raidGolds.prefix(3)
+        let earnedGold = topRaids.reduce(0) { $0 + $1.earnedGold }
+        
+        return earnedGold
+    }
+    
+    // 레이드 이름 목록 가져오기 (골드 보상 순)
+    func getTopRaidNames() -> [String] {
+        guard isGoldEarner, let gates = raidGates else { return [] }
+        
+        // 레이드별로 그룹화
+        let groupedGates = Dictionary(grouping: gates) { $0.raid }
+        
+        // 각 레이드의 총 골드 계산
+        let raidGolds = groupedGates.map { raidName, gates -> (name: String, gold: Int) in
+            let totalGold = gates.reduce(0) { $0 + $1.goldReward }
+            return (name: raidName, gold: totalGold)
+        }.sorted { $0.gold > $1.gold }
+        
+        // 상위 3개 레이드 이름 반환
+        return raidGolds.prefix(3).map { $0.name }
+    }
+    
+    // 레벨에 맞는 참가 가능한 레이드 목록 반환
+    func getAvailableRaidGroups() -> [RaidGroup] {
+        return RaidData.getAvailableRaids(for: level)
+    }
+    
+    // 레이드별 설정된 관문 정보 가져오기
+    func getRaidGatesGrouped() -> [String: [RaidGate]] {
+        guard let gates = raidGates else { return [:] }
+        return Dictionary(grouping: gates) { $0.raid }
     }
 }
 
@@ -149,28 +138,6 @@ final class DailyTask {
     
     init(type: TaskType, isCompleted: Bool, lastCompletedAt: Date? = nil) {
         self.type = type
-        self.isCompleted = isCompleted
-        self.lastCompletedAt = lastCompletedAt
-    }
-    
-    func reset() {
-        isCompleted = false
-    }
-}
-
-// MARK: - 주간 레이드 모델
-@Model
-final class WeeklyRaid {
-    var name: String
-    var difficulty: String
-    var goldReward: Int
-    var isCompleted: Bool
-    var lastCompletedAt: Date?
-    
-    init(name: String, difficulty: String, goldReward: Int, isCompleted: Bool, lastCompletedAt: Date? = nil) {
-        self.name = name
-        self.difficulty = difficulty
-        self.goldReward = goldReward
         self.isCompleted = isCompleted
         self.lastCompletedAt = lastCompletedAt
     }
