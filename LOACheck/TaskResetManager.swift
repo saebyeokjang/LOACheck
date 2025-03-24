@@ -86,7 +86,19 @@ class TaskResetManager {
             Logger.info("일일 숙제 리셋 - \(allDailyTasks.count)개 항목 리셋")
             
             for task in allDailyTasks {
-                task.reset()
+                // 리셋 시 미완료 카운트에 따라 휴게 포인트 적립
+                let incompleteCount = task.type.maxCompletionCount - task.completionCount
+                
+                if incompleteCount > 0 {
+                    let pointsToAdd = incompleteCount * task.type.pointsPerIncomplete
+                    Logger.debug("\(task.type.rawValue): 미완료 \(incompleteCount)회, 휴식보너스 \(pointsToAdd) 적립")
+                    
+                    // 휴게 포인트 추가
+                    task.addRestingPoints(pointsToAdd)
+                }
+                
+                // 완료 상태 초기화
+                task.completionCount = 0
             }
         } catch {
             Logger.error("일일 숙제 리셋 실패", error: error)
