@@ -18,6 +18,7 @@ struct SettingsView: View {
     @State private var isShowingAlert = false
     @State private var alertMessage = ""
     @State private var isRefreshing = false
+    @State private var isShowingResetConfirmation = false // 데이터 초기화 확인용
     @Environment(\.modelContext) private var modelContext
     
     var body: some View {
@@ -76,17 +77,21 @@ struct SettingsView: View {
                 }
                 
                 Section(header: Text("데이터 관리")) {
-                    Button(action: resetAllData) {
+                    Button(action: {
+                        // 확인 알림 표시
+                        isShowingResetConfirmation = true
+                    }) {
                         Text("모든 데이터 초기화")
                             .foregroundColor(.red)
                     }
                 }
                 
                 Section(header: Text("만든 사람")) {
-                    Link("개발자에게 피드백 보내기", destination: URL(string: "mailto:your-email@example.com")!)
+                    Link("개발자에게 피드백 보내기", destination: URL(string: "dev.saebyeok@gmail.com")!)
                 }
             }
             .navigationTitle("설정")
+            // 일반 알림
             .alert(isPresented: $isShowingAlert) {
                 Alert(
                     title: Text("알림"),
@@ -94,6 +99,17 @@ struct SettingsView: View {
                     dismissButton: .default(Text("확인"))
                 )
             }
+        }
+        // 데이터 초기화 확인 알림
+        .alert(isPresented: $isShowingResetConfirmation) {
+            Alert(
+                title: Text("데이터 초기화 확인"),
+                message: Text("모든 캐릭터 데이터가 영구적으로 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.\n계속하시겠습니까?"),
+                primaryButton: .destructive(Text("초기화")) {
+                    resetAllData()
+                },
+                secondaryButton: .cancel(Text("취소"))
+            )
         }
     }
     
