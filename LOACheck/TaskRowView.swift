@@ -17,7 +17,28 @@ struct TaskRowView: View {
         VStack(alignment: .leading, spacing: 8) {
             // 작업 제목과 완료 상태
             HStack {
-                // 체크박스 - 모든 작업 타입에 대해 하나의 체크박스 사용
+                // 작업 이름 - 왼쪽으로 이동
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(task.type.rawValue)
+                        .font(.headline)
+                        .foregroundColor(task.completionCount == task.type.maxCompletionCount ? .secondary : .primary)
+                    // 취소선 적용: 에포나 의뢰는 3회 모두 완료했을 때만, 다른 항목은 완료하면 취소선
+                        .strikethrough(task.type == .eponaQuest ?
+                                       (task.completionCount == task.type.maxCompletionCount) :
+                                        (task.completionCount > 0))
+                }
+                
+                Spacer()
+                
+                // 휴식보너스 아이콘 (포인트가 소모될 수 있는 경우)
+                if task.restingPoints >= task.type.pointsPerCompletion && task.completionCount < task.type.maxCompletionCount {
+                    Image(systemName: "bolt.fill")
+                        .foregroundColor(.yellow)
+                        .font(.caption)
+                        .padding(.trailing, 4)
+                }
+                
+                // 체크박스 - 오른쪽으로 이동
                 Button(action: {
                     toggleTask() // 중복 처리 방지는 toggleTask() 내부에서 처리
                 }) {
@@ -50,27 +71,6 @@ struct TaskRowView: View {
                 }
                 .buttonStyle(PlainButtonStyle())
                 .disabled(isProcessing) // 처리 중 비활성화
-                
-                // 작업 이름
-                Text(task.type.rawValue)
-                    .font(.headline)
-                    .foregroundColor(task.completionCount == task.type.maxCompletionCount ? .secondary : .primary)
-                
-                // 에포나 의뢰의 경우 완료 횟수 표시
-                if task.type == .eponaQuest {
-                    Text("(\(task.completionCount)/\(task.type.maxCompletionCount))")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                // 휴식보너스 아이콘 (포인트가 소모될 수 있는 경우)
-                if task.restingPoints >= task.type.pointsPerCompletion && task.completionCount < task.type.maxCompletionCount {
-                    Image(systemName: "bolt.fill")
-                        .foregroundColor(.yellow)
-                        .font(.caption)
-                }
             }
             
             // 휴식보너스 바
