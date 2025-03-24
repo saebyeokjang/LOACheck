@@ -11,6 +11,7 @@ import SwiftData
 struct CharacterPagingView: View {
     @Query var characters: [CharacterModel]
     var goToSettingsAction: (() -> Void)?
+    @State private var currentPage = 0
     
     init(goToSettingsAction: (() -> Void)? = nil) {
         var descriptor = FetchDescriptor<CharacterModel>(predicate: #Predicate<CharacterModel> { !$0.isHidden })
@@ -24,15 +25,56 @@ struct CharacterPagingView: View {
             if characters.isEmpty {
                 EmptyCharactersView(goToSettingsAction: goToSettingsAction)
             } else {
-                TabView {
-                    ForEach(characters) { character in
+                // 페이지 번호 표시 (선택적)
+                Text("\(currentPage + 1) / \(characters.count)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.top, 8)
+                
+                TabView(selection: $currentPage) {
+                    ForEach(Array(characters.enumerated()), id: \.element.id) { index, character in
                         CharacterDetailView(character: character)
                             .padding(.horizontal)
+                            .tag(index)
+                            // 페이지가 나타날 때 프리페칭 로직 추가 가능
+                            .onAppear {
+                                prefetchAdjacentPages(currentIndex: index)
+                            }
                     }
                 }
-                .tabViewStyle(PageTabViewStyle())
-                .indexViewStyle(PageIndexViewStyle(backgroundDisplayMode: .always))
+                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .always))
+                // 페이지 전환 애니메이션 커스터마이징
+                .animation(.easeInOut, value: currentPage)
+                .transition(.opacity)
+                // 페이지 인디케이터 커스텀
+                .indexViewStyle(PageIndexViewStyle(backgroundDisplayMode: .interactive))
+                // 페이지 변경 감지
+                .onChange(of: currentPage) { oldValue, newValue in
+                    // 햅틱 피드백 제공 (선택적)
+                    let generator = UIImpactFeedbackGenerator(style: .light)
+                    generator.impactOccurred()
+                    
+                    // 페이지 변경 시 필요한 작업 수행
+                    Logger.debug("Page changed from \(oldValue) to \(newValue)")
+                }
             }
+        }
+    }
+    
+    // 인접 페이지 프리페칭 (성능 최적화)
+    private func prefetchAdjacentPages(currentIndex: Int) {
+        // 다음 페이지와 이전 페이지를 미리 준비하는 로직
+        // 필요한 경우 리소스를 미리 로드
+        let prevIndex = max(0, currentIndex - 1)
+        let nextIndex = min(characters.count - 1, currentIndex + 1)
+        
+        // 필요한 경우 여기서 데이터 프리로딩
+        if prevIndex != currentIndex {
+            // 이전 페이지 관련 데이터 준비
+        }
+        
+        if nextIndex != currentIndex {
+            // 다음 페이지 관련 데이터 준비
         }
     }
 }
