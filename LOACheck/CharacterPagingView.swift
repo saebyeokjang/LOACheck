@@ -28,49 +28,11 @@ struct CharacterPagingView: View {
             if characters.isEmpty {
                 EmptyCharactersView(goToSettingsAction: goToSettingsAction)
             } else {
-                // 캐릭터 선택 컨트롤
-                HStack {
-                    // 이전 캐릭터 버튼
-                    Button(action: {
-                        if currentPage > 0 {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                currentPage -= 1
-                            }
-                        }
-                    }) {
-                        Image(systemName: "chevron.left")
-                            .font(.headline)
-                            .padding(8)
-                            .foregroundColor(currentPage > 0 ? .blue : .gray)
-                    }
-                    .disabled(currentPage <= 0)
-                    
-                    Spacer()
-                    
-                    // 페이지 번호
-                    Text("\(currentPage + 1) / \(characters.count)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Spacer()
-                    
-                    // 다음 캐릭터 버튼
-                    Button(action: {
-                        if currentPage < characters.count - 1 {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                currentPage += 1
-                            }
-                        }
-                    }) {
-                        Image(systemName: "chevron.right")
-                            .font(.headline)
-                            .padding(8)
-                            .foregroundColor(currentPage < characters.count - 1 ? .blue : .gray)
-                    }
-                    .disabled(currentPage >= characters.count - 1)
-                }
-                .padding(.horizontal)
-                .padding(.top, 8)
+                // 페이지 번호만 표시 (화살표 제거)
+                Text("\(currentPage + 1) / \(characters.count)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.top, 8)
                 
                 // 각 페이지의 너비를 측정하기 위한 GeometryReader
                 GeometryReader { geometry in
@@ -133,24 +95,6 @@ struct CharacterPagingView: View {
                             }
                     )
                 }
-                
-                // 페이지 인디케이터 (점 표시)
-                HStack(spacing: 8) {
-                    ForEach(0..<characters.count, id: \.self) { index in
-                        Circle()
-                            .fill(currentPage == index ? Color.blue : Color.gray.opacity(0.5))
-                            .frame(width: 8, height: 8)
-                            .onTapGesture {
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    currentPage = index
-                                    // 페이지 변경 시 햅틱 피드백
-                                    let generator = UIImpactFeedbackGenerator(style: .light)
-                                    generator.impactOccurred()
-                                }
-                            }
-                    }
-                }
-                .padding(.bottom, 8)
             }
         }
         .onChange(of: currentPage) { oldValue, newValue in

@@ -22,17 +22,10 @@ struct TaskRowView: View {
                     Text(task.type.rawValue)
                         .font(.headline)
                         .foregroundColor(task.completionCount == task.type.maxCompletionCount ? .secondary : .primary)
-                    // 취소선 적용: 에포나 의뢰는 3회 모두 완료했을 때만, 다른 항목은 완료하면 취소선
+                        // 취소선 적용: 에포나 의뢰는 3회 모두 완료했을 때만, 다른 항목은 완료하면 취소선
                         .strikethrough(task.type == .eponaQuest ?
                                        (task.completionCount == task.type.maxCompletionCount) :
-                                        (task.completionCount > 0))
-                    
-                    // 에포나 의뢰의 경우 완료 횟수 표시
-                    if task.type == .eponaQuest {
-                        Text("(\(task.completionCount)/\(task.type.maxCompletionCount))")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
+                                       (task.completionCount > 0))
                 }
                 
                 Spacer()
@@ -45,40 +38,47 @@ struct TaskRowView: View {
                         .padding(.trailing, 4)
                 }
                 
-                // 체크박스 - 오른쪽으로 이동 및 터치 영역 개선
+                // 체크박스
                 Button(action: {
                     toggleTask() // 중복 처리 방지는 toggleTask() 내부에서 처리
                 }) {
                     ZStack {
-                        Circle()
-                            .strokeBorder(getCheckColor(), lineWidth: 1.5)
-                            .background(Circle().fill(getCheckFillColor()))
-                            .frame(width: 30, height: 30)
+                        // 프레임 배경과 테두리
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(getCheckBackgroundColor())
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .stroke(getCheckBorderColor(), lineWidth: 1)
+                            )
+                            .frame(width: 32, height: 32)
                         
-                        // 에포나 의뢰는 숫자 표시, 나머지는 체크 표시
+                        // 에포나 의뢰와 일반 작업 표시 구분
                         if task.type == .eponaQuest {
-                            if task.completionCount > 0 {
+                            if task.completionCount == task.type.maxCompletionCount {
+                                // 모두 완료한 경우 체크마크 표시
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.green)
+                            } else if task.completionCount > 0 {
+                                // 일부 완료한 경우 숫자 표시
                                 Text("\(task.completionCount)")
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundColor(getCheckColor())
                             }
-                        } else if task.completionCount > 0 {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(getCheckColor())
-                        }
-                        
-                        // 처리 중 표시 (로딩)
-                        if isProcessing {
-                            Circle()
-                                .strokeBorder(Color.gray.opacity(0.3), lineWidth: 2)
-                                .frame(width: 30, height: 30)
+                        } else {
+                            // 일반 작업 (쿠르잔/가디언) - 완료하면 체크마크
+                            if task.completionCount > 0 {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.green)
+                            }
                         }
                     }
-                    // 터치 영역 확장
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle()) // 명확한 터치 영역 정의
                 }
+                .foregroundColor(task.completionCount > 0 ? .secondary : .primary)
+                .cornerRadius(4)
+                .frame(width: 44, height: 44) // 터치 영역 확장
+                .contentShape(Rectangle()) // 명확한 터치 영역 정의
                 .buttonStyle(ScaleButtonStyle()) // 커스텀 버튼 스타일 적용
                 .disabled(isProcessing) // 처리 중 비활성화
             }
@@ -144,14 +144,25 @@ struct TaskRowView: View {
         }
     }
     
-    // 체크 배경색 결정
-    private func getCheckFillColor() -> Color {
+    // 체크박스 배경색 - 주간 레이드 스타일
+    private func getCheckBackgroundColor() -> Color {
         if task.completionCount == task.type.maxCompletionCount {
-            return .green.opacity(0.1)
+            return Color.green.opacity(0.1)
         } else if task.completionCount > 0 {
-            return .blue.opacity(0.1)
+            return Color.blue.opacity(0.1)
         } else {
-            return .clear
+            return Color.white
+        }
+    }
+    
+    // 체크박스 테두리 색상 - 주간 레이드 스타일
+    private func getCheckBorderColor() -> Color {
+        if task.completionCount == task.type.maxCompletionCount {
+            return Color.green.opacity(0.3)
+        } else if task.completionCount > 0 {
+            return Color.blue.opacity(0.3)
+        } else {
+            return Color.gray.opacity(0.3)
         }
     }
     
@@ -300,10 +311,10 @@ struct DailyTasksView: View {
             Alert(
                 title: Text("휴식보너스 시스템"),
                 message: Text("컨텐츠 미완료 시 다음 날 오전 6시에 휴식보너스가 충전됩니다\n\n" +
-                              "• 에포나 의뢰: 미완료 1회당 10포인트\n클리어 시 1회당 20포인트 소모\n\n" +
-                              "• 쿠르잔 전선: 미완료 시 20포인트\n클리어 시 40포인트 소모\n\n" +
-                              "• 가디언 토벌: 미완료 시 10포인트\n클리어 시 20포인트 소모\n\n" +
-                              "휴식보너스 사용 시\n추가 보상을 획득할 수 있습니다"),
+                             "• 에포나 의뢰: 미완료 1회당 10포인트\n클리어 시 1회당 20포인트 소모\n\n" +
+                             "• 쿠르잔 전선: 미완료 시 20포인트\n클리어 시 40포인트 소모\n\n" +
+                             "• 가디언 토벌: 미완료 시 10포인트\n클리어 시 20포인트 소모\n\n" +
+                             "휴식보너스 사용 시\n추가 보상을 획득할 수 있습니다"),
                 dismissButton: .default(Text("확인"))
             )
         }

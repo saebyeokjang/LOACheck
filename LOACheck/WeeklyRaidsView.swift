@@ -205,14 +205,33 @@ struct RaidCardView: View {
                 
                 Spacer()
                 
-                // 전체 완료 버튼 (체크표시로 변경)
+                // 전체 완료 버튼 (일일 숙제 스타일로 변경)
                 Button(action: {
                     toggleAllGates()
                 }) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 22))
-                        .foregroundColor(isAllCompleted ? .green : .gray)
+                    ZStack {
+                        // 프레임 배경과 테두리
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(isAllCompleted ? Color.green.opacity(0.1) : Color.white)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .stroke(isAllCompleted ? Color.green.opacity(0.3) : Color.gray.opacity(0.3), lineWidth: 1)
+                            )
+                            .frame(width: 32, height: 32)
+                        
+                        // 체크 표시 (완료 시)
+                        if isAllCompleted {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.green)
+                        }
+                    }
                 }
+                .foregroundColor(isAllCompleted ? .secondary : .primary)
+                .cornerRadius(4)
+                .frame(width: 44, height: 44) // 터치 영역 확장
+                .contentShape(Rectangle()) // 명확한 터치 영역 정의
+                .buttonStyle(ScaleButtonStyle()) // 커스텀 버튼 스타일 적용
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
