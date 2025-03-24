@@ -233,7 +233,7 @@ struct RaidSettingCardView: View {
     // 레이드 순서 문자열 가져오기
     private func getOrderString(for raidName: String) -> String {
         if raidName.contains("모르둠") { return "3막" }
-        if raidName.contains("아브렐슈드") && raidName.contains("2막") { return "2막" }
+        if raidName.contains("아브렐슈드") && raidName.contains("2막") { return "" }
         if raidName.contains("에기르") { return "1막" }
         return ""
     }
