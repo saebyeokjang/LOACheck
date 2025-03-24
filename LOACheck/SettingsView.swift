@@ -87,7 +87,7 @@ struct SettingsView: View {
                 }
                 
                 Section(header: Text("만든 사람")) {
-                    Link("개발자에게 피드백 보내기", destination: URL(string: "dev.saebyeok@gmail.com")!)
+                    Link("개발자에게 피드백 보내기", destination: URL(string: "mailto:dev.saebyeok@gmail.com?subject=LOACheck 피드백")!)
                 }
             }
             .navigationTitle("설정")
