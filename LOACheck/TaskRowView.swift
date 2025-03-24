@@ -26,6 +26,13 @@ struct TaskRowView: View {
                         .strikethrough(task.type == .eponaQuest ?
                                        (task.completionCount == task.type.maxCompletionCount) :
                                         (task.completionCount > 0))
+                    
+                    // 에포나 의뢰의 경우 완료 횟수 표시
+                    if task.type == .eponaQuest {
+                        Text("(\(task.completionCount)/\(task.type.maxCompletionCount))")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
                 }
                 
                 Spacer()
@@ -38,7 +45,7 @@ struct TaskRowView: View {
                         .padding(.trailing, 4)
                 }
                 
-                // 체크박스 - 오른쪽으로 이동
+                // 체크박스 - 오른쪽으로 이동 및 터치 영역 개선
                 Button(action: {
                     toggleTask() // 중복 처리 방지는 toggleTask() 내부에서 처리
                 }) {
@@ -68,8 +75,11 @@ struct TaskRowView: View {
                                 .frame(width: 30, height: 30)
                         }
                     }
+                    // 터치 영역 확장
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle()) // 명확한 터치 영역 정의
                 }
-                .buttonStyle(PlainButtonStyle())
+                .buttonStyle(ScaleButtonStyle()) // 커스텀 버튼 스타일 적용
                 .disabled(isProcessing) // 처리 중 비활성화
             }
             
@@ -110,7 +120,9 @@ struct TaskRowView: View {
                             .font(.system(size: 14))
                             .foregroundColor(.blue)
                     }
-                    .buttonStyle(PlainButtonStyle())
+                    .buttonStyle(ScaleButtonStyle()) // 편집 버튼에도 동일한 스타일 적용
+                    .frame(width: 30, height: 30)
+                    .contentShape(Circle())
                     .disabled(isProcessing) // 처리 중 비활성화
                 }
             }
@@ -217,9 +229,19 @@ struct TaskRowView: View {
     }
 }
 
+// 버튼 누를 때 시각적 피드백을 제공하는 커스텀 버튼 스타일
+struct ScaleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
+            .opacity(configuration.isPressed ? 0.8 : 1.0)
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
 struct DailyTasksView: View {
     var tasks: [DailyTask]
-    var isActiveView: Bool = true // 현재 활성화된 뷰인지 여부
+    var isActiveView: Bool = true // 현재 활성화된 페이지인지 여부
     @State private var showRestingPointsInfo = false
     
     private var sortedTasks: [DailyTask] {
@@ -250,7 +272,10 @@ struct DailyTasksView: View {
                             .font(.caption)
                     }
                     .foregroundColor(.blue)
+                    .padding(8) // 터치 영역 확장
+                    .contentShape(Rectangle()) // 명확한 터치 영역 정의
                 }
+                .buttonStyle(ScaleButtonStyle()) // 버튼 스타일 적용
             }
             
             Divider()

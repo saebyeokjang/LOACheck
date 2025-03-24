@@ -12,8 +12,9 @@ struct CharacterPagingView: View {
     @Query var characters: [CharacterModel]
     var goToSettingsAction: (() -> Void)?
     @State private var currentPage = 0
-    @State private var pageOffset: CGFloat = 0 // 페이지 전환 감지
     @State private var isPageChanging = false // 페이지 전환 중 상태
+    @State private var dragOffset: CGFloat = 0 // 드래그 상태 추적
+    @State private var screenWidth: CGFloat = UIScreen.main.bounds.width // 화면 너비
     
     init(goToSettingsAction: (() -> Void)? = nil) {
         var descriptor = FetchDescriptor<CharacterModel>(predicate: #Predicate<CharacterModel> { !$0.isHidden })
@@ -27,83 +28,147 @@ struct CharacterPagingView: View {
             if characters.isEmpty {
                 EmptyCharactersView(goToSettingsAction: goToSettingsAction)
             } else {
-                // 페이지 번호 표시
-                Text("\(currentPage + 1) / \(characters.count)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.top, 8)
-                
-                TabView(selection: $currentPage) {
-                    ForEach(Array(characters.enumerated()), id: \.element.id) { index, character in
-                        CharacterDetailView(
-                            character: character,
-                            isCurrentlyActive: index == currentPage && !isPageChanging
-                        )
-                        .padding(.horizontal)
-                        .tag(index)
-                        .onAppear {
-                            prefetchAdjacentPages(currentIndex: index)
-                        }
-                    }
-                }
-                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .always))
-                // 페이지 전환 애니메이션 커스터마이징 - 부드럽게 조정
-                .animation(.easeInOut(duration: 0.2), value: currentPage)
-                .transition(.opacity)
-                // 페이지 인디케이터 커스텀
-                .indexViewStyle(PageIndexViewStyle(backgroundDisplayMode: .interactive))
-                // 페이지 변경 감지
-                .onChange(of: currentPage) { oldValue, newValue in
-                    // 페이지 전환 시작
-                    isPageChanging = true
-                    
-                    // 햅틱 피드백 제공
-                    let generator = UIImpactFeedbackGenerator(style: .light)
-                    generator.impactOccurred()
-                    
-                    // 페이지 변경 시 필요한 작업 수행
-                    Logger.debug("Page changed from \(oldValue) to \(newValue)")
-                    
-                    // 페이지 전환 완료 후 상태 업데이트
-                    // 애니메이션 시간(0.2초) 이후에 isPageChanging을 false로 설정
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        isPageChanging = false
-                    }
-                }
-                // 제스처 감지로 드래그 중인지 확인
-                .gesture(
-                    DragGesture()
-                        .onChanged { value in
-                            isPageChanging = true
-                            pageOffset = value.translation.width
-                        }
-                        .onEnded { _ in
-                            // 드래그 완료 후 약간 지연시켜 상태 업데이트
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                isPageChanging = false
-                                pageOffset = 0
+                // 캐릭터 선택 컨트롤
+                HStack {
+                    // 이전 캐릭터 버튼
+                    Button(action: {
+                        if currentPage > 0 {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                currentPage -= 1
                             }
                         }
-                )
+                    }) {
+                        Image(systemName: "chevron.left")
+                            .font(.headline)
+                            .padding(8)
+                            .foregroundColor(currentPage > 0 ? .blue : .gray)
+                    }
+                    .disabled(currentPage <= 0)
+                    
+                    Spacer()
+                    
+                    // 페이지 번호
+                    Text("\(currentPage + 1) / \(characters.count)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    // 다음 캐릭터 버튼
+                    Button(action: {
+                        if currentPage < characters.count - 1 {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                currentPage += 1
+                            }
+                        }
+                    }) {
+                        Image(systemName: "chevron.right")
+                            .font(.headline)
+                            .padding(8)
+                            .foregroundColor(currentPage < characters.count - 1 ? .blue : .gray)
+                    }
+                    .disabled(currentPage >= characters.count - 1)
+                }
+                .padding(.horizontal)
+                .padding(.top, 8)
+                
+                // 각 페이지의 너비를 측정하기 위한 GeometryReader
+                GeometryReader { geometry in
+                    // 드래그 중에 화면 이동 효과를 위한 ZStack
+                    ZStack {
+                        // 페이지 뷰 추적
+                        ForEach(0..<characters.count, id: \.self) { index in
+                            if shouldShowPage(index) { // 불필요한 페이지는 로드하지 않음
+                                CharacterDetailView(
+                                    character: characters[index],
+                                    isCurrentlyActive: index == currentPage && !isPageChanging
+                                )
+                                .padding(.horizontal)
+                                .frame(width: geometry.size.width)
+                                .offset(x: calculateOffset(for: index, in: geometry))
+                            }
+                        }
+                    }
+                    .onAppear {
+                        screenWidth = geometry.size.width
+                    }
+                    .contentShape(Rectangle()) // 전체 영역을 제스처 감지 영역으로 설정
+                    .gesture(
+                        // 스와이프 제스처
+                        DragGesture()
+                            .onChanged { value in
+                                // 드래그 시작 시 페이지 전환 중 상태로 설정
+                                isPageChanging = true
+                                // 드래그 거리를 저장 (화면 이동에 사용)
+                                dragOffset = value.translation.width
+                            }
+                            .onEnded { value in
+                                // 스와이프 방향과 거리에 따라 페이지 전환 결정
+                                let threshold: CGFloat = geometry.size.width * 0.2 // 화면 너비의 20%
+                                
+                                // 페이지 전환 애니메이션
+                                withAnimation(.easeOut(duration: 0.3)) {
+                                    if value.translation.width > threshold && currentPage > 0 {
+                                        // 오른쪽으로 스와이프 - 이전 페이지
+                                        currentPage -= 1
+                                        // 햅틱 피드백
+                                        let generator = UIImpactFeedbackGenerator(style: .light)
+                                        generator.impactOccurred()
+                                    } else if value.translation.width < -threshold && currentPage < characters.count - 1 {
+                                        // 왼쪽으로 스와이프 - 다음 페이지
+                                        currentPage += 1
+                                        // 햅틱 피드백
+                                        let generator = UIImpactFeedbackGenerator(style: .light)
+                                        generator.impactOccurred()
+                                    }
+                                    
+                                    // 드래그 오프셋 초기화
+                                    dragOffset = 0
+                                }
+                                
+                                // 드래그 종료 후 상태 업데이트
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                    isPageChanging = false
+                                }
+                            }
+                    )
+                }
+                
+                // 페이지 인디케이터 (점 표시)
+                HStack(spacing: 8) {
+                    ForEach(0..<characters.count, id: \.self) { index in
+                        Circle()
+                            .fill(currentPage == index ? Color.blue : Color.gray.opacity(0.5))
+                            .frame(width: 8, height: 8)
+                            .onTapGesture {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    currentPage = index
+                                    // 페이지 변경 시 햅틱 피드백
+                                    let generator = UIImpactFeedbackGenerator(style: .light)
+                                    generator.impactOccurred()
+                                }
+                            }
+                    }
+                }
+                .padding(.bottom, 8)
             }
+        }
+        .onChange(of: currentPage) { oldValue, newValue in
+            Logger.debug("Page changed from \(oldValue) to \(newValue)")
         }
     }
     
-    // 인접 페이지 프리페칭 (성능 최적화)
-    private func prefetchAdjacentPages(currentIndex: Int) {
-        // 다음 페이지와 이전 페이지를 미리 준비하는 로직
-        // 필요한 경우 리소스를 미리 로드
-        let prevIndex = max(0, currentIndex - 1)
-        let nextIndex = min(characters.count - 1, currentIndex + 1)
+    // 특정 페이지가 보여져야 하는지 결정 (성능 최적화)
+    private func shouldShowPage(_ index: Int) -> Bool {
+        return abs(index - currentPage) <= 1 // 현재 페이지와 인접 페이지만 로드
+    }
+    
+    // 페이지 오프셋 계산 (드래그 효과 적용)
+    private func calculateOffset(for index: Int, in geometry: GeometryProxy) -> CGFloat {
+        let pageOffset = CGFloat(index - currentPage) * geometry.size.width
         
-        // 필요한 경우 여기서 데이터 프리로딩
-        if prevIndex != currentIndex {
-            // 이전 페이지 관련 데이터 준비
-        }
-        
-        if nextIndex != currentIndex {
-            // 다음 페이지 관련 데이터 준비
-        }
+        // 드래그 중일 때는 드래그 거리를 반영
+        return pageOffset + dragOffset
     }
 }
 
@@ -144,27 +209,54 @@ struct EmptyCharactersView: View {
 struct CharacterDetailView: View {
     var character: CharacterModel
     var isCurrentlyActive: Bool = true // 현재 활성화된 페이지인지 여부
+    @State private var scrollViewID = UUID() // 페이지 전환 시 스크롤뷰 재설정용 ID
+    
+    // 스크롤 위치 추적을 위한 네임스페이스
+    private enum ScrollToTop {
+        case top
+    }
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                // 캐릭터 정보 헤더
-                CharacterHeaderView(character: character)
-                
-                // 일일 숙제 섹션
-                if let dailyTasks = character.dailyTasks, !dailyTasks.isEmpty {
-                    DailyTasksView(
-                        tasks: dailyTasks,
-                        isActiveView: isCurrentlyActive
-                    )
+        ScrollViewReader { proxy in
+            ScrollView(showsIndicators: false) { // 스크롤바 숨김
+                VStack(spacing: 16) {
+                    // 스크롤 최상단 위치 식별을 위한 빈 뷰
+                    Color.clear
+                        .frame(height: 0)
+                        .id(ScrollToTop.top)
+                    
+                    // 캐릭터 정보 헤더
+                    CharacterHeaderView(character: character)
+                    
+                    // 일일 숙제 섹션
+                    if let dailyTasks = character.dailyTasks, !dailyTasks.isEmpty {
+                        DailyTasksView(
+                            tasks: dailyTasks,
+                            isActiveView: isCurrentlyActive
+                        )
+                    }
+                    
+                    // 주간 레이드 섹션
+                    WeeklyRaidsView(character: character)
+                    
+                    Spacer()
                 }
-                
-                // 주간 레이드 섹션
-                WeeklyRaidsView(character: character)
-                
-                Spacer()
+                .padding(.bottom, 20)
             }
-            .padding(.bottom, 20)
+            .id(scrollViewID) // 스크롤뷰 ID 부여
+            .onAppear {
+                // 뷰가 나타날 때 최상단으로 이동
+                proxy.scrollTo(ScrollToTop.top, anchor: .top)
+            }
+            .onChange(of: isCurrentlyActive) { _, newValue in
+                if newValue {
+                    // 페이지가 활성화될 때 스크롤 위치 재설정
+                    scrollViewID = UUID() // 스크롤뷰 재생성
+                    DispatchQueue.main.async {
+                        proxy.scrollTo(ScrollToTop.top, anchor: .top)
+                    }
+                }
+            }
         }
     }
 }
