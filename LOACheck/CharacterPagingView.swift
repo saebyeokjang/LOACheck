@@ -12,6 +12,8 @@ struct CharacterPagingView: View {
     @Query var characters: [CharacterModel]
     var goToSettingsAction: (() -> Void)?
     @State private var currentPage = 0
+    @State private var pageOffset: CGFloat = 0 // 페이지 전환 감지
+    @State private var isPageChanging = false // 페이지 전환 중 상태
     
     init(goToSettingsAction: (() -> Void)? = nil) {
         var descriptor = FetchDescriptor<CharacterModel>(predicate: #Predicate<CharacterModel> { !$0.isHidden })
@@ -25,7 +27,7 @@ struct CharacterPagingView: View {
             if characters.isEmpty {
                 EmptyCharactersView(goToSettingsAction: goToSettingsAction)
             } else {
-                // 페이지 번호 표시 (선택적)
+                // 페이지 번호 표시
                 Text("\(currentPage + 1) / \(characters.count)")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -33,30 +35,56 @@ struct CharacterPagingView: View {
                 
                 TabView(selection: $currentPage) {
                     ForEach(Array(characters.enumerated()), id: \.element.id) { index, character in
-                        CharacterDetailView(character: character)
-                            .padding(.horizontal)
-                            .tag(index)
-                            // 페이지가 나타날 때 프리페칭 로직 추가 가능
-                            .onAppear {
-                                prefetchAdjacentPages(currentIndex: index)
-                            }
+                        CharacterDetailView(
+                            character: character,
+                            isCurrentlyActive: index == currentPage && !isPageChanging
+                        )
+                        .padding(.horizontal)
+                        .tag(index)
+                        .onAppear {
+                            prefetchAdjacentPages(currentIndex: index)
+                        }
                     }
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .always))
-                // 페이지 전환 애니메이션 커스터마이징
-                .animation(.easeInOut, value: currentPage)
+                // 페이지 전환 애니메이션 커스터마이징 - 부드럽게 조정
+                .animation(.easeInOut(duration: 0.2), value: currentPage)
                 .transition(.opacity)
                 // 페이지 인디케이터 커스텀
                 .indexViewStyle(PageIndexViewStyle(backgroundDisplayMode: .interactive))
                 // 페이지 변경 감지
                 .onChange(of: currentPage) { oldValue, newValue in
-                    // 햅틱 피드백 제공 (선택적)
+                    // 페이지 전환 시작
+                    isPageChanging = true
+                    
+                    // 햅틱 피드백 제공
                     let generator = UIImpactFeedbackGenerator(style: .light)
                     generator.impactOccurred()
                     
                     // 페이지 변경 시 필요한 작업 수행
                     Logger.debug("Page changed from \(oldValue) to \(newValue)")
+                    
+                    // 페이지 전환 완료 후 상태 업데이트
+                    // 애니메이션 시간(0.2초) 이후에 isPageChanging을 false로 설정
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        isPageChanging = false
+                    }
                 }
+                // 제스처 감지로 드래그 중인지 확인
+                .gesture(
+                    DragGesture()
+                        .onChanged { value in
+                            isPageChanging = true
+                            pageOffset = value.translation.width
+                        }
+                        .onEnded { _ in
+                            // 드래그 완료 후 약간 지연시켜 상태 업데이트
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                isPageChanging = false
+                                pageOffset = 0
+                            }
+                        }
+                )
             }
         }
     }
@@ -115,6 +143,7 @@ struct EmptyCharactersView: View {
 
 struct CharacterDetailView: View {
     var character: CharacterModel
+    var isCurrentlyActive: Bool = true // 현재 활성화된 페이지인지 여부
     
     var body: some View {
         ScrollView {
@@ -124,7 +153,10 @@ struct CharacterDetailView: View {
                 
                 // 일일 숙제 섹션
                 if let dailyTasks = character.dailyTasks, !dailyTasks.isEmpty {
-                    DailyTasksView(tasks: dailyTasks)
+                    DailyTasksView(
+                        tasks: dailyTasks,
+                        isActiveView: isCurrentlyActive
+                    )
                 }
                 
                 // 주간 레이드 섹션

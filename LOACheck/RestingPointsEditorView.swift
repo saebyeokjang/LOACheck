@@ -21,7 +21,7 @@ struct RestingPointsEditorView: View {
     private var stepValue: Int {
         switch task.type {
         case .eponaQuest: return 10
-        case .chaosGate: return 20
+        case .chaosGate: return 10
         case .guardianRaid: return 10
         }
     }
@@ -100,46 +100,6 @@ struct RestingPointsEditorView: View {
                         }
                         .frame(height: 20)
                     }
-                    
-                    // 버튼 그룹
-                    HStack(spacing: 20) {
-                        // 0으로 초기화
-                        Button(action: {
-                            editedPoints = 0
-                        }) {
-                            Text("0으로 설정")
-                                .font(.caption)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color.gray.opacity(0.2))
-                                .cornerRadius(8)
-                        }
-                        
-                        // 절반으로 설정
-                        Button(action: {
-                            let half = (maxPoints / 2) / stepValue * stepValue
-                            editedPoints = half
-                        }) {
-                            Text("절반으로 설정")
-                                .font(.caption)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color.blue.opacity(0.2))
-                                .cornerRadius(8)
-                        }
-                        
-                        // 최대로 설정
-                        Button(action: {
-                            editedPoints = maxPoints
-                        }) {
-                            Text("최대로 설정")
-                                .font(.caption)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color.green.opacity(0.2))
-                                .cornerRadius(8)
-                        }
-                    }
                 }
                 .padding()
                 .background(Color.gray.opacity(0.05))
@@ -170,7 +130,7 @@ struct RestingPointsEditorView: View {
                     )
                     
                     InfoRow(
-                        label: "최대 완료 횟수",
+                        label: "일일 최대 완료 횟수",
                         value: "\(task.type.maxCompletionCount)회"
                     )
                 }

@@ -11,6 +11,7 @@ import SwiftData
 struct TaskRowView: View {
     @Bindable var task: DailyTask
     @State private var showRestingEditor: Bool = false
+    @State private var isProcessing: Bool = false // 처리 중 상태 추가
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -18,7 +19,9 @@ struct TaskRowView: View {
             HStack {
                 // 체크박스 - 모든 작업 타입에 대해 하나의 체크박스 사용
                 Button(action: {
-                    toggleTask()
+                    if !isProcessing { // 중복 터치 방지
+                        toggleTask()
+                    }
                 }) {
                     ZStack {
                         Circle()
@@ -38,9 +41,17 @@ struct TaskRowView: View {
                                 .font(.system(size: 14, weight: .bold))
                                 .foregroundColor(getCheckColor())
                         }
+                        
+                        // 처리 중 표시 (로딩)
+                        if isProcessing {
+                            Circle()
+                                .strokeBorder(Color.gray.opacity(0.3), lineWidth: 2)
+                                .frame(width: 30, height: 30)
+                        }
                     }
                 }
                 .buttonStyle(PlainButtonStyle())
+                .disabled(isProcessing) // 처리 중 비활성화
                 
                 // 작업 이름
                 Text(task.type.rawValue)
@@ -64,9 +75,9 @@ struct TaskRowView: View {
                 }
             }
             
-            // 휴식보너스 포인트 바
+            // 휴식보너스 바
             HStack {
-                // 휴식보너스 포인트 아이콘
+                // 휴식보너스 아이콘
                 Image(systemName: "bed.double.fill")
                     .font(.system(size: 12))
                     .foregroundColor(.blue)
@@ -102,6 +113,7 @@ struct TaskRowView: View {
                             .foregroundColor(.blue)
                     }
                     .buttonStyle(PlainButtonStyle())
+                    .disabled(isProcessing) // 처리 중 비활성화
                 }
             }
         }
@@ -133,41 +145,52 @@ struct TaskRowView: View {
         }
     }
     
-    // 작업 토글
+    // 작업 토글 - 최적화됨
     private func toggleTask() {
-        let currentCount = task.completionCount
-        let maxCount = task.type.maxCompletionCount
+        // 처리 상태 활성화로 중복 클릭 방지
+        isProcessing = true
         
-        // 에포나 의뢰는 0→1→2→3→0으로 순환
-        if task.type == .eponaQuest {
-            if currentCount >= maxCount {
-                // 최대 완료 상태에서 미완료로 돌아감
-                // 모든 단계의 휴게 포인트 반환
-                for i in 0..<currentCount {
-                    task.returnRestingPoints(forStep: i)
+        // UI 업데이트를 다음 런루프로 지연시켜 반응성 향상
+        DispatchQueue.main.async {
+            let currentCount = task.completionCount
+            let maxCount = task.type.maxCompletionCount
+            
+            // 에포나 의뢰는 0→1→2→3→0으로 순환
+            if task.type == .eponaQuest {
+                if currentCount >= maxCount {
+                    // 최대 완료 상태에서 미완료로 돌아감
+                    // 모든 단계의 휴게 포인트 반환
+                    for i in 0..<currentCount {
+                        task.returnRestingPoints(forStep: i)
+                    }
+                    task.completionCount = 0
+                } else {
+                    // 다음 단계로 완료 상태 증가
+                    let _ = task.consumeRestingPoints()
+                    
+                    task.completionCount += 1
+                    task.lastCompletedAt = Date()
                 }
-                task.completionCount = 0
             } else {
-                // 다음 단계로 완료 상태 증가
-                let usedRestingPoints = task.consumeRestingPoints()
-                
-                task.completionCount += 1
-                task.lastCompletedAt = Date()
+                // 일반 작업은 토글 (0→1→0)
+                if currentCount == 0 {
+                    // 완료로 변경
+                    let _ = task.consumeRestingPoints()
+                    
+                    task.completionCount = task.type.maxCompletionCount
+                    task.lastCompletedAt = Date()
+                } else {
+                    // 미완료로 변경하면서 사용했던 포인트 반환
+                    task.returnRestingPoints(forStep: 0)
+                    
+                    task.completionCount = 0
+                    task.lastCompletedAt = nil
+                }
             }
-        } else {
-            // 일반 작업은 토글 (0→1→0)
-            if currentCount == 0 {
-                // 완료로 변경
-                let usedRestingPoints = task.consumeRestingPoints()
-                
-                task.completionCount = task.type.maxCompletionCount
-                task.lastCompletedAt = Date()
-            } else {
-                // 미완료로 변경하면서 사용했던 휴게 포인트 반환
-                task.returnRestingPoints(forStep: 0)
-                
-                task.completionCount = 0
-                task.lastCompletedAt = nil
+            
+            // 약간의 지연 후 처리 상태 해제 (사용자 피드백 목적)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isProcessing = false
             }
         }
     }
@@ -193,6 +216,7 @@ struct TaskRowView: View {
 
 struct DailyTasksView: View {
     var tasks: [DailyTask]
+    var isActiveView: Bool = true // 현재 활성화된 뷰인지 여부
     @State private var showRestingPointsInfo = false
     
     private var sortedTasks: [DailyTask] {
@@ -228,14 +252,17 @@ struct DailyTasksView: View {
             
             Divider()
             
-            ForEach(sortedTasks) { task in
-                TaskRowView(task: task)
-                
-                if task != sortedTasks.last {
-                    Divider()
-                        .padding(.vertical, 4)
-                }
-            }
+            // 최적화된 태스크 목록
+                        LazyVStack(spacing: 8) {
+                            ForEach(sortedTasks) { task in
+                                TaskRowView(task: task)
+                                
+                                if task != sortedTasks.last {
+                                    Divider()
+                                        .padding(.vertical, 4)
+                                }
+                            }
+                        }
         }
         .padding()
         .background(Color(.systemBackground))
@@ -252,5 +279,7 @@ struct DailyTasksView: View {
                 dismissButton: .default(Text("확인"))
             )
         }
+        // 비활성 뷰일 때는 입력 비활성화 (페이지 전환 중)
+                .allowsHitTesting(isActiveView)
     }
 }
