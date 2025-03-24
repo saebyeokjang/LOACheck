@@ -56,29 +56,20 @@ extension View {
         )
     }
     
-    // NavigationDestination 추가 (iOS 15 호환)
-    func navigationDestination<Destination: View>(
+    // 현대화된 네비게이션 - iOS 18 이상에서는 programmatic navigation 사용
+    func modernNavigationDestination<Destination: View>(
         isPresented: Binding<Bool>,
         @ViewBuilder destination: @escaping () -> Destination
     ) -> some View {
-        self.background(
-            NavigationLink(
-                isActive: isPresented,
-                destination: { destination() },
-                label: { EmptyView() }
-            )
-            .opacity(0)
-        )
+        self.modifier(PresentationLinkModifier(isPresented: isPresented, destination: destination))
     }
     
     // Alert 표시를 위한 간편한 확장
     func errorAlert(isPresented: Binding<Bool>, message: String) -> some View {
-        self.alert(isPresented: isPresented) {
-            Alert(
-                title: Text("오류"),
-                message: Text(message),
-                dismissButton: .default(Text("확인"))
-            )
+        self.alert("오류", isPresented: isPresented) {
+            Button("확인") { }
+        } message: {
+            Text(message)
         }
     }
     
@@ -103,56 +94,43 @@ extension View {
     }
 }
 
-// MARK: - 이미지 비동기 로딩을 위한 확장 (iOS 14 호환)
-@available(iOS, deprecated: 15.0, message: "Use AsyncImage")
-struct ProxyAsyncImage<Content: View, Placeholder: View>: View {
-    private let url: URL?
-    private let scale: CGFloat
-    private let transaction: Transaction
-    private let content: (Image) -> Content
-    private let placeholder: () -> Placeholder
-
-    @State private var image: UIImage?
-    @State private var isLoading = false
-
-    init(url: URL?, scale: CGFloat = 1.0, transaction: Transaction = Transaction(), @ViewBuilder content: @escaping (Image) -> Content, @ViewBuilder placeholder: @escaping () -> Placeholder) {
-        self.url = url
-        self.scale = scale
-        self.transaction = transaction
-        self.content = content
-        self.placeholder = placeholder
-    }
-
-    var body: some View {
-        if let image = image {
-            content(Image(uiImage: image))
-        } else {
-            placeholder()
-                .onAppear {
-                    loadImage()
+// MARK: - 프로그래매틱 네비게이션을 위한 모디파이어
+struct PresentationLinkModifier<Destination: View>: ViewModifier {
+    @Binding var isPresented: Bool
+    let destination: () -> Destination
+    @State private var path = NavigationPath()
+    
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: isPresented) { _, newValue in
+                if newValue {
+                    path.append("destination")
+                } else if !path.isEmpty {
+                    path.removeLast()
                 }
-        }
+            }
+            .navigationDestination(for: String.self) { _ in
+                destination()
+                    .onDisappear {
+                        // 뒤로 가기 시 바인딩 업데이트
+                        if isPresented {
+                            isPresented = false
+                        }
+                    }
+            }
+            .environment(\.navigationPath, path)
     }
+}
 
-    private func loadImage() {
-        guard let url = url, !isLoading else { return }
-        isLoading = true
-        
-        URLSession.shared.dataTask(with: url) { data, response, error in
-            isLoading = false
-            if let error = error {
-                Logger.error("Failed to load image", error: error)
-                return
-            }
-            
-            if let data = data, let uiImage = UIImage(data: data) {
-                DispatchQueue.main.async {
-                    self.image = uiImage
-                }
-            } else {
-                Logger.error("Invalid image data from URL: \(url.absoluteString)")
-            }
-        }.resume()
+// MARK: - NavigationPath 환경 변수
+struct NavigationPathKey: EnvironmentKey {
+    static var defaultValue: NavigationPath = NavigationPath()
+}
+
+extension EnvironmentValues {
+    var navigationPath: NavigationPath {
+        get { self[NavigationPathKey.self] }
+        set { self[NavigationPathKey.self] = newValue }
     }
 }
 

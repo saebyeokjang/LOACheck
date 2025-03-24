@@ -22,7 +22,7 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Form {
                 Section(header: Text("로스트아크 API 설정"), footer: Text("로스트아크 개발자 포털 (https://developer-lostark.game.onstove.com) 에서 API 키를 발급받을 수 있습니다.")) {
                     SecureField("API 키 입력", text: $tempApiKey)
@@ -91,25 +91,19 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("설정")
-            // 일반 알림
-            .alert(isPresented: $isShowingAlert) {
-                Alert(
-                    title: Text("알림"),
-                    message: Text(alertMessage),
-                    dismissButton: .default(Text("확인"))
-                )
+            .alert("알림", isPresented: $isShowingAlert) {
+                Button("확인") { }
+            } message: {
+                Text(alertMessage)
             }
         }
-        // 데이터 초기화 확인 알림
-        .alert(isPresented: $isShowingResetConfirmation) {
-            Alert(
-                title: Text("데이터 초기화 확인"),
-                message: Text("모든 캐릭터 데이터가 영구적으로 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.\n계속하시겠습니까?"),
-                primaryButton: .destructive(Text("초기화")) {
-                    resetAllData()
-                },
-                secondaryButton: .cancel(Text("취소"))
-            )
+        .alert("데이터 초기화 확인", isPresented: $isShowingResetConfirmation) {
+            Button("취소", role: .cancel) { }
+            Button("초기화", role: .destructive) {
+                resetAllData()
+            }
+        } message: {
+            Text("모든 캐릭터 데이터가 영구적으로 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.\n계속하시겠습니까?")
         }
     }
     

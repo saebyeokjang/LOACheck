@@ -36,7 +36,7 @@ struct CharacterListView: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List {
                 Section(header: Text("캐릭터 관리")) {
                     ForEach(filteredCharacters) { character in
@@ -54,7 +54,7 @@ struct CharacterListView: View {
             .searchable(text: $searchText, prompt: "이름, 직업, 서버 검색")
             .navigationTitle("캐릭터 관리")
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button(action: refreshCharacters) {
                         Label("새로고침", systemImage: "arrow.clockwise")
                     }
@@ -70,12 +70,10 @@ struct CharacterListView: View {
                         .shadow(radius: 10)
                 }
             }
-            .alert(isPresented: $showAlert) {
-                Alert(
-                    title: Text("알림"),
-                    message: Text(alertMessage),
-                    dismissButton: .default(Text("확인"))
-                )
+            .alert("알림", isPresented: $showAlert) {
+                Button("확인") { }
+            } message: {
+                Text(alertMessage)
             }
         }
     }

@@ -68,6 +68,7 @@ class LostArkAPIService {
     private let baseURL = "https://developer-lostark.game.onstove.com"
     
     // 캐릭터 정보 가져오기
+    @MainActor
     func fetchCharacters(apiKey: String, modelContext: ModelContext) async -> Result<Int, APIError> {
         do {
             let characterName = UserDefaults.standard.string(forKey: "representativeCharacter") ?? ""
