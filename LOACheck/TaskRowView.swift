@@ -19,9 +19,7 @@ struct TaskRowView: View {
             HStack {
                 // 체크박스 - 모든 작업 타입에 대해 하나의 체크박스 사용
                 Button(action: {
-                    if !isProcessing { // 중복 터치 방지
-                        toggleTask()
-                    }
+                    toggleTask() // 중복 처리 방지는 toggleTask() 내부에서 처리
                 }) {
                     ZStack {
                         Circle()
@@ -145,53 +143,58 @@ struct TaskRowView: View {
         }
     }
     
-    // 작업 토글 - 최적화됨
+    // 작업 토글 - 반응성 개선
     private func toggleTask() {
-        // 처리 상태 활성화로 중복 클릭 방지
+        // 이미 처리 중인 경우 무시
+        guard !isProcessing else { return }
+        
+        // 중복 처리 방지 플래그 설정
         isProcessing = true
         
-        // UI 업데이트를 다음 런루프로 지연시켜 반응성 향상
-        DispatchQueue.main.async {
-            let currentCount = task.completionCount
-            let maxCount = task.type.maxCompletionCount
-            
-            // 에포나 의뢰는 0→1→2→3→0으로 순환
-            if task.type == .eponaQuest {
-                if currentCount >= maxCount {
-                    // 최대 완료 상태에서 미완료로 돌아감
-                    // 모든 단계의 휴게 포인트 반환
-                    for i in 0..<currentCount {
-                        task.returnRestingPoints(forStep: i)
-                    }
-                    task.completionCount = 0
-                } else {
-                    // 다음 단계로 완료 상태 증가
-                    let _ = task.consumeRestingPoints()
-                    
-                    task.completionCount += 1
-                    task.lastCompletedAt = Date()
+        // 즉시 상태 변경 - 중첩된 async 호출 제거
+        let currentCount = task.completionCount
+        let maxCount = task.type.maxCompletionCount
+        
+        // 에포나 의뢰는 0→1→2→3→0으로 순환
+        if task.type == .eponaQuest {
+            if currentCount >= maxCount {
+                // 최대 완료 상태에서 미완료로 돌아감
+                // 모든 단계의 휴게 포인트 반환
+                for i in 0..<currentCount {
+                    task.returnRestingPoints(forStep: i)
                 }
+                task.completionCount = 0
             } else {
-                // 일반 작업은 토글 (0→1→0)
-                if currentCount == 0 {
-                    // 완료로 변경
-                    let _ = task.consumeRestingPoints()
-                    
-                    task.completionCount = task.type.maxCompletionCount
-                    task.lastCompletedAt = Date()
-                } else {
-                    // 미완료로 변경하면서 사용했던 포인트 반환
-                    task.returnRestingPoints(forStep: 0)
-                    
-                    task.completionCount = 0
-                    task.lastCompletedAt = nil
-                }
+                // 다음 단계로 완료 상태 증가
+                let _ = task.consumeRestingPoints()
+                
+                task.completionCount += 1
+                task.lastCompletedAt = Date()
             }
-            
-            // 약간의 지연 후 처리 상태 해제 (사용자 피드백 목적)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                isProcessing = false
+        } else {
+            // 일반 작업은 토글 (0→1→0)
+            if currentCount == 0 {
+                // 완료로 변경
+                let _ = task.consumeRestingPoints()
+                
+                task.completionCount = task.type.maxCompletionCount
+                task.lastCompletedAt = Date()
+            } else {
+                // 미완료로 변경하면서 사용했던 포인트 반환
+                task.returnRestingPoints(forStep: 0)
+                
+                task.completionCount = 0
+                task.lastCompletedAt = nil
             }
+        }
+        
+        // 햅틱 피드백 제공
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+        
+        // 매우 짧은 지연 후 처리 상태 해제 (충분한 상태 업데이트 시간 확보)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            isProcessing = false
         }
     }
     
@@ -253,16 +256,16 @@ struct DailyTasksView: View {
             Divider()
             
             // 최적화된 태스크 목록
-                        LazyVStack(spacing: 8) {
-                            ForEach(sortedTasks) { task in
-                                TaskRowView(task: task)
-                                
-                                if task != sortedTasks.last {
-                                    Divider()
-                                        .padding(.vertical, 4)
-                                }
-                            }
-                        }
+            LazyVStack(spacing: 8) {
+                ForEach(sortedTasks) { task in
+                    TaskRowView(task: task)
+                    
+                    if task != sortedTasks.last {
+                        Divider()
+                            .padding(.vertical, 4)
+                    }
+                }
+            }
         }
         .padding()
         .background(Color(.systemBackground))
@@ -272,14 +275,14 @@ struct DailyTasksView: View {
             Alert(
                 title: Text("휴식보너스 시스템"),
                 message: Text("컨텐츠 미완료 시 다음 날 오전 6시에 휴식보너스가 충전됩니다\n\n" +
-                             "• 에포나 의뢰: 미완료 1회당 10포인트\n클리어 시 1회당 20포인트 소모\n\n" +
-                             "• 쿠르잔 전선: 미완료 시 20포인트\n클리어 시 40포인트 소모\n\n" +
-                             "• 가디언 토벌: 미완료 시 10포인트\n클리어 시 20포인트 소모\n\n" +
-                             "휴식보너스 사용 시\n추가 보상을 획득할 수 있습니다"),
+                              "• 에포나 의뢰: 미완료 1회당 10포인트\n클리어 시 1회당 20포인트 소모\n\n" +
+                              "• 쿠르잔 전선: 미완료 시 20포인트\n클리어 시 40포인트 소모\n\n" +
+                              "• 가디언 토벌: 미완료 시 10포인트\n클리어 시 20포인트 소모\n\n" +
+                              "휴식보너스 사용 시\n추가 보상을 획득할 수 있습니다"),
                 dismissButton: .default(Text("확인"))
             )
         }
         // 비활성 뷰일 때는 입력 비활성화 (페이지 전환 중)
-                .allowsHitTesting(isActiveView)
+        .allowsHitTesting(isActiveView)
     }
 }
