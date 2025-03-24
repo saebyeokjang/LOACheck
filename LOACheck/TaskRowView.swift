@@ -36,9 +36,17 @@ struct TaskRowView: View {
     }
 }
 
-// DailyTasksView 전체도 업데이트
 struct DailyTasksView: View {
     var tasks: [DailyTask]
+    
+    private var sortedTasks: [DailyTask] {
+        tasks.sorted { task1, task2 in
+            let order: [DailyTask.TaskType] = [.eponaQuest, .chaosGate, .guardianRaid]
+            let index1 = order.firstIndex(of: task1.type) ?? Int.max
+            let index2 = order.firstIndex(of: task2.type) ?? Int.max
+            return index1 < index2
+        }
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -52,7 +60,7 @@ struct DailyTasksView: View {
             
             Divider()
             
-            ForEach(tasks) { task in
+            ForEach(sortedTasks) { task in
                 TaskRowView(task: task)
             }
         }
