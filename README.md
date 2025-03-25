@@ -1,4 +1,4 @@
-# LOACheck
+# LOA Check
 
 # LOA Check - 로스트아크 일일/주간 컨텐츠 관리 앱
 
