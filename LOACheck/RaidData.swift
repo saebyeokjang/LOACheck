@@ -11,9 +11,10 @@ import Foundation
 struct RaidData {
     // 레이드 타입 열거형
     enum RaidType: String, CaseIterable {
+        case assaultRaid = "강습"
         case mordum = "모르둠"
         case abrelshud2 = "2막 아브렐슈드"
-        case egir = "에기르"
+        case aegir = "에기르"
         case behemoth = "베히모스"
         case echidna = "에키드나"
         case kamen = "카멘"
@@ -21,7 +22,7 @@ struct RaidData {
         case illiacan = "일리아칸"
         case kayangel = "카양겔"
         case abrelshud = "아브렐슈드"
-        case koukusaton = "쿠크세이튼"
+        case clown = "쿠크세이튼"
         case vykas = "비아키스"
         case valtan = "발탄"
         case argos = "아르고스"
@@ -29,11 +30,13 @@ struct RaidData {
         // 각 레이드의 가능한 난이도 배열
         func difficulties() -> [Difficulty] {
             switch self {
+            case .assaultRaid:
+                return [.normal, .hard]
             case .mordum:
                 return [.normal, .hard]
             case .abrelshud2:
                 return [.normal, .hard]
-            case .egir:
+            case .aegir:
                 return [.normal, .hard]
             case .behemoth:
                 return [.normal]
@@ -49,7 +52,7 @@ struct RaidData {
                 return [.single, .normal, .hard]
             case .abrelshud:
                 return [.single, .normal, .hard]
-            case .koukusaton:
+            case .clown:
                 return [.single, .normal]
             case .vykas:
                 return [.single, .normal, .hard]
@@ -63,18 +66,20 @@ struct RaidData {
         // 각 레이드의 관문 수
         func gateCount() -> Int {
             switch self {
+            case .assaultRaid:
+                return 1
             case .mordum:
                 return 3
             case .abrelshud2:
                 return 2
-            case .egir:
+            case .aegir:
                 return 2
             case .behemoth:
                 return 2
             case .echidna:
                 return 2
             case .kamen:
-                return 4 // 하드는 4관문, 싱글/노말은 3관문
+                return 4
             case .ivory:
                 return 3
             case .illiacan:
@@ -83,7 +88,7 @@ struct RaidData {
                 return 3
             case .abrelshud:
                 return 4
-            case .koukusaton:
+            case .clown:
                 return 3
             case .vykas:
                 return 2
@@ -97,7 +102,7 @@ struct RaidData {
         // 각 난이도에 대한 관문 수 반환
         func gateCount(for difficulty: Difficulty) -> Int {
             if self == .kamen && difficulty != .hard {
-                return 3 // 카멘 싱글/노말은 3관문
+                return 3 // 카멘 싱글/노말 3관문
             }
             return gateCount()
         }
@@ -112,6 +117,10 @@ struct RaidData {
     
     // 레이드 레벨 요구사항 (최대 레벨 기준)
     static let raidLevelRequirements: [String: Double] = [
+        // 강습 레이드
+        "강습-노말": 1680,
+        "강습-하드": 1720,
+        
         // 모르둠
         "모르둠-노말": 1680,
         "모르둠-하드": 1700,
@@ -177,6 +186,10 @@ struct RaidData {
     
     // 레이드 관문별 골드 보상
     static let gateGoldRewards: [String: [Int]] = [
+        // 강습 레이드
+        "강습-노말": [10000],
+        "강습-하드": [18000],
+        
         // 모르둠
         "모르둠-노말": [6000, 9500, 12500],
         "모르둠-하드": [7000, 11000, 20000],
