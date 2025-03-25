@@ -19,6 +19,10 @@ struct SettingsView: View {
     @State private var alertMessage = ""
     @State private var isRefreshing = false
     @State private var isShowingResetConfirmation = false // 데이터 초기화 확인용
+    @State private var showUpdateAlert = false
+    @State private var latestVersion = ""
+    @State private var releaseNotes: String? = nil
+    @AppStorage("skipVersion") private var skipVersion = ""
     @Environment(\.modelContext) private var modelContext
     
     var body: some View {
@@ -74,6 +78,18 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                     }
+                    
+                    Button(action: checkForUpdates) {
+                        HStack {
+                            Text("업데이트 확인")
+                            if isRefreshing {
+                                Spacer()
+                                ProgressView()
+                                    .controlSize(.small)
+                            }
+                        }
+                    }
+                    .disabled(isRefreshing)
                 }
                 
                 Section(header: Text("데이터 관리")) {
@@ -107,6 +123,25 @@ struct SettingsView: View {
             }
         } message: {
             Text("모든 캐릭터 데이터가 영구적으로 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.\n계속하시겠습니까?")
+        }
+        .sheet(isPresented: $showUpdateAlert) {
+            ZStack {
+                Color(.systemBackground).edgesIgnoringSafeArea(.all)
+                
+                UpdateAlertView(
+                    isPresented: $showUpdateAlert,
+                    currentVersion: AppUpdateService.shared.getCurrentAppVersion(),
+                    latestVersion: latestVersion,
+                    releaseNotes: releaseNotes,
+                    onUpdate: {
+                        openAppStore()
+                    },
+                    onLater: {
+                        // 나중에 버튼
+                    }
+                )
+                .padding()
+            }
         }
     }
     
@@ -173,6 +208,56 @@ extension ModelContext {
         let items = try fetch(descriptor)
         for item in items {
             delete(item)
+        }
+    }
+}
+
+// SettingsView에 업데이트 확인 및 앱스토어 실행 메소드 추가
+extension SettingsView {
+    // 업데이트 확인
+    func checkForUpdates() {
+        isRefreshing = true
+        
+        Task {
+            // 현재 버전
+            let currentVersion = AppUpdateService.shared.getCurrentAppVersion()
+            
+            // 최신 버전 정보 가져오기
+            let result = await AppUpdateService.shared.checkForUpdate()
+            
+            await MainActor.run {
+                isRefreshing = false
+                
+                switch result {
+                case .success(let versionInfo):
+                    latestVersion = versionInfo.latestVersion
+                    releaseNotes = versionInfo.releaseNotes
+                    
+                    // 업데이트 필요성 확인
+                    let updateAvailable = AppUpdateService.shared.isUpdateAvailable(
+                        currentVersion: currentVersion,
+                        latestVersion: latestVersion
+                    )
+                    
+                    if updateAvailable {
+                        showUpdateAlert = true
+                    } else {
+                        alertMessage = "현재 최신 버전을 사용 중입니다. (v\(currentVersion))"
+                        isShowingAlert = true
+                    }
+                    
+                case .failure(let error):
+                    alertMessage = "업데이트 확인 중 오류가 발생했습니다: \(error.localizedDescription)"
+                    isShowingAlert = true
+                }
+            }
+        }
+    }
+    
+    // 앱스토어 열기
+    func openAppStore() {
+        if let url = URL(string: "itms-apps://itunes.apple.com/app/id6743695129") {
+            UIApplication.shared.open(url)
         }
     }
 }
