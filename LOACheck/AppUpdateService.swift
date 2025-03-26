@@ -76,8 +76,8 @@ class AppUpdateService {
         
         // 배열 길이 맞추기
         let maxLength = max(currentComponents.count, latestComponents.count)
-        var paddedCurrent = currentComponents + Array(repeating: 0, count: maxLength - currentComponents.count)
-        var paddedLatest = latestComponents + Array(repeating: 0, count: maxLength - latestComponents.count)
+        let paddedCurrent = currentComponents + Array(repeating: 0, count: maxLength - currentComponents.count)
+        let paddedLatest = latestComponents + Array(repeating: 0, count: maxLength - latestComponents.count)
         
         // 큰 버전부터 비교
         for i in 0..<maxLength {
