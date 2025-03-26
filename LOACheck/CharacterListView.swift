@@ -126,7 +126,7 @@ struct StatisticsSection: View {
     let goldEarnerCount: Int
     
     var body: some View {
-        Section(header: Text("통계"), footer: Text("골드 획득 캐릭터는 최대 \(maxGoldEarners)개까지 지정할 수 있습니다.")) {
+        Section(header: Text("통계")) {
             HStack {
                 Text("전체 캐릭터")
                 Spacer()
@@ -144,8 +144,8 @@ struct StatisticsSection: View {
             HStack {
                 Text("골드 획득 캐릭터")
                 Spacer()
-                Text("\(goldEarnerCount)/\(maxGoldEarners)")
-                    .foregroundColor(goldEarnerCount == maxGoldEarners ? .orange : .secondary)
+                Text("\(goldEarnerCount)개")
+                    .foregroundColor(.secondary)
             }
         }
     }
