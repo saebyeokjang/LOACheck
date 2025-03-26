@@ -28,7 +28,7 @@ struct ContentView: View {
             TabView(selection: $selectedTab) {
                 CharacterPagingView(goToSettingsAction: {
                     // 설정 탭으로 이동하는 클로저
-                    selectedTab = 3
+                    selectedTab = 4
                 })
                 .tabItem {
                     Label("캐릭터", systemImage: "person.fill")
@@ -47,11 +47,17 @@ struct ContentView: View {
                     }
                     .tag(2)
                 
+                AuctionView()
+                    .tabItem {
+                        Label("시세", systemImage: "magnifyingglass")
+                    }
+                    .tag(3)
+                
                 SettingsView()
                     .tabItem {
                         Label("설정", systemImage: "gear")
                     }
-                    .tag(3)
+                    .tag(4)
             }
             .onAppear {
                 if isInitialLoad && characters.isEmpty {
