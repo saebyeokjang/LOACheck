@@ -60,15 +60,19 @@ final class CharacterModel {
         // 레이드별로 그룹화
         let groupedGates = Dictionary(grouping: gates) { $0.raid }
         
-        // 각 레이드의 총 골드 계산
+        // 각 레이드의 총 골드 계산 (currentGoldReward 사용)
         let raidGolds = groupedGates.map { raidName, gates -> (name: String, gold: Int) in
-            let totalGold = gates.reduce(0) { $0 + $1.goldReward }
+            let totalGold = gates.reduce(0) { result, gate in
+                return result + gate.currentGoldReward
+            }
             return (name: raidName, gold: totalGold)
         }.sorted { $0.gold > $1.gold }
         
         // 상위 3개 레이드의 골드만 합산
         let topRaids = raidGolds.prefix(3)
-        let totalGold = topRaids.reduce(0) { $0 + $1.gold }
+        let totalGold = topRaids.reduce(0) { result, raid in
+            return result + raid.gold
+        }
         
         return totalGold
     }
@@ -80,16 +84,26 @@ final class CharacterModel {
         // 레이드별로 그룹화
         let groupedGates = Dictionary(grouping: gates) { $0.raid }
         
-        // 각 레이드의 총 골드 계산
+        // 각 레이드의 총 골드 계산 (currentGoldReward 사용)
         let raidGolds = groupedGates.map { raidName, gates -> (name: String, gold: Int, earnedGold: Int) in
-            let totalGold = gates.reduce(0) { $0 + $1.goldReward }
-            let earnedGold = gates.filter { $0.isCompleted }.reduce(0) { $0 + $1.goldReward }
+            // 레이드 총 골드
+            let totalGold = gates.reduce(0) { result, gate in
+                return result + gate.currentGoldReward
+            }
+            
+            // 획득한 골드
+            let earnedGold = gates.filter { $0.isCompleted }.reduce(0) { result, gate in
+                return result + gate.currentGoldReward
+            }
+            
             return (name: raidName, gold: totalGold, earnedGold: earnedGold)
         }.sorted { $0.gold > $1.gold }
         
         // 상위 3개 레이드의 획득 골드만 합산
         let topRaids = raidGolds.prefix(3)
-        let earnedGold = topRaids.reduce(0) { $0 + $1.earnedGold }
+        let earnedGold = topRaids.reduce(0) { result, raid in
+            return result + raid.earnedGold
+        }
         
         return earnedGold
     }
@@ -101,9 +115,11 @@ final class CharacterModel {
         // 레이드별로 그룹화
         let groupedGates = Dictionary(grouping: gates) { $0.raid }
         
-        // 각 레이드의 총 골드 계산
+        // 각 레이드의 총 골드 계산 (currentGoldReward 사용)
         let raidGolds = groupedGates.map { raidName, gates -> (name: String, gold: Int) in
-            let totalGold = gates.reduce(0) { $0 + $1.goldReward }
+            let totalGold = gates.reduce(0) { result, gate in
+                return result + gate.currentGoldReward
+            }
             return (name: raidName, gold: totalGold)
         }.sorted { $0.gold > $1.gold }
         

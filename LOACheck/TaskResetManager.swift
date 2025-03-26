@@ -13,10 +13,14 @@ class TaskResetManager {
     
     private init() {}
     
+    private let dailyResetTimeKey = "lastDailyResetTime"
+    private let weeklyResetTimeKey = "lastWeeklyResetTime"
+    
     // 일일/주간 리셋 시간 체크
     func checkAndResetTasks(modelContext: ModelContext) {
         checkDailyReset(modelContext: modelContext)
         checkWeeklyReset(modelContext: modelContext)
+        RaidDataMigrationService.shared.checkAndPerformMigrations(modelContext: modelContext)
     }
     
     // 일일 리셋 체크 (매일 06시)

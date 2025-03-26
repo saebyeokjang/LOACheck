@@ -59,6 +59,9 @@ struct ContentView: View {
                     isInitialLoad = false
                 }
                 
+                // 레이드 데이터 마이그레이션
+                RaidDataMigrationService.shared.checkAndPerformMigrations(modelContext: modelContext)
+                
                 setupTaskResetTimer()
                 checkForAppUpdate()
             }
