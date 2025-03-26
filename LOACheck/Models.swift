@@ -121,6 +121,16 @@ final class CharacterModel {
         guard let gates = raidGates else { return [:] }
         return Dictionary(grouping: gates) { $0.raid }
     }
+    
+    // 일일 숙제 이름을 레벨에 따라 반환
+    func getTaskDisplayName(for task: DailyTask) -> String {
+        return task.type.displayName(for: self.level)
+    }
+    
+    // TaskType을 직접 받는 버전도 추가
+    func getTaskDisplayName(for taskType: DailyTask.TaskType) -> String {
+        return taskType.displayName(for: self.level)
+    }
 }
 
 // MARK: - 일일 숙제 모델
@@ -130,6 +140,16 @@ final class DailyTask {
         case eponaQuest = "에포나 의뢰"
         case chaosGate = "쿠르잔 전선"
         case guardianRaid = "가디언 토벌"
+        
+        // 캐릭터 레벨에 따른 컨텐츠 이름 반환 (새로 추가)
+        func displayName(for level: Double) -> String {
+            switch self {
+            case .chaosGate:
+                return level >= 1640 ? "쿠르잔 전선" : "카오스 던전"
+            default:
+                return rawValue
+            }
+        }
         
         // 각 컨텐츠별 휴게 포인트 설정
         var maxRestingPoints: Int {
