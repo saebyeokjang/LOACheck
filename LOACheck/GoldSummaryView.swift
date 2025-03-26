@@ -138,8 +138,17 @@ struct CharacterGoldRow: View {
                 
                 // 레이드 총 골드 계산
                 let raidGolds = groupedGates.map { raidName, gates -> (name: String, gold: Int, earnedGold: Int) in
-                    let totalGold = gates.reduce(0) { $0 + $1.goldReward }
-                    let earnedGold = gates.filter { $0.isCompleted }.reduce(0) { $0 + $1.goldReward }
+                    // 골드 합계 안정적으로 계산 (reduce 명시적 사용)
+                    let totalGold = gates.reduce(0) { result, gate in
+                        // 골드리워드 대신 계산 속성 사용
+                        return result + gate.currentGoldReward
+                    }
+                    
+                    // 획득 골드 합계 계산
+                    let earnedGold = gates.filter { $0.isCompleted }.reduce(0) { result, gate in
+                        return result + gate.currentGoldReward
+                    }
+                    
                     return (name: raidName, gold: totalGold, earnedGold: earnedGold)
                 }.sorted { $0.gold > $1.gold }
                 

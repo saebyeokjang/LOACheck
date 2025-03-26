@@ -22,6 +22,16 @@ final class RaidGate {
         "\(raid) \(gate + 1)관문(\(difficulty))"
     }
     
+    // 최신 골드 보상 가져오는 계산 속성 추가
+    @Transient
+    var currentGoldReward: Int {
+        return RaidData.getGoldReward(
+            raid: raid,
+            difficulty: difficulty,
+            gate: gate
+        )
+    }
+    
     init(raid: String, gate: Int, difficulty: String, goldReward: Int, isCompleted: Bool = false, lastCompletedAt: Date? = nil) {
         self.raid = raid
         self.gate = gate
