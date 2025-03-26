@@ -30,8 +30,8 @@ struct CharacterListView: View {
             return characters
         } else {
             return characters.filter { $0.name.localizedCaseInsensitiveContains(searchText) ||
-                                      $0.characterClass.localizedCaseInsensitiveContains(searchText) ||
-                                      $0.server.localizedCaseInsensitiveContains(searchText) }
+                $0.characterClass.localizedCaseInsensitiveContains(searchText) ||
+                $0.server.localizedCaseInsensitiveContains(searchText) }
         }
     }
     

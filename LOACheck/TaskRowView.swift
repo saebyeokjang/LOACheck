@@ -10,8 +10,14 @@ import SwiftData
 
 struct TaskRowView: View {
     @Bindable var task: DailyTask
+    var character: CharacterModel  // 캐릭터 모델 추가
     @State private var showRestingEditor: Bool = false
     @State private var isProcessing: Bool = false // 처리 중 상태 추가
+    
+    // 캐릭터 레벨에 따른 작업 이름
+    private var taskDisplayName: String {
+        return character.getTaskDisplayName(for: task)
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -19,13 +25,13 @@ struct TaskRowView: View {
             HStack {
                 // 작업 이름 - 왼쪽으로 이동
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(task.type.rawValue)
+                    Text(taskDisplayName)  // 계산 속성 사용
                         .font(.headline)
                         .foregroundColor(task.completionCount == task.type.maxCompletionCount ? .secondary : .primary)
-                        // 취소선 적용: 에포나 의뢰는 3회 모두 완료했을 때만, 다른 항목은 완료하면 취소선
+                    // 취소선 적용: 에포나 의뢰는 3회 모두 완료했을 때만, 다른 항목은 완료하면 취소선
                         .strikethrough(task.type == .eponaQuest ?
                                        (task.completionCount == task.type.maxCompletionCount) :
-                                       (task.completionCount > 0))
+                                        (task.completionCount > 0))
                 }
                 
                 Spacer()
@@ -252,6 +258,7 @@ struct ScaleButtonStyle: ButtonStyle {
 
 struct DailyTasksView: View {
     var tasks: [DailyTask]
+    var character: CharacterModel  // 캐릭터 모델 추가
     var isActiveView: Bool = true // 현재 활성화된 페이지인지 여부
     @State private var showRestingPointsInfo = false
     
@@ -262,6 +269,30 @@ struct DailyTasksView: View {
             let index2 = order.firstIndex(of: task2.type) ?? Int.max
             return index1 < index2
         }
+    }
+    
+    // 복잡한 문자열 처리를 위한 계산 속성
+    private var chaosContentName: String {
+        return character.level >= 1640 ? "쿠르잔 전선" : "카오스 던전"
+    }
+    
+    private var alertMessage: String {
+        let message = """
+        컨텐츠 미완료 시 다음 날 오전 6시에 휴식보너스가 충전됩니다
+        
+        • 에포나 의뢰: 미완료 1회당 10포인트
+        클리어 시 1회당 20포인트 소모
+        
+        • \(chaosContentName): 미완료 시 20포인트
+        클리어 시 40포인트 소모
+        
+        • 가디언 토벌: 미완료 시 10포인트
+        클리어 시 20포인트 소모
+        
+        휴식보너스 사용 시
+        추가 보상을 획득할 수 있습니다
+        """
+        return message
     }
     
     var body: some View {
@@ -294,7 +325,7 @@ struct DailyTasksView: View {
             // 최적화된 태스크 목록
             LazyVStack(spacing: 8) {
                 ForEach(sortedTasks) { task in
-                    TaskRowView(task: task)
+                    TaskRowView(task: task, character: character)  // 캐릭터 전달
                     
                     if task != sortedTasks.last {
                         Divider()
@@ -310,11 +341,7 @@ struct DailyTasksView: View {
         .alert(isPresented: $showRestingPointsInfo) {
             Alert(
                 title: Text("휴식보너스 시스템"),
-                message: Text("컨텐츠 미완료 시 다음 날 오전 6시에 휴식보너스가 충전됩니다\n\n" +
-                             "• 에포나 의뢰: 미완료 1회당 10포인트\n클리어 시 1회당 20포인트 소모\n\n" +
-                             "• 쿠르잔 전선: 미완료 시 20포인트\n클리어 시 40포인트 소모\n\n" +
-                             "• 가디언 토벌: 미완료 시 10포인트\n클리어 시 20포인트 소모\n\n" +
-                             "휴식보너스 사용 시\n추가 보상을 획득할 수 있습니다"),
+                message: Text(alertMessage),
                 dismissButton: .default(Text("확인"))
             )
         }

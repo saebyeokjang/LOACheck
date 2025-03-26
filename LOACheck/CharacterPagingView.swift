@@ -176,6 +176,7 @@ struct CharacterDetailView: View {
                     if let dailyTasks = character.dailyTasks, !dailyTasks.isEmpty {
                         DailyTasksView(
                             tasks: dailyTasks,
+                            character: character,  // 캐릭터 모델 전달
                             isActiveView: isCurrentlyActive
                         )
                     }
