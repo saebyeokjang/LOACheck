@@ -22,8 +22,8 @@ struct CharacterListView: View {
     @State private var showAlert = false
     @State private var alertMessage = ""
     
-    // 골드 획득 캐릭터 수 제한 (최대 6개)
-    private let maxGoldEarners = 6
+    // 골드 획득 캐릭터 수 제한
+    private let maxGoldEarners = 256
     
     var filteredCharacters: [CharacterModel] {
         if searchText.isEmpty {

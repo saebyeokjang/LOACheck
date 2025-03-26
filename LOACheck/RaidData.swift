@@ -27,6 +27,27 @@ struct RaidData {
         case valtan = "발탄"
         case argos = "아르고스"
         
+        // 레이드 정렬 우선순위
+        var sortOrder: Int {
+            switch self {
+            case .assaultRaid: return 15
+            case .mordum: return 14
+            case .abrelshud2: return 13
+            case .aegir: return 12
+            case .behemoth: return 11
+            case .echidna: return 10
+            case .kamen: return 9
+            case .ivory: return 8
+            case .illiacan: return 7
+            case .kayangel: return 6
+            case .abrelshud: return 5
+            case .clown: return 4
+            case .vykas: return 3
+            case .valtan: return 2
+            case .argos: return 1
+            }
+        }
+        
         // 각 레이드의 가능한 난이도 배열
         func difficulties() -> [Difficulty] {
             switch self {
@@ -282,16 +303,15 @@ struct RaidData {
         
         // 레벨 요구사항 기준으로 내림차순 정렬
         return availableRaidGroups.sorted { group1, group2 in
-            let level1 = group1.availableDifficulties.compactMap { difficulty in
-                raidLevelRequirements["\(group1.name)-\(difficulty.rawValue)"]
-            }.max() ?? 0
-            
-            let level2 = group2.availableDifficulties.compactMap { difficulty in
-                raidLevelRequirements["\(group2.name)-\(difficulty.rawValue)"]
-            }.max() ?? 0
-            
-            return level1 > level2
-        }
+                // RaidType 찾기
+                guard let type1 = RaidType.allCases.first(where: { $0.rawValue == group1.name }),
+                      let type2 = RaidType.allCases.first(where: { $0.rawValue == group2.name }) else {
+                    return false
+                }
+                
+                // sortOrder 기준으로 내림차순 정렬 (높은 숫자가 먼저 나오도록)
+                return type1.sortOrder > type2.sortOrder
+            }
     }
     
     // 특정 레이드와 난이도의 관문별 골드 반환
