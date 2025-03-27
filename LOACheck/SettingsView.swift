@@ -15,10 +15,14 @@ struct SettingsView: View {
     @AppStorage("representativeCharacter") private var representativeCharacter: String = ""
     @State private var tempRepChar: String = ""
     
+    // 키보드 제어를 위한 FocusState 추가
+    @FocusState private var isApiKeyFocused: Bool
+    @FocusState private var isCharNameFocused: Bool
+    
     @State private var isShowingAlert = false
     @State private var alertMessage = ""
     @State private var isRefreshing = false
-    @State private var isShowingResetConfirmation = false // 데이터 초기화 확인용
+    @State private var isShowingResetConfirmation = false
     @State private var showUpdateAlert = false
     @State private var latestVersion = ""
     @State private var releaseNotes: String? = nil
@@ -32,15 +36,18 @@ struct SettingsView: View {
                     SecureField("API 키 입력", text: $tempApiKey)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
+                        .focused($isApiKeyFocused)
                         .onAppear {
                             tempApiKey = apiKey
                         }
                     
                     TextField("대표 캐릭터 이름", text: $tempRepChar)
                         .autocorrectionDisabled()
+                        .focused($isCharNameFocused)
                         .onAppear {
                             tempRepChar = representativeCharacter
                         }
+                        .submitLabel(.done) // 키보드 Return 버튼 레이블 설정
                     
                     Button(action: saveSettings) {
                         Text("설정 저장")
@@ -115,6 +122,13 @@ struct SettingsView: View {
             } message: {
                 Text(alertMessage)
             }
+            // 화면의 아무 곳이나 탭하면 키보드가 사라지도록 설정
+            .onTapGesture {
+                isApiKeyFocused = false
+                isCharNameFocused = false
+            }
+            // 키보드 입력모드 수정
+            .scrollDismissesKeyboard(.interactively)
         }
         .alert("데이터 초기화 확인", isPresented: $isShowingResetConfirmation) {
             Button("취소", role: .cancel) { }
@@ -147,6 +161,10 @@ struct SettingsView: View {
     
     // 설정 저장 (API 키와 대표 캐릭터)
     private func saveSettings() {
+        // 키보드 숨기기
+        isApiKeyFocused = false
+        isCharNameFocused = false
+        
         apiKey = tempApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         representativeCharacter = tempRepChar.trimmingCharacters(in: .whitespacesAndNewlines)
         alertMessage = "설정이 저장되었습니다."
