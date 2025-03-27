@@ -18,7 +18,7 @@ struct GoldSummaryView: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List {
                 // 총 예상 골드 섹션
                 GoldSummaryHeader(totalGold: totalGold, earnedGold: earnedGold)
