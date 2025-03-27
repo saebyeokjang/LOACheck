@@ -122,11 +122,6 @@ struct SettingsView: View {
             } message: {
                 Text(alertMessage)
             }
-            // 화면의 아무 곳이나 탭하면 키보드가 사라지도록 설정
-            .onTapGesture {
-                isApiKeyFocused = false
-                isCharNameFocused = false
-            }
             // 키보드 입력모드 수정
             .scrollDismissesKeyboard(.interactively)
         }
