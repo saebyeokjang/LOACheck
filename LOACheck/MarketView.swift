@@ -61,7 +61,7 @@ struct MarketView: View {
     }
 }
 
-// 기존 AuctionView를 리팩토링한 각인서 시세 뷰
+// 각인서 시세 뷰
 struct EngravingBookView: View {
     var onRefresh: (Date) -> Void
     @AppStorage("apiKey") private var apiKey: String = ""
@@ -145,26 +145,6 @@ struct EngravingBookView: View {
                 }
                 .padding()
             } else {
-                // 검색창
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.gray)
-                    
-                    TextField("각인서 이름 검색", text: $searchText)
-                        .autocorrectionDisabled()
-                    
-                    if !searchText.isEmpty {
-                        Button(action: { searchText = "" }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.gray)
-                        }
-                    }
-                }
-                .padding(8)
-                .background(Color(.systemGray6))
-                .cornerRadius(10)
-                .padding(.horizontal)
-                
                 // 데이터 표시
                 List {
                     ForEach(filteredItems) { item in
@@ -380,18 +360,23 @@ struct AccessorySearchView: View {
     @State private var showAlert = false
     
     // 악세사리 검색 필터 상태
-    @State private var selectedEngravings: [String] = []
-    @State private var selectedStats: [String] = []
+    @State private var selectedAccessoryType = 0  // 0: 목걸이, 1: 귀걸이, 2: 반지
+    @State private var selectedEngraveEffect = ""
     @State private var selectedQuality: Int = 0
     @State private var searchResults: [AuctionItem] = []
     
-    // 각인 및 특성 목록 (실제 구현에서는 API에서 가져오거나 상수로 정의)
-    let engraveOptions = [
-        "원한", "예리한 둔기", "상급 소환사", "저주받은 인형", "기습의 대가",
-        "아드레날린", "정밀 단도", "중갑 착용", "갈증", "타격의 대가"
+    // 부위별 연마효과 정의
+    let accessoryTypes = ["목걸이", "귀걸이", "반지"]
+    let engraveEffects: [[String]] = [
+        ["추가 피해", "적에게 주는 피해"],           // 목걸이
+        ["공격력%", "무기 공격력%"],               // 귀걸이
+        ["치명타 적중률", "치명타 피해"]             // 반지
     ]
     
-    let statOptions = ["치명", "특화", "신속", "제압", "인내", "숙련"]
+    // 현재 선택된 부위에 따른 연마효과 옵션
+    var currentEngraveEffects: [String] {
+        return engraveEffects[selectedAccessoryType]
+    }
     
     var body: some View {
         VStack {
@@ -409,36 +394,59 @@ struct AccessorySearchView: View {
                 // 검색 필터 섹션
                 ScrollView {
                     VStack(spacing: 16) {
-                        // 각인 선택 섹션
-                        SearchFilterSection(title: "각인 선택", isExpanded: true) {
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))], spacing: 8) {
-                                ForEach(engraveOptions, id: \.self) { engrave in
-                                    FilterChip(
-                                        title: engrave,
-                                        isSelected: selectedEngravings.contains(engrave),
-                                        action: {
-                                            toggleSelection(engrave, in: &selectedEngravings)
-                                        }
-                                    )
+                        // 부위 선택 세그먼트
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("부위 선택")
+                                .font(.headline)
+                                .padding(.horizontal)
+                            
+                            Picker("부위", selection: $selectedAccessoryType) {
+                                ForEach(0..<accessoryTypes.count, id: \.self) { index in
+                                    Text(accessoryTypes[index]).tag(index)
                                 }
                             }
-                            .padding(.horizontal, 8)
+                            .pickerStyle(.segmented)
+                            .padding(.horizontal)
+                            .onChange(of: selectedAccessoryType) { _, _ in
+                                // 부위가 변경되면 연마효과 선택 초기화
+                                selectedEngraveEffect = ""
+                            }
                         }
+                        .padding(.vertical, 8)
+                        .background(Color.gray.opacity(0.05))
+                        .cornerRadius(10)
+                        .padding(.horizontal)
                         
-                        // 특성 선택 섹션
-                        SearchFilterSection(title: "특성 선택", isExpanded: true) {
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 8) {
-                                ForEach(statOptions, id: \.self) { stat in
-                                    FilterChip(
-                                        title: stat,
-                                        isSelected: selectedStats.contains(stat),
-                                        action: {
-                                            toggleSelection(stat, in: &selectedStats)
+                        // 연마효과 선택 섹션
+                        SearchFilterSection(title: "연마효과 선택", isExpanded: true) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(currentEngraveEffects, id: \.self) { effect in
+                                    Button(action: {
+                                        if selectedEngraveEffect == effect {
+                                            selectedEngraveEffect = ""
+                                        } else {
+                                            selectedEngraveEffect = effect
                                         }
-                                    )
+                                    }) {
+                                        HStack {
+                                            Text(effect)
+                                                .foregroundColor(selectedEngraveEffect == effect ? .white : .primary)
+                                            
+                                            Spacer()
+                                            
+                                            if selectedEngraveEffect == effect {
+                                                Image(systemName: "checkmark")
+                                                    .foregroundColor(.white)
+                                            }
+                                        }
+                                        .padding(.vertical, 8)
+                                        .padding(.horizontal, 12)
+                                        .background(selectedEngraveEffect == effect ? Color.blue : Color.gray.opacity(0.1))
+                                        .cornerRadius(8)
+                                    }
                                 }
                             }
-                            .padding(.horizontal, 8)
+                            .padding(.horizontal, 16)
                         }
                         
                         // 품질 선택 섹션
@@ -467,7 +475,7 @@ struct AccessorySearchView: View {
                                 .cornerRadius(10)
                         }
                         .padding(.horizontal)
-                        .disabled(selectedEngravings.isEmpty && selectedStats.isEmpty)
+                        .disabled(selectedEngraveEffect.isEmpty)
                         
                         if !searchResults.isEmpty {
                             // 검색 결과 섹션
@@ -490,12 +498,12 @@ struct AccessorySearchView: View {
                         } else if !isLoading && errorMessage == nil {
                             // 검색 결과 없음 (초기 상태 또는 검색 결과 없음)
                             VStack {
-                                Image(systemName: "magnifyingglass")
+                                Image(systemName: "diamond.fill")
                                     .font(.system(size: 50))
                                     .foregroundColor(.gray)
                                     .padding()
                                 
-                                Text("검색 조건을 설정하고 검색 버튼을 눌러주세요")
+                                Text("부위와 연마효과를 선택하고 검색 버튼을 눌러주세요")
                                     .foregroundColor(.secondary)
                                     .multilineTextAlignment(.center)
                             }
@@ -511,7 +519,7 @@ struct AccessorySearchView: View {
                 Button(action: clearFilters) {
                     Label("필터 초기화", systemImage: "xmark.circle")
                 }
-                .disabled(selectedEngravings.isEmpty && selectedStats.isEmpty && selectedQuality == 0)
+                .disabled(selectedEngraveEffect.isEmpty && selectedQuality == 0)
             }
         }
         .alert(isPresented: $showAlert) {
@@ -523,19 +531,9 @@ struct AccessorySearchView: View {
         }
     }
     
-    // 선택 토글 헬퍼 함수
-    private func toggleSelection(_ item: String, in array: inout [String]) {
-        if let index = array.firstIndex(of: item) {
-            array.remove(at: index)
-        } else {
-            array.append(item)
-        }
-    }
-    
     // 검색 필터 초기화
     private func clearFilters() {
-        selectedEngravings = []
-        selectedStats = []
+        selectedEngraveEffect = ""
         selectedQuality = 0
         searchResults = []
     }
@@ -543,8 +541,8 @@ struct AccessorySearchView: View {
     // 실제 검색 수행 (API 호출)
     private func performSearch() {
         // 검색 조건이 선택되지 않은 경우
-        if selectedEngravings.isEmpty && selectedStats.isEmpty {
-            errorMessage = "검색 조건을 하나 이상 선택해주세요"
+        if selectedEngraveEffect.isEmpty {
+            errorMessage = "연마효과를 선택해주세요"
             showAlert = true
             return
         }
@@ -557,9 +555,6 @@ struct AccessorySearchView: View {
         
         isLoading = true
         errorMessage = nil
-        
-        // 이 부분에서 실제 API 호출을 구현해야 합니다.
-        // 아래는 예시 코드입니다.
         
         // API 호출 시뮬레이션 (2초 후 결과 반환)
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
@@ -581,41 +576,33 @@ struct AccessorySearchView: View {
     private func generateSampleResults() -> [AuctionItem] {
         var results: [AuctionItem] = []
         
-        for i in 1...5 {
-            let engrave1 = selectedEngravings.isEmpty ?
-                engraveOptions.randomElement()! :
-                selectedEngravings.randomElement()!
-            
-            let engrave2 = engraveOptions.filter { $0 != engrave1 }.randomElement()!
-            
-            let stat1 = selectedStats.isEmpty ?
-                statOptions.randomElement()! :
-                selectedStats.randomElement()!
-            
-            let stat2 = statOptions.filter { $0 != stat1 }.randomElement()!
-            
+        // 부위 이름
+        let accessoryTypeName = accessoryTypes[selectedAccessoryType]
+        
+        // 악세사리 아이콘 URL
+        let iconURLs = [
+            "https://cdn-lostark.game.onstove.com/efui_iconatlas/acc_necklace.png",  // 목걸이
+            "https://cdn-lostark.game.onstove.com/efui_iconatlas/acc_earring.png",   // 귀걸이
+            "https://cdn-lostark.game.onstove.com/efui_iconatlas/acc_ring.png"       // 반지
+        ]
+        
+        for i in 1...10 {
             let quality = max(selectedQuality, Int.random(in: selectedQuality...100))
             
             let options = [
                 ItemOption(
-                    type: "ABILITY_ENGRAVE",
-                    optionName: engrave1,
-                    value: Double(Int.random(in: 3...5)),
-                    isPenalty: false
-                ),
-                ItemOption(
-                    type: "ABILITY_ENGRAVE",
-                    optionName: engrave2,
-                    value: Double(Int.random(in: 3...5)),
+                    type: "ENGRAVE_EFFECT",
+                    optionName: selectedEngraveEffect,
+                    value: Double(Int.random(in: 3...8)),
                     isPenalty: false
                 )
             ]
             
             let item = AuctionItem(
-                name: "유물 \(stat1)/\(stat2) 목걸이",
+                name: "유물 \(quality)% \(accessoryTypeName)",
                 grade: "유물",
                 tier: 3,
-                icon: "https://cdn-lostark.game.onstove.com/efui_iconatlas/acc_necklace.png",
+                icon: iconURLs[selectedAccessoryType],
                 auctionInfo: AuctionInfo(
                     startPrice: Int.random(in: 1000...100000) * 10,
                     buyPrice: nil,
@@ -630,7 +617,8 @@ struct AccessorySearchView: View {
             results.append(item)
         }
         
-        return results
+        // 가격 오름차순 정렬
+        return results.sorted { $0.auctionInfo.bidStartPrice < $1.auctionInfo.bidStartPrice }
     }
 }
 
@@ -651,20 +639,33 @@ struct AccessoryResultRow: View {
             .frame(width: 40, height: 40)
             .background(Color.black.opacity(0.05))
             .cornerRadius(6)
+            .overlay(
+                // 품질 표시 - 하단 색상 바
+                VStack {
+                    Spacer()
+                    Text(item.name.contains("%") ? item.name.components(separatedBy: "%").first?.trimmingCharacters(in: .whitespaces) ?? "0" : "0")
+                        .font(.system(size: 10))
+                        .padding(.vertical, 1)
+                        .frame(maxWidth: .infinity)
+                        .background(getQualityColor(item.name))
+                        .foregroundColor(.white)
+                }
+                .cornerRadius(6)
+            )
             
             // 아이템 정보
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.name)
                     .font(.headline)
                 
-                // 각인 정보
+                // 연마효과 정보
                 ForEach(item.options, id: \.optionName) { option in
                     HStack(spacing: 4) {
                         Text(option.optionName)
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
-                        Text("+\(Int(option.value))")
+                        Text("+\(Int(option.value))%")
                             .font(.caption)
                             .foregroundColor(.blue)
                             .fontWeight(.bold)
@@ -682,6 +683,22 @@ struct AccessoryResultRow: View {
             }
         }
         .padding(.vertical, 8)
+    }
+    
+    // 품질에 따른 색상 반환
+    private func getQualityColor(_ name: String) -> Color {
+        // 이름에서 품질 추출 (예: "유물 90% 목걸이" -> 90)
+        if let qualityStr = name.components(separatedBy: "%").first?.components(separatedBy: " ").last,
+           let quality = Int(qualityStr) {
+            switch quality {
+            case 0..<30: return .red
+            case 30..<70: return .blue
+            case 70..<90: return .purple
+            case 90...100: return Color(red: 1.0, green: 0.5, blue: 0.0) // 오렌지
+            default: return .gray
+            }
+        }
+        return .gray
     }
 }
 
@@ -1071,7 +1088,8 @@ struct ErrorView: View {
         .padding()
     }
 }
-// 경매 아이템 행
+
+// 경매 아이템 행 (각인서 목록용)
 struct AuctionItemRow: View {
     var item: AuctionItem
     
