@@ -18,19 +18,26 @@ struct AppStoreResponse: Decodable {
 
 class AppUpdateService {
     static let shared = AppUpdateService()
+    static let appID = "6743695129"
     
     private init() {}
     
     // 앱스토어에서 최신 버전 정보 가져오기
-    func checkForUpdate(appID: String = "6743695129") async -> Result<(latestVersion: String, releaseNotes: String?), Error> {
+    func checkForUpdate(appID: String = AppUpdateService.appID) async -> Result<(latestVersion: String, releaseNotes: String?), Error> {
         do {
-            // 앱스토어 API URL 구성 (국가 코드 추가)
-            let url = URL(string: "https://itunes.apple.com/kr/lookup?id=\(appID)")!
+            // 앱스토어 API URL 구성 (캐시 방지 파라미터 추가)
+            guard let url = URL(string: "https://itunes.apple.com/kr/lookup?id=\(appID)&t=\(Date().timeIntervalSince1970)") else {
+                Logger.error("유효하지 않은 URL 형식")
+                return .failure(NSError(domain: "AppUpdateService", code: 0, userInfo: [NSLocalizedDescriptionKey: "유효하지 않은 URL 형식"]))
+            }
             
             Logger.debug("앱 업데이트 확인 URL: \(url.absoluteString)")
             
-            // API 요청
-            let (data, response) = try await URLSession.shared.data(from: url)
+            // API 요청 (캐시 사용하지 않는 설정)
+            var request = URLRequest(url: url)
+            request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+            
+            let (data, response) = try await URLSession.shared.data(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse else {
                 Logger.error("유효하지 않은 HTTP 응답")
@@ -47,6 +54,23 @@ class AppUpdateService {
             // 응답 디버깅
             if let responseString = String(data: data, encoding: .utf8) {
                 Logger.debug("앱스토어 API 응답: \(responseString)")
+                
+                // API 응답 분석을 위한 추가 디버깅
+                do {
+                    if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let results = json["results"] as? [[String: Any]],
+                       let firstApp = results.first {
+                        Logger.debug("응답 상세 분석: \(firstApp["version"] as? String ?? "버전 없음")")
+                        Logger.debug("응답에 포함된 키: \(firstApp.keys.joined(separator: ", "))")
+                        
+                        // 현재 날짜/시간 로깅 - 캐싱 시간 체크용
+                        let formatter = DateFormatter()
+                        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+                        Logger.debug("현재 시간: \(formatter.string(from: Date()))")
+                    }
+                } catch {
+                    Logger.debug("응답 추가 파싱 에러: \(error.localizedDescription)")
+                }
             }
             
             // 응답 파싱
@@ -70,9 +94,13 @@ class AppUpdateService {
     
     // 현재 버전과 최신 버전 비교
     func isUpdateAvailable(currentVersion: String, latestVersion: String) -> Bool {
+        // 버전 문자열에서 숫자만 추출하기 위한 전처리
+        let normalizeCurrent = normalizeVersion(currentVersion)
+        let normalizeLatest = normalizeVersion(latestVersion)
+        
         // 버전 형식: "1.0.0" -> [1, 0, 0]
-        let currentComponents = currentVersion.split(separator: ".").compactMap { Int($0) }
-        let latestComponents = latestVersion.split(separator: ".").compactMap { Int($0) }
+        let currentComponents = normalizeCurrent.split(separator: ".").compactMap { Int($0) }
+        let latestComponents = normalizeLatest.split(separator: ".").compactMap { Int($0) }
         
         // 배열 길이 맞추기
         let maxLength = max(currentComponents.count, latestComponents.count)
@@ -90,6 +118,15 @@ class AppUpdateService {
         
         // 모든 숫자가 같으면 업데이트 없음
         return false
+    }
+    
+    // 버전 문자열 정규화 (베타 태그 등 제거)
+    private func normalizeVersion(_ version: String) -> String {
+        // '-beta', '-alpha' 등의 접미사 제거
+        if let range = version.range(of: "-") {
+            return String(version[..<range.lowerBound])
+        }
+        return version
     }
     
     // 현재 앱 버전 가져오기

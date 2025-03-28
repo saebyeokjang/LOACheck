@@ -71,7 +71,7 @@ struct SettingsView: View {
                     HStack {
                         Text("앱 버전")
                         Spacer()
-                        Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0")
+                        Text(AppUpdateService.shared.getCurrentAppVersion())
                             .foregroundColor(.secondary)
                     }
                     
@@ -253,7 +253,14 @@ extension SettingsView {
                     )
                     
                     if updateAvailable {
-                        showUpdateAlert = true
+                        // 사용자가 이 버전을 건너뛰기로 했는지 확인
+                        if latestVersion != skipVersion {
+                            showUpdateAlert = true
+                        } else {
+                            // 사용자가 이미 이 버전을 건너뛰기로 했음
+                            alertMessage = "새 버전(v\(latestVersion))이 있지만 건너뛰기로 설정되었습니다."
+                            isShowingAlert = true
+                        }
                     } else {
                         alertMessage = "현재 최신 버전을 사용 중입니다. (v\(currentVersion))"
                         isShowingAlert = true
@@ -269,7 +276,7 @@ extension SettingsView {
     
     // 앱스토어 열기
     func openAppStore() {
-        if let url = URL(string: "itms-apps://itunes.apple.com/app/id6743695129") {
+        if let url = URL(string: "itms-apps://itunes.apple.com/app/id\(AppUpdateService.appID)") {
             UIApplication.shared.open(url)
         }
     }
