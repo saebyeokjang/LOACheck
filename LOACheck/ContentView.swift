@@ -47,7 +47,7 @@ struct ContentView: View {
                     }
                     .tag(2)
                 
-                AuctionView()
+                MarketView()
                     .tabItem {
                         Label("시세", systemImage: "magnifyingglass")
                     }
