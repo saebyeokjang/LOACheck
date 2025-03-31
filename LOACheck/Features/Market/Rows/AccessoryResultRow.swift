@@ -12,6 +12,28 @@ import SwiftData
 struct AccessoryResultRow: View {
     var item: AuctionItem
     
+    // 효과 등급 색상 결정을 위한 헬퍼 함수
+    private func getEffectTierColor(effect: ItemOption) -> Color {
+        let tier = EngraveEffectManager.shared.getEffectTier(
+            name: effect.optionName,
+            value: effect.value
+        )
+        return tier.color
+    }
+    
+    // 스탯 색상 결정을 위한 헬퍼 함수
+    private func getStatColor(stat: ItemOption, partType: String, upgradeLevel: Int) -> Color {
+        if stat.type == "5" || stat.type == "STAT" {
+            let percentage = StatManager.shared.calculateStatPercentage(
+                partType: partType,
+                upgradeLevel: upgradeLevel,
+                statValue: Int(stat.value)
+            )
+            return StatManager.shared.getColorForStatPercentage(percentage)
+        }
+        return getEffectTierColor(effect: stat)
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             // 아이템 상단 정보 (아이콘, 이름, 가격)
@@ -87,21 +109,18 @@ struct AccessoryResultRow: View {
                 let partType = StatManager.shared.getPartTypeFromName(item.name)
                 
                 // 기본 특성 필터링 및 표시
-                ForEach(item.options.filter {
+                let statOptions = item.options.filter {
                     ($0.type == "5" || $0.type == "STAT") && !$0.optionName.contains("체력")
-                }, id: \.optionName) { stat in
+                }
+                
+                ForEach(Array(statOptions.enumerated()), id: \.offset) { index, stat in
                     let statValue = Int(stat.value)
-                    let percentage = StatManager.shared.calculateStatPercentage(
-                        partType: partType,
-                        upgradeLevel: upgradeLevel,
-                        statValue: statValue
-                    )
-                    let color = StatManager.shared.getColorForStatPercentage(percentage)
+                    let statColor = getStatColor(stat: stat, partType: partType, upgradeLevel: upgradeLevel)
                     
                     StatView(
                         name: self.getStatShortName(stat.optionName),
                         value: statValue,
-                        color: color
+                        color: statColor
                     )
                 }
             }
@@ -111,33 +130,34 @@ struct AccessoryResultRow: View {
             .cornerRadius(4)
             
             // 연마효과 정보
-            let upgradeEffects = item.options.filter({ $0.type == "ACCESSORY_UPGRADE" })
+            let upgradeEffects = item.options.filter { $0.type == "ACCESSORY_UPGRADE" }
             if !upgradeEffects.isEmpty {
                 HStack(spacing: 8) {
-                    ForEach(upgradeEffects, id: \.optionName) { effect in
+                    // enumerated()를 사용하여 인덱스를 ID로 활용
+                    ForEach(Array(upgradeEffects.enumerated()), id: \.offset) { index, effect in
+                        let effectColor = getEffectTierColor(effect: effect)
+                        
                         VStack(spacing: 2) {
-                            Text(effect.optionName)
+                            // 공백 제거
+                            Text(effect.optionName.trimmingCharacters(in: .whitespaces))
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
-                            
-                            // 효과 등급 판별 및 색상 적용
-                            let effectTier = EngraveEffectManager.shared.getEffectTier(name: effect.optionName, value: effect.value)
                             
                             if effect.isValuePercentage {
                                 Text("+\(String(format: "%.2f", effect.value))%")
                                     .font(.caption2)
-                                    .foregroundColor(effectTier.color)
+                                    .foregroundColor(effectColor)
                                     .fontWeight(.bold)
                             } else {
                                 Text("+\(Int(effect.value))")
                                     .font(.caption)
-                                    .foregroundColor(effectTier.color)
+                                    .foregroundColor(effectColor)
                                     .fontWeight(.bold)
                             }
                         }
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.blue.opacity(0.1))
+                        .background(effectColor.opacity(0.1))
                         .cornerRadius(4)
                     }
                 }
@@ -145,6 +165,17 @@ struct AccessoryResultRow: View {
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 6)
+        .onAppear {
+            // 디버깅용 로그
+            #if DEBUG
+            for effect in item.options.filter({ $0.type == "ACCESSORY_UPGRADE" }) {
+                let tier = EngraveEffectManager.shared.getEffectTier(name: effect.optionName, value: effect.value)
+                let tierName = tier == .low ? "하옵(파랑)" :
+                              tier == .medium ? "중옵(보라)" : "상옵(오렌지)"
+                Logger.debug("효과: \(effect.optionName), 값: \(effect.value), 등급: \(tierName)")
+            }
+            #endif
+        }
     }
     
     // 품질에 따른 색상 반환
