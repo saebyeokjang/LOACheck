@@ -84,13 +84,17 @@ struct Auction: Decodable {
 
 // MARK: - 경매장 아이템 모델
 struct AuctionItem: Decodable, Identifiable {
-    var id: String { name + "\(auctionInfo.bidStartPrice)" } // 임시 ID 생성
+    var id: String {
+        "\(name)-\(auctionInfo.bidStartPrice)-\(quality ?? 0)-\(tradeAllowCount ?? 0)-\(UUID().uuidString)"
+    }
     let name: String
     let grade: String
     let tier: Int
     let icon: String
     let auctionInfo: AuctionInfo
     let options: [ItemOption]
+    let quality: Int?
+    let tradeAllowCount: Int?
     
     private enum CodingKeys: String, CodingKey {
         case name = "Name"
@@ -99,6 +103,32 @@ struct AuctionItem: Decodable, Identifiable {
         case icon = "Icon"
         case auctionInfo = "AuctionInfo"
         case options = "Options"
+        case quality
+        case tradeAllowCount
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        grade = try container.decode(String.self, forKey: .grade)
+        tier = try container.decode(Int.self, forKey: .tier)
+        icon = try container.decode(String.self, forKey: .icon)
+        auctionInfo = try container.decode(AuctionInfo.self, forKey: .auctionInfo)
+        options = try container.decode([ItemOption].self, forKey: .options)
+        quality = nil
+        tradeAllowCount = nil
+    }
+    
+    // 생성자 추가
+    init(name: String, grade: String, tier: Int, icon: String, auctionInfo: AuctionInfo, options: [ItemOption], quality: Int? = nil, tradeAllowCount: Int? = nil) {
+        self.name = name
+        self.grade = grade
+        self.tier = tier
+        self.icon = icon
+        self.auctionInfo = auctionInfo
+        self.options = options
+        self.quality = quality
+        self.tradeAllowCount = tradeAllowCount
     }
     
     // 계산 속성 - 각인 이름과 수치 쌍 추출
@@ -142,21 +172,6 @@ struct AuctionInfo: Decodable {
         case endDate = "EndDate"
         case bidCount = "BidCount"
         case bidStartPrice = "BidStartPrice"
-    }
-}
-
-// MARK: - 아이템 옵션 모델
-struct ItemOption: Decodable {
-    let type: String
-    let optionName: String
-    let value: Double
-    let isPenalty: Bool
-    
-    private enum CodingKeys: String, CodingKey {
-        case type = "Type"
-        case optionName = "OptionName"
-        case value = "Value"
-        case isPenalty = "IsPenalty"
     }
 }
 
@@ -229,45 +244,5 @@ class AuctionService {
             Logger.error("거래소 아이템 API 오류", error: error)
             return .failure(.networkError(error))
         }
-    }
-}
-
-// MARK: - 거래소 아이템 모델
-struct MarketItem: Decodable, Identifiable {
-    let id: Int
-    let name: String
-    let grade: String
-    let icon: String
-    let bundleCount: Int
-    let tradeRemainCount: Int
-    let yesterdayAvgPrice: Double
-    let recentPrice: Int
-    let currentMinPrice: Int
-    
-    private enum CodingKeys: String, CodingKey {
-        case id = "Id"
-        case name = "Name"
-        case grade = "Grade"
-        case icon = "Icon"
-        case bundleCount = "BundleCount"
-        case tradeRemainCount = "TradeRemainCount"
-        case yesterdayAvgPrice = "YDayAvgPrice"
-        case recentPrice = "RecentPrice"
-        case currentMinPrice = "CurrentMinPrice"
-    }
-}
-
-// MARK: - 거래소 응답 모델
-struct MarketResponse: Decodable {
-    let pageNo: Int
-    let pageSize: Int
-    let totalCount: Int
-    let items: [MarketItem]
-    
-    private enum CodingKeys: String, CodingKey {
-        case pageNo = "PageNo"
-        case pageSize = "PageSize"
-        case totalCount = "TotalCount"
-        case items = "Items"
     }
 }
