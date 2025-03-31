@@ -164,6 +164,17 @@ struct AuctionInfo: Decodable {
     let endDate: Date
     let bidCount: Int
     let bidStartPrice: Int
+    let upgradeLevel: Int?
+    
+    init(startPrice: Int, buyPrice: Int?, bidPrice: Int, endDate: Date, bidCount: Int, bidStartPrice: Int, upgradeLevel: Int? = nil) {
+        self.startPrice = startPrice
+        self.buyPrice = buyPrice
+        self.bidPrice = bidPrice
+        self.endDate = endDate
+        self.bidCount = bidCount
+        self.bidStartPrice = bidStartPrice
+        self.upgradeLevel = upgradeLevel
+    }
     
     private enum CodingKeys: String, CodingKey {
         case startPrice = "StartPrice"
@@ -172,6 +183,7 @@ struct AuctionInfo: Decodable {
         case endDate = "EndDate"
         case bidCount = "BidCount"
         case bidStartPrice = "BidStartPrice"
+        case upgradeLevel = "UpgradeLevel"
     }
 }
 
