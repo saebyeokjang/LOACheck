@@ -1,5 +1,5 @@
 //
-//  RaidGateModels.swift
+//  RaidGateModel.swift
 //  LOACheck
 //
 //  Created by Saebyeok Jang on 3/21/25.
