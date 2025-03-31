@@ -222,12 +222,6 @@ struct AccessorySearchView: View {
             // 선택되지 않은 효과라면 추가 (최대 3개까지)
             if selectedEngraveEffects.count < 3 {
                 selectedEngraveEffects.append(effect)
-                // 기본값으로 첫 번째 값 선택
-                if let effectValues = EngraveEffectManager.shared.getEngraveEffectValues(effect),
-                   let firstValue = effectValues.first,
-                   let numericValue = Double(firstValue.displayValue.replacingOccurrences(of: "%", with: "")) {
-                    selectedEngraveValues[effect] = numericValue
-                }
             } else {
                 errorMessage = "연마효과는 최대 3개까지 선택 가능합니다."
                 showAlert = true
@@ -250,15 +244,6 @@ struct AccessorySearchView: View {
             errorMessage = "연마효과를 하나 이상 선택해주세요"
             showAlert = true
             return
-        }
-        
-        // 선택된 모든 연마효과에 값이 선택되었는지 확인
-        for effect in selectedEngraveEffects {
-            if selectedEngraveValues[effect] == nil {
-                errorMessage = "\(effect)의 연마효과 값을 선택해주세요"
-                showAlert = true
-                return
-            }
         }
         
         guard !apiKey.isEmpty else {
