@@ -37,9 +37,9 @@ class EngraveEffectManager {
     
     // 부위별 연마효과 맵핑
     private let categoryEffects: [AccessoryCategory: [String]] = [
-        .necklace: ["추가 피해", "적에게 주는 피해 증가", "세레나데, 신성, 조화 게이지 획득량 증가", "낙인력"],
-        .earring: ["공격력%", "무기 공격력%", "파티원 회복 효과", "파티원 보호막 효과"],
-        .ring: ["치명타 적중률", "치명타 피해", "아군 공격력 강화 효과", "아군 피해량 강화 효과"]
+        .necklace: ["추가 피해", "적에게 주는 피해 증가", "공격력 +", "무기 공격력 +"],
+        .earring: ["공격력%", "무기 공격력%", "공격력 +", "무기 공격력 +"],
+        .ring: ["치명타 적중률", "치명타 피해", "공격력 +", "무기 공격력 +"]
     ]
     
     // 연마효과별 가능한 값 목록
@@ -74,6 +74,16 @@ class EngraveEffectManager {
             EngraveEffectValue(displayValue: "2.40%", value: 240, isPercentage: true),
             EngraveEffectValue(displayValue: "4.00%", value: 400, isPercentage: true)
         ],
+        "공격력 +": [
+            EngraveEffectValue(displayValue: "80", value: 80, isPercentage: false),
+            EngraveEffectValue(displayValue: "195", value: 195, isPercentage: false),
+            EngraveEffectValue(displayValue: "390", value: 390, isPercentage: false)
+        ],
+        "무기 공격력 +": [
+            EngraveEffectValue(displayValue: "195", value: 195, isPercentage: false),
+            EngraveEffectValue(displayValue: "480", value: 480, isPercentage: false),
+            EngraveEffectValue(displayValue: "960", value: 960, isPercentage: false)
+        ]
     ]
     
     // 특정 부위에 적용 가능한 연마효과 목록 반환
@@ -89,5 +99,10 @@ class EngraveEffectManager {
     // 연마효과의 코드값 반환
     func getEngraveEffectCode(_ effectName: String) -> Int? {
         return effectCodes[effectName]
+    }
+    
+    // isPercentage 값 반환 함수 추가
+    func isPercentageEffect(_ effectName: String) -> Bool {
+        return effectValues[effectName]?.first?.isPercentage ?? true
     }
 }

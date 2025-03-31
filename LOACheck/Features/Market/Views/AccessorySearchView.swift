@@ -15,7 +15,7 @@ struct AccessorySearchView: View {
     @State private var errorMessage: String? = nil
     @State private var showAlert = false
     
-    // 악세사리 검색 필터 상태
+    // 장신구 검색 필터 상태
     @State private var selectedAccessoryType = 0  // 0: 목걸이, 1: 귀걸이, 2: 반지
     @State private var selectedEngraveEffects: [String] = []
     @State private var selectedEngraveValues: [String: Double] = [:] // 연마효과별 선택된 값
@@ -38,7 +38,7 @@ struct AccessorySearchView: View {
         VStack {
             if isLoading {
                 // 로딩 화면
-                ProgressView("악세사리 검색 중...")
+                ProgressView("장신구 검색 중...")
                     .padding()
             } else if let error = errorMessage {
                 // 에러 화면
@@ -105,24 +105,21 @@ struct AccessorySearchView: View {
                                         ScrollView(.horizontal, showsIndicators: false) {
                                             HStack {
                                                 ForEach(effectValues, id: \.value) { effectValue in
-                                                    // 표시 값을 Double로 변환
-                                                    let valueStr = effectValue.displayValue
-                                                    let numericValue = Double(valueStr.replacingOccurrences(of: "%", with: "")) ?? 0.0
-                                                
                                                     Button(action: {
                                                         // 값 선택 또는 해제
-                                                        if selectedEngraveValues[effect] == numericValue {
+                                                        if selectedEngraveValues[effect] == Double(effectValue.value) {
                                                             selectedEngraveValues.removeValue(forKey: effect)
                                                         } else {
-                                                            selectedEngraveValues[effect] = numericValue
+                                                            // 효과 값을 그대로 저장 (isPercentage 고려하지 않고)
+                                                            selectedEngraveValues[effect] = Double(effectValue.value)
                                                         }
                                                     }) {
-                                                        Text(valueStr)
+                                                        Text(effectValue.displayValue)
                                                             .font(.caption)
-                                                            .foregroundColor(selectedEngraveValues[effect] == numericValue ? .white : .primary)
+                                                            .foregroundColor(selectedEngraveValues[effect] == Double(effectValue.value) ? .white : .primary)
                                                             .padding(.horizontal, 8)
                                                             .padding(.vertical, 4)
-                                                            .background(selectedEngraveValues[effect] == numericValue ?
+                                                            .background(selectedEngraveValues[effect] == Double(effectValue.value) ?
                                                                         Color.blue : Color.gray.opacity(0.1))
                                                             .cornerRadius(4)
                                                     }
@@ -154,7 +151,7 @@ struct AccessorySearchView: View {
                         
                         // 검색 버튼
                         Button(action: performSearch) {
-                            Text("악세사리 검색")
+                            Text("장신구 검색")
                                 .font(.headline)
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
@@ -175,7 +172,7 @@ struct AccessorySearchView: View {
                                 Divider()
                                 
                                 // 결과 목록
-                                ForEach(searchResults) { item in
+                                ForEach(Array(searchResults.enumerated()), id: \.offset) { index, item in
                                     AccessoryResultRow(item: item)
                                         .padding(.horizontal)
                                     
@@ -186,16 +183,11 @@ struct AccessorySearchView: View {
                         } else if !isLoading && errorMessage == nil {
                             // 검색 결과 없음 (초기 상태 또는 검색 결과 없음)
                             VStack {
-                                Image(systemName: "diamond.fill")
-                                    .font(.system(size: 50))
-                                    .foregroundColor(.gray)
-                                    .padding()
-                                
                                 Text("부위와 연마효과를 선택하고 검색 버튼을 눌러주세요")
                                     .foregroundColor(.secondary)
                                     .multilineTextAlignment(.center)
                             }
-                            .padding(.top, 40)
+                            .padding(.top, 10)
                         }
                     }
                     .padding(.vertical)
@@ -298,14 +290,11 @@ struct AccessorySearchView: View {
                     // 디버깅용 로깅
                     MarketService.shared.logSearchResults(response)
                     
-                    if response.items.isEmpty {
+                    if response.totalCount == 0 || response.items.isEmpty {
                         searchResults = []
-                        errorMessage = "검색 조건에 맞는 악세사리가 없습니다."
+                        errorMessage = "검색 조건에 맞는 장신구가 없습니다.\n다른 조건으로 시도해보세요."
                         showAlert = true
                     } else {
-                        // 검색 결과 로깅 (디버깅용)
-                        MarketService.shared.logSearchResults(response)
-                        
                         // API 응답을 UI에 표시할 AuctionItem으로 변환
                         searchResults = MarketService.shared.convertToAuctionItems(from: response.items)
                         

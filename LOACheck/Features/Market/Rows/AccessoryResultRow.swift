@@ -8,7 +8,7 @@
 import SwiftUI
 import SwiftData
 
-// 악세사리 검색 결과 행 컴포넌트 (수정)
+// 장신구 검색 결과 행 컴포넌트 (수정)
 struct AccessoryResultRow: View {
     var item: AuctionItem
     
@@ -16,17 +16,17 @@ struct AccessoryResultRow: View {
         VStack(alignment: .leading, spacing: 8) {
             // 아이템 상단 정보 (아이콘, 이름, 가격)
             HStack(spacing: 12) {
-                // 아이콘과 품질 표시
                 VStack(spacing: 0) {
                     AsyncImage(url: URL(string: item.icon)) { image in
                         image
                             .resizable()
                             .aspectRatio(contentMode: .fit)
+                            .padding(2) // 내부 패딩 추가
                     } placeholder: {
                         Image(systemName: "diamond.fill")
                             .foregroundColor(.orange)
                     }
-                    .frame(width: 40, height: 40)
+                    .frame(width: 52, height: 48) // 프레임 크기 증가
                     .background(Color.black.opacity(0.05))
                     .cornerRadius(6, corners: [.topLeft, .topRight])
                     
@@ -36,11 +36,12 @@ struct AccessoryResultRow: View {
                         .font(.system(size: 10))
                         .fontWeight(.bold)
                         .padding(.vertical, 1)
-                        .frame(width: 40)
+                        .frame(width: 52) // 아이콘과 동일한 너비
                         .background(getQualityColor(qualityValue))
                         .foregroundColor(.white)
                         .cornerRadius(6, corners: [.bottomLeft, .bottomRight])
                 }
+                .padding(2)
                 
                 // 아이템 이름 및 거래 횟수
                 VStack(alignment: .leading, spacing: 2) {
@@ -95,14 +96,14 @@ struct AccessoryResultRow: View {
             if !upgradeEffects.isEmpty {
                 HStack(spacing: 8) {
                     ForEach(upgradeEffects, id: \.optionName) { effect in
-                        HStack(spacing: 2) {
+                        VStack(spacing: 2) {
                             Text(effect.optionName)
-                                .font(.caption)
+                                .font(.caption2)
                                 .foregroundColor(.secondary)
                             
                             if effect.isValuePercentage {
-                                Text("+\(String(format: "%.1f", effect.value))%")
-                                    .font(.caption)
+                                Text("+\(String(format: "%.2f", effect.value))%")
+                                    .font(.caption2)
                                     .foregroundColor(.blue)
                                     .fontWeight(.bold)
                             } else {
