@@ -12,13 +12,24 @@ struct AccessorySearchResponse: Decodable {
     let pageNo: Int
     let pageSize: Int
     let totalCount: Int
-    let items: [AccessoryItem]
+    let items: [AccessoryItem]  // null일 때 빈 배열로 처리하도록 수정
     
     enum CodingKeys: String, CodingKey {
         case pageNo = "PageNo"
         case pageSize = "PageSize"
         case totalCount = "TotalCount"
         case items = "Items"
+    }
+    
+    // 사용자 정의 디코딩 추가
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        pageNo = try container.decode(Int.self, forKey: .pageNo)
+        pageSize = try container.decode(Int.self, forKey: .pageSize)
+        totalCount = try container.decode(Int.self, forKey: .totalCount)
+        
+        // Items가 null인 경우를 처리
+        items = try container.decodeIfPresent([AccessoryItem].self, forKey: .items) ?? []
     }
 }
 
@@ -128,7 +139,7 @@ struct AccessoryItemOption: Decodable, Identifiable {
     }
 }
 
-// 악세사리 검색 요청 모델
+// 장신구 검색 요청 모델
 struct AccessorySearchRequest: Encodable {
     let itemGradeQuality: Int
     let etcOptions: [AccessoryOption]

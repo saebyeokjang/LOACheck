@@ -13,7 +13,7 @@ class MarketService {
     private init() {}
     private let baseURL = "https://developer-lostark.game.onstove.com"
     
-    // 악세사리 검색 API
+    // 장신구 검색 API
     func searchAccessories(
         apiKey: String,
         accessoryType: Int,
@@ -44,9 +44,20 @@ class MarketService {
             for effect in engraveEffects {
                 if let value = engraveValues[effect],
                    let effectCode = EngraveEffectManager.shared.getEngraveEffectCode(effect) {
+                    
+                    // isPercentage 값 확인
+                    let isPercentage = EngraveEffectManager.shared.getEngraveEffectValues(effect)?.first?.isPercentage ?? true
+                    
                     // API 요청용 값 계산
-                    // API는 정수 값을 기대하므로 백분율 값에 100을 곱함
-                    let apiValue = Int(value * 100)
+                    let apiValue: Int
+                    if isPercentage {
+                        // 백분율 값인 경우 값을 그대로 사용
+                        // (이미 engraveEffectValues에서 적절한 값으로 설정되어 있음)
+                        apiValue = Int(value)
+                    } else {
+                        // 절대값인 경우 100을 곱하지 않고 값을 그대로 사용
+                        apiValue = Int(value)
+                    }
                     
                     let option = AccessoryOption(
                         firstOption: 7, // 연마효과 그룹 코드
@@ -73,7 +84,7 @@ class MarketService {
             let jsonData = try encoder.encode(requestBody)
             request.httpBody = jsonData
             
-            Logger.debug("악세사리 검색 API 요청: \(url.absoluteString)")
+            Logger.debug("장신구 검색 API 요청: \(url.absoluteString)")
             Logger.debug("요청 본문: \(String(data: jsonData, encoding: .utf8) ?? "")")
             
             let (data, response) = try await URLSession.shared.data(for: request)
@@ -99,7 +110,12 @@ class MarketService {
                 
                 do {
                     let searchResponse = try decoder.decode(AccessorySearchResponse.self, from: data)
-                    Logger.debug("성공적으로 \(searchResponse.items.count)개의 악세사리 검색 결과를 디코딩했습니다")
+                    Logger.debug("성공적으로 \(searchResponse.items.count)개의 장신구 검색 결과를 디코딩했습니다")
+                    
+                    // 검색 결과가 없는 경우 적절한 메시지 표시
+                    if searchResponse.totalCount == 0 {
+                        return .success(searchResponse)  // 빈 배열을 포함한 응답 반환
+                    }
                     
                     // 첫 번째 아이템 로깅 (디버깅용)
                     if let firstItem = searchResponse.items.first {
@@ -109,7 +125,9 @@ class MarketService {
                         // 옵션들 로깅
                         for (index, option) in firstItem.options.enumerated() {
                             Logger.debug("옵션 \(index+1): \(option.optionName) = \(option.value) (타입: \(option.type))")
-                        }
+                        } 
+                    } else {
+                        Logger.debug("검색 결과가 없습니다. (totalCount: \(searchResponse.totalCount))")
                     }
                     
                     return .success(searchResponse)
@@ -152,12 +170,12 @@ class MarketService {
                 return .failure(.unknown(httpResponse.statusCode))
             }
         } catch {
-            Logger.error("악세사리 검색 API 오류", error: error)
+            Logger.error("장신구 검색 API 오류", error: error)
             return .failure(.networkError(error))
         }
     }
     
-    // 악세사리 아이템을 AuctionItem으로 변환 (뷰에서 사용하기 위함)
+    // 장신구 아이템을 AuctionItem으로 변환 (뷰에서 사용하기 위함)
     func convertToAuctionItems(from accessoryItems: [AccessoryItem]) -> [AuctionItem] {
         return accessoryItems.map { item in
             // 옵션 변환
@@ -201,7 +219,7 @@ class MarketService {
         }
     }
     
-    // 악세사리 검색 결과를 간단히 로깅하는 함수 (디버깅용)
+    // 장신구 검색 결과를 간단히 로깅하는 함수 (디버깅용)
     func logSearchResults(_ response: AccessorySearchResponse) {
         Logger.debug("총 \(response.totalCount)개의 검색 결과 중 \(response.items.count)개 로드됨")
         

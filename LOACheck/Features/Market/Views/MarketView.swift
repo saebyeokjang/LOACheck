@@ -29,7 +29,7 @@ struct MarketView: View {
                 
                 // 상단 세그먼트 컨트롤
                 Picker("시세 종류", selection: $selectedTab) {
-                    Text("악세사리").tag(0)
+                    Text("장신구").tag(0)
                     Text("보석").tag(1)
                     Text("각인서").tag(2)
                 }
@@ -56,7 +56,7 @@ struct MarketView: View {
                 .tabViewStyle(.page(indexDisplayMode: .never)) // 페이지 인디케이터 숨김
                 .animation(.easeInOut, value: selectedTab)
             }
-            .navigationTitle("시세 검색")
+            .navigationTitle("시세")
         }
     }
 }
