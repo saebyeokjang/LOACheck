@@ -18,8 +18,8 @@ class EngraveEffectManager {
     private let effectCodes: [String: Int] = [
         "추가 피해": 41,
         "적에게 주는 피해 증가": 42,
-        "공격력%": 45,
-        "무기 공격력%": 46,
+        "공격력 %": 45,
+        "무기 공격력 %": 46,
         "치명타 적중률": 49,
         "치명타 피해": 50,
         "세레나데, 신성, 조화 게이지 획득량 증가": 43,
@@ -39,7 +39,7 @@ class EngraveEffectManager {
     // 부위별 연마효과 맵핑
     private let categoryEffects: [AccessoryCategory: [String]] = [
         .necklace: ["추가 피해", "적에게 주는 피해 증가", "공격력 +", "무기 공격력 +"],
-        .earring: ["공격력%", "무기 공격력%", "공격력 +", "무기 공격력 +"],
+        .earring: ["공격력 %", "무기 공격력 %", "공격력 +", "무기 공격력 +"],
         .ring: ["치명타 적중률", "치명타 피해", "공격력 +", "무기 공격력 +"]
     ]
     
@@ -55,12 +55,12 @@ class EngraveEffectManager {
             EngraveEffectValue(displayValue: "1.20%", value: 120, isPercentage: true),
             EngraveEffectValue(displayValue: "2.00%", value: 200, isPercentage: true)
         ],
-        "공격력%": [
+        "공격력 %": [
             EngraveEffectValue(displayValue: "0.40%", value: 40, isPercentage: true),
             EngraveEffectValue(displayValue: "0.95%", value: 95, isPercentage: true),
             EngraveEffectValue(displayValue: "1.55%", value: 155, isPercentage: true)
         ],
-        "무기 공격력%": [
+        "무기 공격력 %": [
             EngraveEffectValue(displayValue: "0.80%", value: 80, isPercentage: true),
             EngraveEffectValue(displayValue: "1.80%", value: 180, isPercentage: true),
             EngraveEffectValue(displayValue: "3.00%", value: 300, isPercentage: true)

@@ -80,10 +80,29 @@ struct AccessoryResultRow: View {
                 Spacer()
                 
                 // 기본 특성들 (힘/민첩/지능)
+                // UpgradeLevel 가져오기
+                let upgradeLevel = item.auctionInfo.upgradeLevel ?? 0
+                
+                // 부위 타입 가져오기
+                let partType = StatManager.shared.getPartTypeFromName(item.name)
+                
+                // 기본 특성 필터링 및 표시
                 ForEach(item.options.filter {
                     ($0.type == "5" || $0.type == "STAT") && !$0.optionName.contains("체력")
                 }, id: \.optionName) { stat in
-                    StatView(name: self.getStatShortName(stat.optionName), value: Int(stat.value))
+                    let statValue = Int(stat.value)
+                    let percentage = StatManager.shared.calculateStatPercentage(
+                        partType: partType,
+                        upgradeLevel: upgradeLevel,
+                        statValue: statValue
+                    )
+                    let color = StatManager.shared.getColorForStatPercentage(percentage)
+                    
+                    StatView(
+                        name: self.getStatShortName(stat.optionName),
+                        value: statValue,
+                        color: color
+                    )
                 }
             }
             .padding(.horizontal, 6)

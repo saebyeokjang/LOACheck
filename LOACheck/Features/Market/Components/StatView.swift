@@ -11,6 +11,7 @@ import SwiftUI
 struct StatView: View {
     var name: String
     var value: Int
+    var color: Color?
     
     var body: some View {
         HStack(spacing: 2) {
@@ -20,7 +21,7 @@ struct StatView: View {
             
             Text("\(value)")
                 .font(.caption)
-                .foregroundColor(.blue)
+                .foregroundColor(color ?? .blue)
                 .fontWeight(.bold)
         }
     }

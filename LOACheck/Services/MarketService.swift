@@ -125,7 +125,7 @@ class MarketService {
                         // 옵션들 로깅
                         for (index, option) in firstItem.options.enumerated() {
                             Logger.debug("옵션 \(index+1): \(option.optionName) = \(option.value) (타입: \(option.type))")
-                        } 
+                        }
                     } else {
                         Logger.debug("검색 결과가 없습니다. (totalCount: \(searchResponse.totalCount))")
                     }
@@ -211,7 +211,15 @@ class MarketService {
                 grade: item.grade,
                 tier: item.tier,
                 icon: item.icon,
-                auctionInfo: auctionInfo,
+                auctionInfo: AuctionInfo(
+                    startPrice: item.auctionInfo.startPrice,
+                    buyPrice: item.auctionInfo.buyPrice,
+                    bidPrice: item.auctionInfo.bidPrice,
+                    endDate: formatter.date(from: item.auctionInfo.endDate) ?? Date(),
+                    bidCount: item.auctionInfo.bidCount,
+                    bidStartPrice: item.auctionInfo.bidStartPrice,
+                    upgradeLevel: item.auctionInfo.upgradeLevel
+                ),
                 options: options,
                 quality: item.gradeQuality,
                 tradeAllowCount: item.auctionInfo.tradeAllowCount
