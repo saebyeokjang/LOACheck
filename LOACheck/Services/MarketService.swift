@@ -42,30 +42,46 @@ class MarketService {
             
             // 선택된 연마효과를 API 요청 형식으로 변환
             for effect in engraveEffects {
-                if let value = engraveValues[effect],
-                   let effectCode = EngraveEffectManager.shared.getEngraveEffectCode(effect) {
-                    
-                    // isPercentage 값 확인
-                    let isPercentage = EngraveEffectManager.shared.getEngraveEffectValues(effect)?.first?.isPercentage ?? true
-                    
-                    // API 요청용 값 계산
-                    let apiValue: Int
-                    if isPercentage {
-                        // 백분율 값인 경우 값을 그대로 사용
-                        // (이미 engraveEffectValues에서 적절한 값으로 설정되어 있음)
-                        apiValue = Int(value)
+                if let effectCode = EngraveEffectManager.shared.getEngraveEffectCode(effect) {
+                    // 값이 선택되었는지 확인
+                    if let value = engraveValues[effect] {
+                        // 값이 선택된 경우 - 기존 로직 유지
+                        let isPercentage = EngraveEffectManager.shared.getEngraveEffectValues(effect)?.first?.isPercentage ?? true
+                        let apiValue = Int(value)
+                        
+                        let option = AccessoryOption(
+                            firstOption: 7, // 연마효과 그룹 코드
+                            secondOption: effectCode,
+                            minValue: apiValue,
+                            maxValue: apiValue
+                        )
+                        etcOptions.append(option)
                     } else {
-                        // 절대값인 경우 100을 곱하지 않고 값을 그대로 사용
-                        apiValue = Int(value)
+                        // 값이 선택되지 않은 경우 - 최대 범위로 검색
+                        // 연마효과의 가능한 값 중 최대값과 최소값 가져오기
+                        if let effectValues = EngraveEffectManager.shared.getEngraveEffectValues(effect),
+                           !effectValues.isEmpty {
+                            let minValue = effectValues.first!.value
+                            let maxValue = effectValues.last!.value
+                            
+                            let option = AccessoryOption(
+                                firstOption: 7, // 연마효과 그룹 코드
+                                secondOption: effectCode,
+                                minValue: minValue, // 최소값
+                                maxValue: maxValue  // 최대값
+                            )
+                            etcOptions.append(option)
+                        } else {
+                            // 값 정보가 없는 경우, 기본값 사용
+                            let option = AccessoryOption(
+                                firstOption: 7,
+                                secondOption: effectCode,
+                                minValue: 0,    // 최소값
+                                maxValue: 10000 // 충분히 큰 최대값
+                            )
+                            etcOptions.append(option)
+                        }
                     }
-                    
-                    let option = AccessoryOption(
-                        firstOption: 7, // 연마효과 그룹 코드
-                        secondOption: effectCode,
-                        minValue: apiValue,
-                        maxValue: apiValue
-                    )
-                    etcOptions.append(option)
                 }
             }
             
