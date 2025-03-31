@@ -586,7 +586,7 @@ struct AccessorySearchView: View {
             "https://cdn-lostark.game.onstove.com/efui_iconatlas/acc_ring.png"       // 반지
         ]
         
-        for i in 1...10 {
+        for _ in 1...10 {
             let quality = max(selectedQuality, Int.random(in: selectedQuality...100))
             
             let options = [
