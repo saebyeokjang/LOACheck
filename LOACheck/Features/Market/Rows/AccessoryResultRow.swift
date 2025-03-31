@@ -101,15 +101,18 @@ struct AccessoryResultRow: View {
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                             
+                            // 효과 등급 판별 및 색상 적용
+                            let effectTier = EngraveEffectManager.shared.getEffectTier(name: effect.optionName, value: effect.value)
+                            
                             if effect.isValuePercentage {
                                 Text("+\(String(format: "%.2f", effect.value))%")
                                     .font(.caption2)
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(effectTier.color)
                                     .fontWeight(.bold)
                             } else {
                                 Text("+\(Int(effect.value))")
                                     .font(.caption)
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(effectTier.color)
                                     .fontWeight(.bold)
                             }
                         }

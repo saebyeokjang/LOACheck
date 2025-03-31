@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftUICore
 
 // MARK: - 연마효과 정보 관리자 (하드코딩 버전)
 class EngraveEffectManager {
@@ -85,6 +86,53 @@ class EngraveEffectManager {
             EngraveEffectValue(displayValue: "960", value: 960, isPercentage: false)
         ]
     ]
+    
+    // 연마효과 등급 판별 (하, 중, 상)
+    func getEffectTier(name: String, value: Double) -> EffectTier {
+        guard let values = effectValues[name] else {
+            return .low
+        }
+        
+        // isPercentage 확인
+        let isPercentage = values.first?.isPercentage ?? true
+        
+        // 값 비교를 위한 정수값으로 변환
+        let compareValue = isPercentage ? Int(value * 100) : Int(value)
+        
+        if values.count >= 3 {
+            if compareValue <= values[0].value {
+                return .low
+            } else if compareValue <= values[1].value {
+                return .medium
+            } else {
+                return .high
+            }
+        } else if values.count == 2 {
+            if compareValue <= values[0].value {
+                return .low
+            } else {
+                return .high
+            }
+        }
+        
+        return .low
+    }
+
+    // 연마효과 등급 열거형
+    enum EffectTier {
+        case low
+        case medium
+        case high
+        
+        // 등급별 색상
+        var color: Color {
+            switch self {
+            case .low: return .blue
+            case .medium: return .purple
+            case .high: return Color(red: 1.0, green: 0.5, blue: 0.0) // 오렌지색
+            }
+        }
+    }
     
     // 특정 부위에 적용 가능한 연마효과 목록 반환
     func getEngraveEffectsForCategory(_ category: AccessoryCategory) -> [String] {
