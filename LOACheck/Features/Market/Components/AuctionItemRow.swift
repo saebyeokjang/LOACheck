@@ -22,18 +22,19 @@ struct AuctionItemRow: View {
                 Image(systemName: "book.fill")
                     .foregroundColor(.orange)
             }
-            .frame(width: 40, height: 40)
+            .frame(width: 48, height: 48)
             .background(Color.black.opacity(0.05))
             .cornerRadius(6)
             .overlay(
                 RoundedRectangle(cornerRadius: 6)
-                    .stroke(Color.red.opacity(0.7), lineWidth: 2)
+                    .stroke(Color.relicGrade, lineWidth: 2) // 유물등급 색상 적용
             )
             
             // 아이템 정보
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.name)
                     .font(.headline)
+                    .foregroundColor(Color.relicGrade) // 유물등급 색상 적용
                 
                 // 각인 정보
                 let engraveInfo = item.engraveInfo
