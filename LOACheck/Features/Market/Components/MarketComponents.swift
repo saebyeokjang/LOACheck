@@ -60,36 +60,3 @@ struct FilterChip: View {
         }
     }
 }
-
-// 에러 뷰 컴포넌트
-struct ErrorView: View {
-    var message: String
-    var retryAction: () -> Void
-    
-    var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 50))
-                .foregroundColor(.orange)
-            
-            Text("데이터를 불러올 수 없습니다")
-                .font(.headline)
-            
-            Text(message)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-            
-            Button(action: retryAction) {
-                Text("다시 시도")
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
-            }
-            .padding(.top, 8)
-        }
-        .padding()
-    }
-}

@@ -70,6 +70,7 @@ struct AccessoryResultRow: View {
                     Text(item.name)
                         .font(.headline)
                         .lineLimit(1)
+                        .foregroundColor(Color.ancientGrade)
                     
                     if let tradeCount = item.tradeAllowCount {
                         Text("거래 가능 횟수: \(tradeCount)")

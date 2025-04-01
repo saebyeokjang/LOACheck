@@ -226,3 +226,10 @@ extension Int {
         return formatter.string(from: NSNumber(value: self)) ?? "\(self)"
     }
 }
+
+extension Color {
+    // 게임 등급별 색상
+    static let ancientGrade = Color(red: 0.85, green: 0.68, blue: 0.25) // 고대등급
+    static let relicGrade = Color(red: 1.0, green: 0.35, blue: 0.0)    // 유물등급
+    static let legendaryGrade = Color(red: 1.0, green: 0.65, blue: 0.0) // 전설등급
+}

@@ -257,4 +257,82 @@ class AuctionService {
             return .failure(.networkError(error))
         }
     }
+    
+    // 보석 시세 정보 가져오기 (레벨 및 타입별로 필터링)
+    func fetchGems(apiKey: String, gemLevel: Int? = nil, gemType: String? = nil) async -> Result<Auction, APIError> {
+        do {
+            let url = URL(string: "\(baseURL)/markets/items")!
+            
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.addValue("application/json", forHTTPHeaderField: "accept")
+            request.addValue("application/json", forHTTPHeaderField: "content-type")
+            request.addValue("bearer \(apiKey)", forHTTPHeaderField: "authorization")
+            
+            // 요청 본문 구성
+            var requestBody: [String: Any] = [
+                "Sort": "BIDSTART_PRICE", // 입찰가 기준 정렬
+                "CategoryCode": 210000,   // 보석 카테고리 코드
+                "ItemTier": 4,            // 티어 4
+                "PageNo": 1,
+                "SortCondition": "ASC"    // 낮은 가격부터 오름차순
+            ]
+            
+            // 보석 이름 필터 (레벨과 타입 모두 지정된 경우)
+            if let level = gemLevel, let type = gemType {
+                requestBody["ItemName"] = "\(level)레벨 \(type)"
+            }
+            // 보석 레벨만 지정된 경우
+            else if let level = gemLevel {
+                requestBody["ItemName"] = "\(level)레벨"
+            }
+            // 보석 타입만 지정된 경우
+            else if let type = gemType {
+                requestBody["ItemName"] = type
+            }
+            
+            let jsonData = try JSONSerialization.data(withJSONObject: requestBody)
+            request.httpBody = jsonData
+            
+            Logger.debug("보석 시세 API 요청: \(url.absoluteString)")
+            Logger.debug("요청 본문: \(String(data: jsonData, encoding: .utf8) ?? "")")
+            
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                return .failure(.invalidResponse)
+            }
+            
+            switch httpResponse.statusCode {
+            case 200:
+                let decoder = JSONDecoder()
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS"
+                decoder.dateDecodingStrategy = .formatted(dateFormatter)
+                
+                do {
+                    let auction = try decoder.decode(Auction.self, from: data)
+                    Logger.debug("성공적으로 \(auction.items?.count ?? 0)개의 보석 시세 정보를 디코딩했습니다")
+                    return .success(auction)
+                } catch {
+                    Logger.error("JSON 디코딩 오류", error: error)
+                    return .failure(.networkError(error))
+                }
+                
+            case 401:
+                return .failure(.unauthorized)
+            case 403:
+                return .failure(.forbidden)
+            case 429:
+                return .failure(.rateLimit)
+            case 503:
+                return .failure(.serviceUnavailable)
+            default:
+                return .failure(.unknown(httpResponse.statusCode))
+            }
+        } catch {
+            Logger.error("보석 시세 API 오류", error: error)
+            return .failure(.networkError(error))
+        }
+    }
 }
