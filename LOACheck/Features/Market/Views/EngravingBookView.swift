@@ -41,30 +41,9 @@ struct EngravingBookView: View {
                     .padding()
             } else if let error = errorMessage {
                 // 에러 화면
-                VStack(spacing: 16) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 50))
-                        .foregroundColor(.orange)
-                    
-                    Text("데이터를 불러올 수 없습니다")
-                        .font(.headline)
-                    
-                    Text(error)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                    
-                    Button(action: loadAuctionData) {
-                        Text("다시 시도")
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(Color.blue)
-                            .foregroundColor(.white)
-                            .cornerRadius(8)
-                    }
-                    .padding(.top, 8)
+                APIErrorView(message: error) {
+                    loadAuctionData()
                 }
-                .padding()
             } else if auctionItems.isEmpty {
                 // 빈 화면
                 VStack(spacing: 16) {
@@ -92,26 +71,6 @@ struct EngravingBookView: View {
                 }
                 .padding()
             } else {
-                // 검색창
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.gray)
-                    
-                    TextField("각인서 이름 검색", text: $searchText)
-                        .autocorrectionDisabled()
-                    
-                    if !searchText.isEmpty {
-                        Button(action: { searchText = "" }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.gray)
-                        }
-                    }
-                }
-                .padding(8)
-                .background(Color(.systemGray6))
-                .cornerRadius(10)
-                .padding(.horizontal)
-                
                 // 데이터 표시
                 List {
                     ForEach(filteredItems) { item in
@@ -175,7 +134,6 @@ struct EngravingBookView: View {
     private func loadAuctionData() {
         guard !apiKey.isEmpty else {
             errorMessage = "API 키가 설정되지 않았습니다. 설정 탭에서 API 키를 입력해주세요."
-            showAlert = true
             return
         }
         
@@ -217,11 +175,9 @@ struct EngravingBookView: View {
                     
                     if auctionItems.isEmpty {
                         errorMessage = "유물 등급 각인서를 찾을 수 없습니다."
-                        showAlert = true
                     }
                 case .failure(let error):
                     errorMessage = error.localizedDescription
-                    showAlert = true
                 }
             }
         }
