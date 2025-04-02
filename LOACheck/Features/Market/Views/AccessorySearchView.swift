@@ -194,14 +194,6 @@ struct AccessorySearchView: View {
                 }
             }
         }
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button(action: clearFilters) {
-                    Label("필터 초기화", systemImage: "xmark.circle")
-                }
-                .disabled(selectedEngraveEffects.isEmpty && selectedQuality == 0)
-            }
-        }
         .alert(isPresented: $showAlert) {
             Alert(
                 title: Text("알림"),

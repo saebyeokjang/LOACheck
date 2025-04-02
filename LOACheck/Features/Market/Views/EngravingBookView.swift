@@ -110,14 +110,6 @@ struct EngravingBookView: View {
                 }
             }
         }
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button(action: loadAuctionData) {
-                    Label("새로고침", systemImage: "arrow.clockwise")
-                }
-                .disabled(isLoading)
-            }
-        }
         .alert(isPresented: $showAlert) {
             Alert(
                 title: Text("알림"),
@@ -126,7 +118,9 @@ struct EngravingBookView: View {
             )
         }
         .onAppear {
-            loadAuctionData()
+            if auctionItems.isEmpty && !isLoading {
+                loadAuctionData()
+            }
         }
     }
     
