@@ -23,6 +23,7 @@ struct AccessorySearchView: View {
     @State private var searchResults: [AuctionItem] = []
     @State private var currentPage = 1
     @State private var totalPages = 1
+    @State private var isPaginating = false // 페이지네이션 로딩 상태
     
     // 부위별 카테고리
     let accessoryCategories: [AccessoryCategory] = [.necklace, .earring, .ring]
@@ -41,7 +42,7 @@ struct AccessorySearchView: View {
                 ProgressView("장신구 검색 중...")
                     .padding()
             } else if let error = errorMessage {
-                // 에러 화면
+                // 에러 화면 - APIErrorView 사용
                 APIErrorView(message: error) {
                     // 재시도 버튼 액션
                     errorMessage = nil
@@ -171,12 +172,41 @@ struct AccessorySearchView: View {
                                 
                                 Divider()
                                 
-                                // 결과 목록
-                                ForEach(Array(searchResults.enumerated()), id: \.offset) { index, item in
-                                    AccessoryResultRow(item: item)
-                                        .padding(.horizontal)
+                                // 결과를 LazyVStack으로 변경
+                                LazyVStack(spacing: 0) {
+                                    // 결과 목록
+                                    ForEach(Array(searchResults.enumerated()), id: \.offset) { index, item in
+                                        AccessoryResultRow(item: item)
+                                            .padding(.horizontal)
+                                        
+                                        Divider()
+                                    }
                                     
-                                    Divider()
+                                    // 페이지네이션 컨트롤 - 더보기 버튼
+                                    if isPaginating {
+                                        // 로딩 인디케이터
+                                        HStack {
+                                            Spacer()
+                                            ProgressView()
+                                                .padding()
+                                            Spacer()
+                                        }
+                                    } else if currentPage < totalPages {
+                                        // 더보기 버튼
+                                        Button(action: loadNextPage) {
+                                            HStack {
+                                                Spacer()
+                                                Text("더 보기")
+                                                    .foregroundColor(.blue)
+                                                    .padding()
+                                                Spacer()
+                                            }
+                                            .background(Color.gray.opacity(0.05))
+                                            .cornerRadius(8)
+                                            .padding(.horizontal)
+                                            .padding(.top, 4)
+                                        }
+                                    }
                                 }
                             }
                             .padding(.top)
@@ -200,6 +230,42 @@ struct AccessorySearchView: View {
                 message: Text(errorMessage ?? ""),
                 dismissButton: .default(Text("확인"))
             )
+        }
+    }
+    
+    // 다음 페이지 로드
+    private func loadNextPage() {
+        guard !isPaginating && currentPage < totalPages else { return }
+        
+        isPaginating = true
+        
+        // 다음 페이지 번호
+        let nextPage = currentPage + 1
+        
+        Task {
+            let result = await MarketService.shared.searchAccessories(
+                apiKey: apiKey,
+                accessoryType: selectedAccessoryType,
+                quality: selectedQuality,
+                engraveEffects: selectedEngraveEffects,
+                engraveValues: selectedEngraveValues,
+                page: nextPage
+            )
+            
+            await MainActor.run {
+                isPaginating = false
+                
+                switch result {
+                case .success(let response):
+                    // 이전 결과에 새로운 결과 추가
+                    let newItems = MarketService.shared.convertToAuctionItems(from: response.items)
+                    searchResults.append(contentsOf: newItems)
+                    currentPage = nextPage
+                    
+                case .failure(let error):
+                    errorMessage = error.userFriendlyMessage
+                }
+            }
         }
     }
     
@@ -244,6 +310,7 @@ struct AccessorySearchView: View {
         
         isLoading = true
         errorMessage = nil
+        currentPage = 1 // 새 검색 시 페이지 초기화
         
         // 실제 API 호출
         Task {
@@ -252,7 +319,8 @@ struct AccessorySearchView: View {
                 accessoryType: selectedAccessoryType,
                 quality: selectedQuality,
                 engraveEffects: selectedEngraveEffects,
-                engraveValues: selectedEngraveValues
+                engraveValues: selectedEngraveValues,
+                page: currentPage
             )
             
             await MainActor.run {
@@ -273,7 +341,6 @@ struct AccessorySearchView: View {
                         searchResults = MarketService.shared.convertToAuctionItems(from: response.items)
                         
                         // 페이징 정보 업데이트
-                        currentPage = response.pageNo
                         totalPages = (response.totalCount + response.pageSize - 1) / response.pageSize
                     }
                     

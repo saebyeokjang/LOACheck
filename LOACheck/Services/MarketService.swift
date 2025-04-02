@@ -19,7 +19,8 @@ class MarketService {
         accessoryType: Int,
         quality: Int,
         engraveEffects: [String],
-        engraveValues: [String: Double]
+        engraveValues: [String: Double],
+        page: Int = 0
     ) async -> Result<AccessorySearchResponse, APIError> {
         do {
             let url = URL(string: "\(baseURL)/auctions/items")!
@@ -86,19 +87,25 @@ class MarketService {
             }
             
             // 검색 요청 구성
-            let requestBody = AccessorySearchRequest(
-                itemGradeQuality: quality,
-                etcOptions: etcOptions,
-                sort: "BIDSTART_PRICE",
-                categoryCode: category.rawValue,
-                itemTier: 4,
-                itemGrade: "고대",
-                sortCondition: "ASC"
-            )
+            var requestDict: [String: Any] = [
+                            "ItemGradeQuality": quality,
+                            "EtcOptions": etcOptions.map { [
+                                "FirstOption": $0.firstOption,
+                                "SecondOption": $0.secondOption,
+                                "MinValue": $0.minValue,
+                                "MaxValue": $0.maxValue
+                            ]},
+                            "Sort": "BIDSTART_PRICE",
+                            "CategoryCode": category.rawValue,
+                            "ItemTier": 4,
+                            "ItemGrade": "고대",
+                            "SortCondition": "ASC",
+                            "PageNo": page // 페이지 번호 추가
+                        ]
             
             let encoder = JSONEncoder()
-            let jsonData = try encoder.encode(requestBody)
-            request.httpBody = jsonData
+            let jsonData = try JSONSerialization.data(withJSONObject: requestDict)
+                        request.httpBody = jsonData
             
             Logger.debug("장신구 검색 API 요청: \(url.absoluteString)")
             Logger.debug("요청 본문: \(String(data: jsonData, encoding: .utf8) ?? "")")
