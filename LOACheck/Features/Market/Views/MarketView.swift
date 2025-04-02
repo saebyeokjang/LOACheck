@@ -54,7 +54,8 @@ struct MarketView: View {
                     .tag(2)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .animation(.easeInOut, value: selectedTab)
+                .transition(.opacity)
+                .animation(.default, value: selectedTab)
             }
             .navigationTitle("시세")
         }

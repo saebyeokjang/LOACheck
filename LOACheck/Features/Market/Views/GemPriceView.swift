@@ -19,7 +19,7 @@ struct GemPriceView: View {
     struct GemPrice: Identifiable {
         var id = UUID()
         var level: Int
-        var type: String  // "겁화" 또는 "작열"
+        var type: String
         var name: String
         var icon: String
         var price: Int
@@ -68,14 +68,6 @@ struct GemPriceView: View {
                 }
             }
         }
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button(action: loadAllGemPrices) {
-                    Label("새로고침", systemImage: "arrow.clockwise")
-                }
-                .disabled(isLoading)
-            }
-        }
         .alert(isPresented: $showAlert) {
             Alert(
                 title: Text("알림"),
@@ -103,30 +95,66 @@ struct GemPriceView: View {
         gemPrices = []
         
         Task {
+            // 일단 하나의 보석만 시도해서 API 상태 확인
+            let testResult = await fetchGemPrice(level: gemLevels[0], type: gemTypes[0])
+            
+            switch testResult {
+            case .failure(let error):
+                // 첫 번째 요청이 실패하면 API 상태에 문제가 있는 것으로 간주
+                if let apiError = error as? APIError {
+                    await MainActor.run {
+                        isLoading = false
+                        errorMessage = apiError.userFriendlyMessage
+                    }
+                    return
+                } else {
+                    // 첫 번째 요청에서 일반 오류 발생 - 로깅만 하고 계속 진행
+                    Logger.error("API 초기 점검 실패: \(error.localizedDescription)")
+                }
+            default:
+                break // 성공하면 계속 진행
+            }
+            
+            // 병렬 요청 시작
             await withTaskGroup(of: Result<GemPrice?, Error>.self) { group in
                 for level in gemLevels {
                     for type in gemTypes {
+                        // 첫 번째 요청은 이미 수행했으므로 건너뛰기
+                        if level == gemLevels[0] && type == gemTypes[0] {
+                            if case .success(let price) = testResult, let price = price {
+                                await MainActor.run {
+                                    gemPrices.append(price)
+                                }
+                            }
+                            continue
+                        }
+                        
                         group.addTask {
                             return await fetchGemPrice(level: level, type: type)
                         }
                     }
                 }
                 
-                var prices: [GemPrice] = []
+                var errorOccurred = false
+                var lastError: Error? = nil
+                
                 for await result in group {
                     switch result {
                     case .success(let price):
                         if let price = price {
-                            prices.append(price)
+                            await MainActor.run {
+                                gemPrices.append(price)
+                            }
                         }
                     case .failure(let error):
+                        errorOccurred = true
+                        lastError = error
                         Logger.error("보석 시세 로드 실패: \(error.localizedDescription)")
                     }
                 }
                 
                 // 결과 처리
                 await MainActor.run {
-                    gemPrices = prices
                     isLoading = false
                     let currentDate = Date()
                     onRefresh(currentDate)
@@ -140,7 +168,15 @@ struct GemPriceView: View {
                     }
                     
                     if gemPrices.isEmpty {
-                        errorMessage = "보석 시세 정보를 가져올 수 없습니다."
+                        if let error = lastError as? APIError {
+                            errorMessage = error.userFriendlyMessage
+                        } else {
+                            errorMessage = "보석 시세 정보를 가져올 수 없습니다. 다시 시도해 주세요."
+                        }
+                    } else if errorOccurred {
+                        // 일부 결과만 로드됨 - 사용자에게 알리되 결과는 표시
+                        // 여기서는 알림을 표시하지 않고 일부 결과만 표시
+                        Logger.debug("일부 보석 시세만 로드됨: \(gemPrices.count)/\(gemLevels.count * gemTypes.count)")
                     }
                 }
             }
@@ -152,24 +188,24 @@ struct GemPriceView: View {
         // 보석의 정확한 검색명 형식: "[레벨]레벨 [타입]의 보석"
         let gemSearchName = "\(level)레벨 \(type)의 보석"
         
-        do {
-            // API 요청 보내기
-            let result = await fetchGemsWithCustomParams(
-                apiKey: apiKey,
-                params: [
-                    "Sort": "BuyPrice",  // 즉시구매가 기준으로 정렬
-                    "CategoryCode": 210000,
-                    "ItemTier": 4,
-                    "ItemName": gemSearchName,
-                    "PageNo": 0,
-                    "SortCondition": "ASC"
-                ]
-            )
-            
-            switch result {
-            case .success(let auction):
-                // 결과가 있고 즉시구매가가 있는 아이템 찾기
-                if let item = auction.items?.first(where: { $0.auctionInfo.buyPrice != nil }) {
+        // API 요청 보내기
+        let result = await fetchGemsWithCustomParams(
+            apiKey: apiKey,
+            params: [
+                "Sort": "BuyPrice",  // 즉시구매가 기준으로 정렬
+                "CategoryCode": 210000,
+                "ItemTier": 4,
+                "ItemName": gemSearchName,
+                "PageNo": 0,
+                "SortCondition": "ASC"
+            ]
+        )
+        
+        switch result {
+        case .success(let auction):
+            // 결과가 있고 즉시구매가가 있는 아이템 찾기
+            if let items = auction.items, !items.isEmpty {
+                if let item = items.first(where: { $0.auctionInfo.buyPrice != nil }) {
                     // 즉시구매가 사용
                     return .success(GemPrice(
                         level: level,
@@ -178,7 +214,7 @@ struct GemPriceView: View {
                         icon: item.icon,
                         price: item.auctionInfo.buyPrice ?? 0
                     ))
-                } else if let item = auction.items?.first {
+                } else if let item = items.first {
                     // 즉시구매가 없는 경우 입찰가 사용
                     return .success(GemPrice(
                         level: level,
@@ -188,12 +224,13 @@ struct GemPriceView: View {
                         price: item.auctionInfo.bidStartPrice
                     ))
                 }
-                return .success(nil) // 해당 레벨/종류 보석 없음
-                
-            case .failure(let error):
-                errorMessage = error.userFriendlyMessage
-                return .failure(error)
             }
+            // 아이템 배열이 null이거나 비어있는 경우
+            return .success(nil)
+            
+        case .failure(let error):
+            Logger.error("보석 시세 가져오기 오류: \(error.localizedDescription)")
+            return .failure(error)
         }
     }
     
@@ -218,19 +255,81 @@ struct GemPriceView: View {
                 return .failure(.invalidResponse)
             }
             
+            // 응답 내용 로깅 (디버깅용)
+#if DEBUG
+            if let responseText = String(data: data, encoding: .utf8) {
+                let preview = String(responseText.prefix(200)) // 응답의 앞부분만 로깅
+                Logger.debug("API 응답 미리보기: \(preview)")
+            }
+#endif
+            
             switch httpResponse.statusCode {
             case 200:
-                let decoder = JSONDecoder()
-                let dateFormatter = DateFormatter()
-                dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS"
-                decoder.dateDecodingStrategy = .formatted(dateFormatter)
+                // 서비스가 점검 중일 때도 200 상태 코드를 반환하는 경우 점검 메시지 확인
+                if let responseText = String(data: data, encoding: .utf8) {
+                    if responseText.contains("점검") || responseText.contains("maintenance") {
+                        return .failure(.serviceUnavailable)
+                    }
+                    
+                    // 응답이 HTML 형식일 경우 (API가 웹 페이지를 반환하는 경우)
+                    if responseText.contains("<html") || responseText.contains("<!DOCTYPE") {
+                        Logger.error("API가 HTML 응답을 반환함: \(responseText.prefix(100))")
+                        return .failure(.serviceUnavailable)
+                    }
+                }
                 
-                do {
-                    let auction = try decoder.decode(Auction.self, from: data)
-                    return .success(auction)
-                } catch {
-                    Logger.error("JSON 디코딩 오류", error: error)
-                    return .failure(.networkError(error))
+                // 먼저 JSON 형식인지 확인
+                if let _ = try? JSONSerialization.jsonObject(with: data) {
+                    let decoder = JSONDecoder()
+                    let dateFormatter = DateFormatter()
+                    dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS"
+                    decoder.dateDecodingStrategy = .formatted(dateFormatter)
+                    
+                    // 디코딩 시도
+                    do {
+                        let auction = try decoder.decode(Auction.self, from: data)
+                        return .success(auction)
+                    } catch {
+                        // 구체적인 디코딩 오류 확인
+                        Logger.error("JSON 디코딩 오류 상세: \(error)")
+                        
+                        // DecodingError의 경우 더 구체적인 오류 정보 로깅
+                        if let decodingError = error as? DecodingError {
+                            switch decodingError {
+                            case .keyNotFound(let key, let context):
+                                Logger.error("필수 키를 찾을 수 없음: \(key.stringValue), 경로: \(context.codingPath)")
+                            case .typeMismatch(let type, let context):
+                                Logger.error("타입 불일치: 예상 타입 \(type), 경로: \(context.codingPath)")
+                            case .valueNotFound(let type, let context):
+                                Logger.error("값을 찾을 수 없음: 타입 \(type), 경로: \(context.codingPath)")
+                            case .dataCorrupted(let context):
+                                Logger.error("데이터 손상: \(context)")
+                            @unknown default:
+                                Logger.error("알 수 없는 디코딩 오류: \(decodingError)")
+                            }
+                        }
+                        
+                        // JSON 구조 확인 (디버깅용)
+                        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                            Logger.debug("JSON 응답 구조: \(json.keys)")
+                        }
+                        
+                        // 오류 메시지가 있는지 확인
+                        if let errorDict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                           let message = errorDict["Message"] as? String {
+                            Logger.error("API 오류 메시지: \(message)")
+                            
+                            // 점검 관련 메시지인지 확인
+                            if message.contains("점검") || message.contains("maintenance") {
+                                return .failure(.serviceUnavailable)
+                            }
+                        }
+                        
+                        return .failure(.networkError(error))
+                    }
+                } else {
+                    Logger.error("API 응답이 유효한 JSON 형식이 아님")
+                    return .failure(.invalidResponse)
                 }
                 
             case 401:
@@ -242,10 +341,14 @@ struct GemPriceView: View {
             case 503:
                 return .failure(.serviceUnavailable)
             default:
+                if httpResponse.statusCode >= 500 {
+                    // 500번대 오류는 서버 오류이므로 서비스 불가능으로 처리
+                    return .failure(.serviceUnavailable)
+                }
                 return .failure(.unknown(httpResponse.statusCode))
             }
         } catch {
-            Logger.error("보석 시세 API 오류", error: error)
+            Logger.error("API 요청 중 오류 발생: \(error)")
             return .failure(.networkError(error))
         }
     }
