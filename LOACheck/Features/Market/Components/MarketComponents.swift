@@ -12,11 +12,22 @@ import SwiftData
 struct SearchFilterSection<Content: View>: View {
     var title: String
     @State var isExpanded: Bool
-    @ViewBuilder var content: Content
+    let content: Content
+    
+    init(title: String, isExpanded: Bool = false, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self._isExpanded = State(initialValue: isExpanded)
+        self.content = content()
+    }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Button(action: { isExpanded.toggle() }) {
+        VStack(spacing: 0) {
+            // 헤더 (탭 가능)
+            Button(action: {
+                withAnimation {
+                    isExpanded.toggle()
+                }
+            }) {
                 HStack {
                     Text(title)
                         .font(.headline)
@@ -24,23 +35,29 @@ struct SearchFilterSection<Content: View>: View {
                     Spacer()
                     
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .foregroundColor(.gray)
+                        .foregroundColor(.secondary)
                 }
+                .padding(.vertical, 12)
+                .padding(.horizontal, 16)
+                .background(Color.gray.opacity(0.05))
+                .cornerRadius(10)
             }
             .buttonStyle(PlainButtonStyle())
-            .padding(.horizontal)
             
+            // 확장된 컨텐츠
             if isExpanded {
                 content
-                    .padding(.top, 4)
+                    .padding(.vertical, 12)
+                    .background(Color.white)
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .padding(.vertical, 8)
         .background(Color.gray.opacity(0.05))
         .cornerRadius(10)
         .padding(.horizontal)
     }
 }
+
 
 // 필터 칩 컴포넌트
 struct FilterChip: View {
