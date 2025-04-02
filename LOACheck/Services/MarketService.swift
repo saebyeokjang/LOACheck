@@ -46,7 +46,7 @@ class MarketService {
                     // 값이 선택되었는지 확인
                     if let value = engraveValues[effect] {
                         // 값이 선택된 경우 - 기존 로직 유지
-                        let isPercentage = EngraveEffectManager.shared.getEngraveEffectValues(effect)?.first?.isPercentage ?? true
+                        _ = EngraveEffectManager.shared.getEngraveEffectValues(effect)?.first?.isPercentage ?? true
                         let apiValue = Int(value)
                         
                         let option = AccessoryOption(
@@ -212,7 +212,7 @@ class MarketService {
             formatter.timeZone = TimeZone(secondsFromGMT: 0)
             
             // 경매 정보 변환
-            let auctionInfo = AuctionInfo(
+            _ = AuctionInfo(
                 startPrice: item.auctionInfo.startPrice,
                 buyPrice: item.auctionInfo.buyPrice,
                 bidPrice: item.auctionInfo.bidPrice,
