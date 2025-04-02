@@ -232,3 +232,21 @@ class LostArkAPIService {
         }
     }
 }
+
+extension APIError {
+    // 사용자에게 보여줄 표준화된 메시지
+    var userFriendlyMessage: String {
+        switch self {
+        case .serviceUnavailable:
+            return "로스트아크 API 서비스가 현재 점검 중입니다."
+        case .rateLimit:
+            return "API 호출 한도를 초과했습니다.\n잠시 후 다시 시도해 주세요."
+        case .unauthorized:
+            return "API 키가 유효하지 않습니다.\n설정에서 API 키를 확인해 주세요."
+        case .forbidden:
+            return "API 접근 권한이 없습니다.\n설정에서 API 키를 확인해 주세요."
+        case .invalidResponse, .unknown(_), .networkError(_):
+            return "네트워크 오류가 발생했습니다.\n인터넷 연결을 확인하고 다시 시도해 주세요."
+        }
+    }
+}

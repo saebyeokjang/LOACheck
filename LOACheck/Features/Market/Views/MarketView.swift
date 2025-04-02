@@ -53,14 +53,10 @@ struct MarketView: View {
                     })
                     .tag(2)
                 }
-                .tabViewStyle(.page(indexDisplayMode: .never)) // 페이지 인디케이터 숨김
+                .tabViewStyle(.page(indexDisplayMode: .never))
                 .animation(.easeInOut, value: selectedTab)
             }
             .navigationTitle("시세")
         }
     }
-}
-
-#Preview {
-    MarketView()
 }

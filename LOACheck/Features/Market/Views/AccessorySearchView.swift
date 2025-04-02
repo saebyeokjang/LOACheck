@@ -42,7 +42,7 @@ struct AccessorySearchView: View {
                     .padding()
             } else if let error = errorMessage {
                 // 에러 화면
-                ErrorView(message: error) {
+                APIErrorView(message: error) {
                     // 재시도 버튼 액션
                     errorMessage = nil
                 }
@@ -242,13 +242,11 @@ struct AccessorySearchView: View {
         // 검색 조건이 선택되지 않은 경우
         if selectedEngraveEffects.isEmpty {
             errorMessage = "연마효과를 하나 이상 선택해주세요"
-            showAlert = true
             return
         }
         
         guard !apiKey.isEmpty else {
             errorMessage = "API 키가 설정되지 않았습니다. 설정 탭에서 API 키를 입력해주세요."
-            showAlert = true
             return
         }
         
@@ -278,7 +276,6 @@ struct AccessorySearchView: View {
                     if response.totalCount == 0 || response.items.isEmpty {
                         searchResults = []
                         errorMessage = "검색 조건에 맞는 장신구가 없습니다.\n다른 조건으로 시도해보세요."
-                        showAlert = true
                     } else {
                         // API 응답을 UI에 표시할 AuctionItem으로 변환
                         searchResults = MarketService.shared.convertToAuctionItems(from: response.items)
@@ -289,8 +286,7 @@ struct AccessorySearchView: View {
                     }
                     
                 case .failure(let error):
-                    errorMessage = "검색 중 오류가 발생했습니다: \(error.localizedDescription)"
-                    showAlert = true
+                    errorMessage = error.userFriendlyMessage
                 }
             }
         }

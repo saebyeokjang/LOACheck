@@ -40,33 +40,17 @@ struct GemPriceView: View {
                     .padding()
             } else if let error = errorMessage {
                 // 에러 화면
-                ErrorView(message: error) {
+                APIErrorView(message: error) {
                     // 재시도 버튼 액션
                     loadAllGemPrices()
                 }
             } else {
                 if gemPrices.isEmpty {
-                    // 데이터가 없는 경우
                     VStack(spacing: 20) {
                         Spacer()
                         
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 60))
-                            .foregroundColor(.gray)
-                        
-                        Text("보석 시세 데이터가 없습니다")
-                            .font(.headline)
-                        
-                        Button(action: loadAllGemPrices) {
-                            Text("보석 시세 불러오기")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.blue)
-                                .cornerRadius(10)
-                        }
-                        .padding(.horizontal, 40)
+                        ProgressView("보석 시세 불러오는 중...")
+                            .padding()
                         
                         Spacer()
                     }
@@ -99,13 +83,18 @@ struct GemPriceView: View {
                 dismissButton: .default(Text("확인"))
             )
         }
+        // 뷰가 나타날 때 자동으로 데이터 로드
+        .onAppear {
+            // 데이터가 없는 경우에만 로드 시작
+            if gemPrices.isEmpty && !isLoading {
+                loadAllGemPrices()
+            }
+        }
     }
     
-    // 모든 보석 레벨의 시세 로드 (순차적으로 로드하여 네트워크 부하 감소)
     private func loadAllGemPrices() {
         guard !apiKey.isEmpty else {
             errorMessage = "API 키가 설정되지 않았습니다. 설정 탭에서 API 키를 입력해주세요."
-            showAlert = true
             return
         }
         
@@ -114,48 +103,45 @@ struct GemPriceView: View {
         gemPrices = []
         
         Task {
-            // 순차적으로 요청을 보내 네트워크 부하 감소
-            for level in gemLevels {
-                for type in gemTypes {
-                    // 동시 요청을 피하기 위해 각 요청 사이에 작은 딜레이 추가
-                    if level != gemLevels.first || type != gemTypes.first {
-                        try? await Task.sleep(nanoseconds: 200_000_000) // 0.2초 지연
+            await withTaskGroup(of: Result<GemPrice?, Error>.self) { group in
+                for level in gemLevels {
+                    for type in gemTypes {
+                        group.addTask {
+                            return await fetchGemPrice(level: level, type: type)
+                        }
                     }
-                    
-                    let result = await fetchGemPrice(level: level, type: type)
-                    
+                }
+                
+                var prices: [GemPrice] = []
+                for await result in group {
                     switch result {
                     case .success(let price):
                         if let price = price {
-                            await MainActor.run {
-                                gemPrices.append(price)
-                            }
+                            prices.append(price)
                         }
                     case .failure(let error):
-                        Logger.error("보석 시세 로드 실패: \(level)레벨 \(type) - \(error.localizedDescription)")
-                        // 개별 실패는 무시하고 계속 진행
+                        Logger.error("보석 시세 로드 실패: \(error.localizedDescription)")
                     }
                 }
-            }
-            
-            // 모든 요청이 완료된 후 업데이트
-            await MainActor.run {
-                isLoading = false
-                let currentDate = Date()
-                onRefresh(currentDate)
                 
-                // 보석 정렬: 레벨 높은 순 -> 종류(겁화 먼저)
-                gemPrices.sort { gem1, gem2 in
-                    if gem1.level != gem2.level {
-                        return gem1.level > gem2.level // 높은 레벨 우선
+                // 결과 처리
+                await MainActor.run {
+                    gemPrices = prices
+                    isLoading = false
+                    let currentDate = Date()
+                    onRefresh(currentDate)
+                    
+                    // 보석 정렬: 레벨 높은 순 -> 종류(겁화 먼저)
+                    gemPrices.sort { gem1, gem2 in
+                        if gem1.level != gem2.level {
+                            return gem1.level > gem2.level // 높은 레벨 우선
+                        }
+                        return gem1.type == "겁화" // 같은 레벨에서는 겁화 우선
                     }
-                    return gem1.type == "겁화" // 같은 레벨에서는 겁화 우선
-                }
-                
-                // 결과가 없으면 에러 메시지
-                if gemPrices.isEmpty {
-                    errorMessage = "보석 시세 정보를 가져올 수 없습니다."
-                    showAlert = true
+                    
+                    if gemPrices.isEmpty {
+                        errorMessage = "보석 시세 정보를 가져올 수 없습니다."
+                    }
                 }
             }
         }
@@ -205,10 +191,9 @@ struct GemPriceView: View {
                 return .success(nil) // 해당 레벨/종류 보석 없음
                 
             case .failure(let error):
+                errorMessage = error.userFriendlyMessage
                 return .failure(error)
             }
-        } catch {
-            return .failure(error)
         }
     }
     
