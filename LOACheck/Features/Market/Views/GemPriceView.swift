@@ -192,7 +192,7 @@ struct GemPriceView: View {
         let result = await fetchGemsWithCustomParams(
             apiKey: apiKey,
             params: [
-                "Sort": "BuyPrice",  // 즉시구매가 기준으로 정렬
+                "Sort": "CURRENT_MIN_PRICE",
                 "CategoryCode": 210000,
                 "ItemTier": 4,
                 "ItemName": gemSearchName,
