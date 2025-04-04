@@ -38,7 +38,9 @@ struct CharacterPagingView: View {
                         showCharacterSelector = true
                     }) {
                         HStack(spacing: 4) {
-                            Text("바로가기")
+                            Image(systemName: "person.crop.circle.badge.questionmark")
+                                .imageScale(.medium)
+                            Text("이동")
                                 .font(.caption)
                         }
                         .foregroundColor(.blue)
@@ -119,7 +121,7 @@ struct CharacterPagingView: View {
                                 let threshold: CGFloat = geometry.size.width * 0.2 // 화면 너비의 20%
                                 
                                 // 페이지 전환 애니메이션
-                                withAnimation(.easeOut(duration: 0.3)) {
+                                withAnimation(.interpolatingSpring(stiffness: 300, damping: 30)) {
                                     if value.translation.width > threshold && currentPage > 0 {
                                         // 오른쪽으로 스와이프 - 이전 페이지
                                         currentPage -= 1
@@ -172,7 +174,7 @@ struct CharacterPagingView: View {
         // 드래그 중이거나 애니메이션 중일 때 오프셋 적용
         if isAnimating && animationDirection != 0 {
             // 버튼 클릭 애니메이션 중일 때
-            return pageOffset + (CGFloat(animationDirection) * dragOffset)
+            return pageOffset + dragOffset
         } else {
             // 일반 드래그 중일 때
             return pageOffset + dragOffset
@@ -184,25 +186,25 @@ struct CharacterPagingView: View {
         guard newPage >= 0 && newPage < characters.count && !isAnimating else { return }
         
         // 애니메이션 방향 설정 (이전 페이지: -1, 다음 페이지: 1)
-        animationDirection = newPage > currentPage ? -1 : 1
+        animationDirection = newPage > currentPage ? 1 : -1
         isAnimating = true
         isPageChanging = true
         
-        // 시작 위치 설정 (화면 너비의 30%)
-        dragOffset = CGFloat(animationDirection) * screenWidth * 0.3
+        // 시작 위치 설정 (화면 너비의 25%)
+        dragOffset = CGFloat(-animationDirection) * screenWidth * 0.25
         
         // 햅틱 피드백
         let generator = UIImpactFeedbackGenerator(style: .light)
         generator.impactOccurred()
         
         // 애니메이션 시작
-        withAnimation(.easeOut(duration: 0.3)) {
+        withAnimation(.interpolatingSpring(stiffness: 300, damping: 30)) {
             dragOffset = 0 // 원래 위치로 돌아옴
             currentPage = newPage
         }
         
         // 애니메이션 완료 후 상태 초기화
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             animationDirection = 0
             isAnimating = false
             isPageChanging = false
