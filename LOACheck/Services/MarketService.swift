@@ -87,7 +87,7 @@ class MarketService {
             }
             
             // 검색 요청 구성
-            var requestDict: [String: Any] = [
+            let requestDict: [String: Any] = [
                             "ItemGradeQuality": quality,
                             "EtcOptions": etcOptions.map { [
                                 "FirstOption": $0.firstOption,
@@ -95,7 +95,7 @@ class MarketService {
                                 "MinValue": $0.minValue,
                                 "MaxValue": $0.maxValue
                             ]},
-                            "Sort": "BIDSTART_PRICE",
+                            "Sort": "BUY_PRICE",
                             "CategoryCode": category.rawValue,
                             "ItemTier": 4,
                             "ItemGrade": "고대",
@@ -103,7 +103,7 @@ class MarketService {
                             "PageNo": page // 페이지 번호 추가
                         ]
             
-            let encoder = JSONEncoder()
+            _ = JSONEncoder()
             let jsonData = try JSONSerialization.data(withJSONObject: requestDict)
                         request.httpBody = jsonData
             

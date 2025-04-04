@@ -15,6 +15,9 @@ struct CharacterPagingView: View {
     @State private var isPageChanging = false // 페이지 전환 중 상태
     @State private var dragOffset: CGFloat = 0 // 드래그 상태 추적
     @State private var screenWidth: CGFloat = UIScreen.main.bounds.width // 화면 너비
+    @State private var showCharacterSelector = false // 캐릭터 선택기 표시 여부
+    @State private var animationDirection: Int = 0 // 애니메이션 방향 (1: 다음 페이지, -1: 이전 페이지, 0: 없음)
+    @State private var isAnimating = false // 애니메이션 진행 중 상태
     
     init(goToSettingsAction: (() -> Void)? = nil) {
         var descriptor = FetchDescriptor<CharacterModel>(predicate: #Predicate<CharacterModel> { !$0.isHidden })
@@ -28,11 +31,58 @@ struct CharacterPagingView: View {
             if characters.isEmpty {
                 EmptyCharactersView(goToSettingsAction: goToSettingsAction)
             } else {
-                // 페이지 번호만 표시 (화살표 제거)
-                Text("\(currentPage + 1) / \(characters.count)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.top, 8)
+                // 상단 네비게이션 바
+                HStack {
+                    // 바로가기 버튼
+                    Button(action: {
+                        showCharacterSelector = true
+                    }) {
+                        HStack(spacing: 4) {
+                            Text("바로가기")
+                                .font(.caption)
+                        }
+                        .foregroundColor(.blue)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(12)
+                    }
+                    
+                    Spacer()
+                    
+                    // 페이지 번호 표시
+                    Text("\(currentPage + 1) / \(characters.count)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    // 페이지 넘기기 버튼들
+                    HStack(spacing: 12) {
+                        Button(action: {
+                            if currentPage > 0 && !isAnimating {
+                                navigateToPage(currentPage - 1)
+                            }
+                        }) {
+                            Image(systemName: "chevron.left")
+                                .foregroundColor(currentPage > 0 && !isAnimating ? .blue : .gray)
+                        }
+                        .disabled(currentPage <= 0 || isAnimating)
+                        
+                        Button(action: {
+                            if currentPage < characters.count - 1 && !isAnimating {
+                                navigateToPage(currentPage + 1)
+                            }
+                        }) {
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(currentPage < characters.count - 1 && !isAnimating ? .blue : .gray)
+                        }
+                        .disabled(currentPage >= characters.count - 1 || isAnimating)
+                    }
+                    .padding(.horizontal, 10)
+                }
+                .padding(.horizontal)
+                .padding(.top, 8)
                 
                 // 각 페이지의 너비를 측정하기 위한 GeometryReader
                 GeometryReader { geometry in
@@ -100,6 +150,14 @@ struct CharacterPagingView: View {
         .onChange(of: currentPage) { oldValue, newValue in
             Logger.debug("Page changed from \(oldValue) to \(newValue)")
         }
+        .sheet(isPresented: $showCharacterSelector) {
+            CharacterSelectorView(
+                characters: characters,
+                currentPage: $currentPage,
+                dismiss: { showCharacterSelector = false },
+                navigateToPage: navigateToPage
+            )
+        }
     }
     
     // 특정 페이지가 보여져야 하는지 결정 (성능 최적화)
@@ -111,8 +169,107 @@ struct CharacterPagingView: View {
     private func calculateOffset(for index: Int, in geometry: GeometryProxy) -> CGFloat {
         let pageOffset = CGFloat(index - currentPage) * geometry.size.width
         
-        // 드래그 중일 때는 드래그 거리를 반영
-        return pageOffset + dragOffset
+        // 드래그 중이거나 애니메이션 중일 때 오프셋 적용
+        if isAnimating && animationDirection != 0 {
+            // 버튼 클릭 애니메이션 중일 때
+            return pageOffset + (CGFloat(animationDirection) * dragOffset)
+        } else {
+            // 일반 드래그 중일 때
+            return pageOffset + dragOffset
+        }
+    }
+    
+    // 페이지 이동 애니메이션 함수
+    private func navigateToPage(_ newPage: Int) {
+        guard newPage >= 0 && newPage < characters.count && !isAnimating else { return }
+        
+        // 애니메이션 방향 설정 (이전 페이지: -1, 다음 페이지: 1)
+        animationDirection = newPage > currentPage ? -1 : 1
+        isAnimating = true
+        isPageChanging = true
+        
+        // 시작 위치 설정 (화면 너비의 30%)
+        dragOffset = CGFloat(animationDirection) * screenWidth * 0.3
+        
+        // 햅틱 피드백
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+        
+        // 애니메이션 시작
+        withAnimation(.easeOut(duration: 0.3)) {
+            dragOffset = 0 // 원래 위치로 돌아옴
+            currentPage = newPage
+        }
+        
+        // 애니메이션 완료 후 상태 초기화
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            animationDirection = 0
+            isAnimating = false
+            isPageChanging = false
+        }
+    }
+}
+
+// 캐릭터 선택 시트 뷰
+struct CharacterSelectorView: View {
+    let characters: [CharacterModel]
+    @Binding var currentPage: Int
+    var dismiss: () -> Void
+    var navigateToPage: (Int) -> Void
+    
+    var body: some View {
+        NavigationView {
+            List {
+                Section(header: Text("캐릭터 바로가기")) {
+                    ForEach(Array(characters.enumerated()), id: \.element.id) { index, character in
+                        Button(action: {
+                            navigateToPage(index)
+                            dismiss()
+                        }) {
+                            HStack {
+                                // 캐릭터 정보
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(character.name)
+                                        .font(.headline)
+                                    
+                                    Text("\(character.server) • \(character.characterClass)")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                    
+                                    Text("레벨: \(String(format: "%.2f", character.level))")
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                }
+                                
+                                Spacer()
+                                
+                                // 현재 선택된 캐릭터 표시
+                                if index == currentPage {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.blue)
+                                }
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                }
+                
+                Section(footer: Text("현재 '보기'가 체크된 캐릭터만 표시됩니다.")) {
+                    EmptyView()
+                }
+            }
+            .listStyle(InsetGroupedListStyle())
+            .navigationTitle("캐릭터 선택")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("닫기") {
+                        dismiss()
+                    }
+                }
+            }
+        }
     }
 }
 

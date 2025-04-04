@@ -271,7 +271,7 @@ class AuctionService {
             
             // 요청 본문 구성
             var requestBody: [String: Any] = [
-                "Sort": "BIDSTART_PRICE", // 입찰가 기준 정렬
+                "Sort": "CURRENT_MIN_PRICE",
                 "CategoryCode": 210000,   // 보석 카테고리 코드
                 "ItemTier": 4,            // 티어 4
                 "PageNo": 1,
