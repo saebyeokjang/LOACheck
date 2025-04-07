@@ -31,6 +31,10 @@ struct GemResultRow: View {
             return Color.relicGrade
         case 5...7:
             return Color.legendaryGrade
+        case 3...4:
+            return Color.epicGrade
+        case 1...2:
+            return Color.rareGrade
         default:
             return Color.gray
         }
