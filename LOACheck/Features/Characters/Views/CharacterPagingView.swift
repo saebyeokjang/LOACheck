@@ -54,32 +54,6 @@ struct CharacterPagingView: View {
                     Text("\(currentPage + 1) / \(characters.count)")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    
-                    Spacer()
-                    
-                    // 페이지 넘기기 버튼들
-                    HStack(spacing: 12) {
-                        Button(action: {
-                            if currentPage > 0 && !isAnimating {
-                                navigateToPage(currentPage - 1)
-                            }
-                        }) {
-                            Image(systemName: "chevron.left")
-                                .foregroundColor(currentPage > 0 && !isAnimating ? .blue : .gray)
-                        }
-                        .disabled(currentPage <= 0 || isAnimating)
-                        
-                        Button(action: {
-                            if currentPage < characters.count - 1 && !isAnimating {
-                                navigateToPage(currentPage + 1)
-                            }
-                        }) {
-                            Image(systemName: "chevron.right")
-                                .foregroundColor(currentPage < characters.count - 1 && !isAnimating ? .blue : .gray)
-                        }
-                        .disabled(currentPage >= characters.count - 1 || isAnimating)
-                    }
-                    .padding(.horizontal, 10)
                 }
                 .padding(.horizontal)
                 .padding(.top, 8)
@@ -93,7 +67,9 @@ struct CharacterPagingView: View {
                             if shouldShowPage(index) { // 불필요한 페이지는 로드하지 않음
                                 CharacterDetailView(
                                     character: characters[index],
-                                    isCurrentlyActive: index == currentPage && !isPageChanging
+                                    isCurrentlyActive: index == currentPage && !isPageChanging,
+                                    goToPreviousPage: index > 0 ? { navigateToPage(index - 1) } : nil,
+                                    goToNextPage: index < characters.count - 1 ? { navigateToPage(index + 1) } : nil
                                 )
                                 .padding(.horizontal)
                                 .frame(width: geometry.size.width)
@@ -196,8 +172,8 @@ struct CharacterPagingView: View {
         generator.impactOccurred()
         
         // 애니메이션 시작
-        withAnimation(.interpolatingSpring(stiffness: 300, damping: 30)) {
-            dragOffset = 0 // 원래 위치로 돌아옴
+        withAnimation(.interpolatingSpring(stiffness: 500, damping: 100)) {
+            dragOffset = 0
             currentPage = newPage
         }
         
