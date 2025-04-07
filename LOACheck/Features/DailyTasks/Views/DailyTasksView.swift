@@ -9,8 +9,10 @@ import SwiftUI
 
 struct DailyTasksView: View {
     var tasks: [DailyTask]
-    var character: CharacterModel  // 캐릭터 모델 추가
-    var isActiveView: Bool = true // 현재 활성화된 페이지인지 여부
+    var character: CharacterModel
+    var isActiveView: Bool = true
+    
+    @AppStorage("dailyTasksSectionExpanded") private var isSectionExpanded = true
     @State private var showRestingPointsInfo = false
     
     private var sortedTasks: [DailyTask] {
@@ -22,7 +24,6 @@ struct DailyTasksView: View {
         }
     }
     
-    // 복잡한 문자열 처리를 위한 계산 속성
     private var chaosContentName: String {
         return character.level >= 1640 ? "쿠르잔 전선" : "카오스 던전"
     }
@@ -55,7 +56,6 @@ struct DailyTasksView: View {
                 
                 Spacer()
                 
-                // 휴게 포인트 설명 버튼
                 Button(action: {
                     showRestingPointsInfo = true
                 }) {
@@ -65,23 +65,38 @@ struct DailyTasksView: View {
                             .font(.caption)
                     }
                     .foregroundColor(.blue)
-                    .padding(8) // 터치 영역 확장
-                    .contentShape(Rectangle()) // 명확한 터치 영역 정의
+                    .padding(8)
+                    .contentShape(Rectangle())
                 }
-                .buttonStyle(ScaleButtonStyle()) // 버튼 스타일 적용
+                .buttonStyle(ScaleButtonStyle())
+                
+                Button(action: {
+                    isSectionExpanded.toggle()
+                }) {
+                    Image(systemName: isSectionExpanded ? "chevron.up" : "chevron.down")
+                        .foregroundColor(.gray)
+                        .frame(width: 24, height: 24)
+                        .background(Color.gray.opacity(0.1))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(ScaleButtonStyle())
             }
             
-            Divider()
-            
-            // 최적화된 태스크 목록
-            LazyVStack(spacing: 8) {
-                ForEach(sortedTasks) { task in
-                    TaskRowView(task: task, character: character)  // 캐릭터 전달
+            if isSectionExpanded {
+                VStack(spacing: 0) {
+                    Divider()
                     
-                    if task != sortedTasks.last {
-                        Divider()
-                            .padding(.vertical, 4)
+                    LazyVStack(spacing: 8) {
+                        ForEach(sortedTasks) { task in
+                            TaskRowView(task: task, character: character)
+                            
+                            if task != sortedTasks.last {
+                                Divider()
+                                    .padding(.vertical, 4)
+                            }
+                        }
                     }
+                    .padding(.vertical)
                 }
             }
         }
@@ -96,7 +111,6 @@ struct DailyTasksView: View {
                 dismissButton: .default(Text("확인"))
             )
         }
-        // 비활성 뷰일 때는 입력 비활성화 (페이지 전환 중)
         .allowsHitTesting(isActiveView)
     }
 }
