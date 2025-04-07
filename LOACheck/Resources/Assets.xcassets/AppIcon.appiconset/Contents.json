@@ -89,6 +89,7 @@
       "size" : "68x68"
     },
     {
+      "filename" : "AppIcon@2x~ipad.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "2x",
@@ -255,6 +256,7 @@
           "value" : "dark"
         }
       ],
+      "filename" : "icon-192-maskable 2.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "3x",
@@ -279,6 +281,7 @@
           "value" : "dark"
         }
       ],
+      "filename" : "AppIcon@2x~ipad 1.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "2x",
@@ -482,6 +485,7 @@
           "value" : "tinted"
         }
       ],
+      "filename" : "AppIcon@2x~ipad 2.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "2x",
