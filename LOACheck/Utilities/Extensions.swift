@@ -232,4 +232,6 @@ extension Color {
     static let ancientGrade = Color(red: 0.85, green: 0.68, blue: 0.25) // 고대등급
     static let relicGrade = Color(red: 1.0, green: 0.35, blue: 0.0)    // 유물등급
     static let legendaryGrade = Color(red: 1.0, green: 0.65, blue: 0.0) // 전설등급
-}
+    static let epicGrade = Color(red: 0.5, green: 0.15, blue: 0.75)    // 영웅등급
+    static let rareGrade = Color(red: 0.0, green: 0.5, blue: 1.0)      // 희귀등급
+    }

@@ -29,7 +29,7 @@ struct GemPriceView: View {
     @State private var gemPrices: [GemPrice] = []
     
     // 보석 레벨 범위
-    let gemLevels = [10, 9, 8, 7, 6, 5]
+    let gemLevels = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
     let gemTypes = ["겁화", "작열"]
     
     var body: some View {
@@ -174,8 +174,6 @@ struct GemPriceView: View {
                             errorMessage = "보석 시세 정보를 가져올 수 없습니다. 다시 시도해 주세요."
                         }
                     } else if errorOccurred {
-                        // 일부 결과만 로드됨 - 사용자에게 알리되 결과는 표시
-                        // 여기서는 알림을 표시하지 않고 일부 결과만 표시
                         Logger.debug("일부 보석 시세만 로드됨: \(gemPrices.count)/\(gemLevels.count * gemTypes.count)")
                     }
                 }
@@ -205,24 +203,31 @@ struct GemPriceView: View {
         case .success(let auction):
             // 결과가 있고 즉시구매가가 있는 아이템 찾기
             if let items = auction.items, !items.isEmpty {
-                if let item = items.first(where: { $0.auctionInfo.buyPrice != nil }) {
-                    // 즉시구매가 사용
-                    return .success(GemPrice(
-                        level: level,
-                        type: type,
-                        name: item.name,
-                        icon: item.icon,
-                        price: item.auctionInfo.buyPrice ?? 0
-                    ))
-                } else if let item = items.first {
-                    // 즉시구매가 없는 경우 입찰가 사용
-                    return .success(GemPrice(
-                        level: level,
-                        type: type,
-                        name: item.name,
-                        icon: item.icon,
-                        price: item.auctionInfo.bidStartPrice
-                    ))
+                // 즉시구매가가 있는 아이템들만 필터링
+                let itemsWithBuyPrice = items.filter { $0.auctionInfo.buyPrice != nil }
+                
+                if !itemsWithBuyPrice.isEmpty {
+                    // 즉시구매가가 있는 아이템 중 가장 저렴한 아이템 찾기
+                    if let cheapestItem = itemsWithBuyPrice.min(by: { ($0.auctionInfo.buyPrice ?? 0) < ($1.auctionInfo.buyPrice ?? 0) }) {
+                        return .success(GemPrice(
+                            level: level,
+                            type: type,
+                            name: cheapestItem.name,
+                            icon: cheapestItem.icon,
+                            price: cheapestItem.auctionInfo.buyPrice ?? 0
+                        ))
+                    }
+                } else {
+                    // 즉시구매가가 없는 경우 가장 저렴한 입찰가 사용
+                    if let cheapestItem = items.min(by: { $0.auctionInfo.bidStartPrice < $1.auctionInfo.bidStartPrice }) {
+                        return .success(GemPrice(
+                            level: level,
+                            type: type,
+                            name: cheapestItem.name,
+                            icon: cheapestItem.icon,
+                            price: cheapestItem.auctionInfo.bidStartPrice
+                        ))
+                    }
                 }
             }
             // 아이템 배열이 null이거나 비어있는 경우
@@ -376,6 +381,10 @@ struct GemPriceRow: View {
             return Color.relicGrade
         case 5...7:
             return Color.legendaryGrade
+        case 3...4:
+            return Color.epicGrade
+        case 1...2:
+            return Color.rareGrade
         default:
             return Color.gray
         }

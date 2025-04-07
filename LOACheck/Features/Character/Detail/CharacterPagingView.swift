@@ -38,9 +38,7 @@ struct CharacterPagingView: View {
                         showCharacterSelector = true
                     }) {
                         HStack(spacing: 4) {
-                            Image(systemName: "person.crop.circle.badge.questionmark")
-                                .imageScale(.medium)
-                            Text("이동")
+                            Text("바로가기")
                                 .font(.caption)
                         }
                         .foregroundColor(.blue)
