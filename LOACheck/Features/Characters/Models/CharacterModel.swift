@@ -19,6 +19,24 @@ final class CharacterModel {
     var isHidden: Bool
     var isGoldEarner: Bool
     var lastUpdated: Date
+    var additionalGoldMap: String = "{}"
+    
+    @Transient
+    var additionalGoldForRaids: [String: Int] {
+        get {
+            guard let data = additionalGoldMap.data(using: .utf8),
+                  let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Int] else {
+                return [:]
+            }
+            return dict
+        }
+        set {
+            if let data = try? JSONSerialization.data(withJSONObject: newValue),
+               let jsonStr = String(data: data, encoding: .utf8) {
+                additionalGoldMap = jsonStr
+            }
+        }
+    }
     
     @Relationship(deleteRule: .cascade) var dailyTasks: [DailyTask]?
     @Relationship(deleteRule: .cascade) var raidGates: [RaidGate]?  // 관문별 레이드로 변경
@@ -52,6 +70,18 @@ final class CharacterModel {
         self.raidGates = []
     }
     
+    // 특정 레이드의 추가 수익 가져오기
+    func getAdditionalGold(for raid: String) -> Int {
+        return additionalGoldForRaids[raid] ?? 0
+    }
+    
+    // 특정 레이드의 추가 수익 설정
+    func setAdditionalGold(_ amount: Int, for raid: String) {
+        var currentMap = additionalGoldForRaids
+        currentMap[raid] = amount
+        additionalGoldForRaids = currentMap
+    }
+    
     // 캐릭터에 대한 주간 골드 보상 계산 (최대 3개 레이드만 적용)
     func calculateWeeklyGoldReward() -> Int {
         guard isGoldEarner, let gates = raidGates else { return 0 }
@@ -59,12 +89,13 @@ final class CharacterModel {
         // 레이드별로 그룹화
         let groupedGates = Dictionary(grouping: gates) { $0.raid }
         
-        // 각 레이드의 총 골드 계산 (currentGoldReward 사용)
+        // 각 레이드의 총 골드 계산 (기본 + 추가)
         let raidGolds = groupedGates.map { raidName, gates -> (name: String, gold: Int) in
-            let totalGold = gates.reduce(0) { result, gate in
+            let baseGold = gates.reduce(0) { result, gate in
                 return result + gate.currentGoldReward
             }
-            return (name: raidName, gold: totalGold)
+            let additionalGold = getAdditionalGold(for: raidName)
+            return (name: raidName, gold: baseGold + additionalGold)
         }.sorted { $0.gold > $1.gold }
         
         // 상위 3개 레이드의 골드만 합산
@@ -83,19 +114,22 @@ final class CharacterModel {
         // 레이드별로 그룹화
         let groupedGates = Dictionary(grouping: gates) { $0.raid }
         
-        // 각 레이드의 총 골드 계산 (currentGoldReward 사용)
+        // 각 레이드의 골드 계산
         let raidGolds = groupedGates.map { raidName, gates -> (name: String, gold: Int, earnedGold: Int) in
-            // 레이드 총 골드
+            // 레이드 기본 골드
             let totalGold = gates.reduce(0) { result, gate in
                 return result + gate.currentGoldReward
             }
             
-            // 획득한 골드
-            let earnedGold = gates.filter { $0.isCompleted }.reduce(0) { result, gate in
+            // 획득한 기본 골드 (완료된 관문만)
+            let earnedBaseGold = gates.filter { $0.isCompleted }.reduce(0) { result, gate in
                 return result + gate.currentGoldReward
             }
             
-            return (name: raidName, gold: totalGold, earnedGold: earnedGold)
+            // 추가 골드 (컨텐츠가 하나라도 완료되었을 때만 적용)
+            let additionalGold = earnedBaseGold > 0 ? getAdditionalGold(for: raidName) : 0
+            
+            return (name: raidName, gold: totalGold + additionalGold, earnedGold: earnedBaseGold + additionalGold)
         }.sorted { $0.gold > $1.gold }
         
         // 상위 3개 레이드의 획득 골드만 합산

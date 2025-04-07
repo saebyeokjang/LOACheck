@@ -17,9 +17,16 @@ final class RaidGate {
     var goldReward: Int     // 골드 보상
     var isCompleted: Bool   // 완료 여부
     var lastCompletedAt: Date?
+    var additionalGold: Int = 0 // 추가 수익
     
     var displayName: String {
         "\(raid) \(gate + 1)관문(\(difficulty))"
+    }
+    
+    // 총 골드 계산 속성 (기본 보상 + 추가 수익)
+    @Transient
+    var totalGoldReward: Int {
+        return currentGoldReward + additionalGold
     }
     
     // 최신 골드 보상 가져오는 계산 속성 추가
@@ -39,6 +46,7 @@ final class RaidGate {
         self.goldReward = goldReward
         self.isCompleted = isCompleted
         self.lastCompletedAt = lastCompletedAt
+        self.additionalGold = additionalGold
     }
     
     func reset() {

@@ -158,6 +158,7 @@ struct CharacterGoldRow: View {
                 // 레이드별 정보 표시
                 ForEach(raidGolds, id: \.name) { raidInfo in
                     RaidInfoRow(
+                        character: character,
                         raidInfo: raidInfo,
                         isTopRaid: topRaidNames.contains(raidInfo.name),
                         groupedGates: groupedGates,
@@ -172,6 +173,7 @@ struct CharacterGoldRow: View {
 
 // 레이드 정보 행
 struct RaidInfoRow: View {
+    let character: CharacterModel
     let raidInfo: (name: String, gold: Int, earnedGold: Int)
     let isTopRaid: Bool
     let groupedGates: [String: [RaidGate]]
@@ -180,9 +182,24 @@ struct RaidInfoRow: View {
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(raidInfo.name)
-                    .font(.subheadline)
-                    .foregroundColor(isTopRaid ? .primary : .gray)
+                // 레이드 이름 + 클리어 표시
+                HStack(spacing: 4) {
+                    // 레이드 이름에 취소선 추가 (모든 관문 완료 시)
+                    let allCompleted = isRaidCompleted()
+                    
+                    Text(raidInfo.name)
+                        .font(.subheadline)
+                        .foregroundColor(allCompleted ? .gray : (isTopRaid ? .primary : .gray))
+                        .strikethrough(allCompleted)
+                    
+                    // 완료 시 체크마크 추가
+                    if allCompleted {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 12))
+                            .fontWeight(.bold)
+                            .foregroundColor(.green)
+                    }
+                }
                 
                 if let raidGates = groupedGates[raidInfo.name] {
                     // 관문 요약 (완료된 관문 수 / 전체 관문 수)
@@ -196,20 +213,29 @@ struct RaidInfoRow: View {
             Spacer()
             
             VStack(alignment: .trailing) {
-                Text("\(raidInfo.earnedGold) / \(raidInfo.gold) G")
-                    .font(.caption)
-                    .foregroundColor(isTopRaid ? .orange : .gray)
+                // 추가 골드 가져오기 (CharacterModel에서)
+                let additionalGold = character.getAdditionalGold(for: raidInfo.name)
                 
-                if isTopRaid {
-                    HStack(spacing: 2) {
-                        Image(systemName: "star.fill")
-                            .font(.system(size: 8))
-                            .foregroundColor(.orange)
-                        Text("골드 획득")
-                            .font(.caption2)
-                            .foregroundColor(.orange)
+                // 해당 레이드의 하나라도 완료된 관문이 있는지 확인
+                let hasCompletedGates = (groupedGates[raidInfo.name] ?? []).contains { $0.isCompleted }
+                
+                // 추가 골드 표시 (완료된 관문이 있을 때만)
+                let displayAdditionalGold = hasCompletedGates ? additionalGold : 0
+                
+                HStack(spacing: 4) {
+                    Text("\(raidInfo.earnedGold + displayAdditionalGold) / \(raidInfo.gold + additionalGold) G")
+                        .font(.caption)
+                        .foregroundColor(isTopRaid ? .orange : .gray)
+                    
+                    if additionalGold > 0 {
+                        Text("(+\(additionalGold)G)")
+                            .font(.caption)
+                            .foregroundColor(.green)
                     }
-                } else {
+                }
+                
+                // 골드 획득 불가 표시 (상위 3개 레이드가 아닌 경우만)
+                if !isTopRaid {
                     Text("골드 획득 불가")
                         .font(.caption2)
                         .foregroundColor(.gray)
@@ -223,5 +249,13 @@ struct RaidInfoRow: View {
             Divider()
                 .padding(.vertical, 2)
         }
+    }
+    
+    // 레이드의 모든 관문이 완료되었는지 확인하는 헬퍼 메서드
+    private func isRaidCompleted() -> Bool {
+        if let raidGates = groupedGates[raidInfo.name] {
+            return !raidGates.isEmpty && !raidGates.contains { !$0.isCompleted }
+        }
+        return false
     }
 }
