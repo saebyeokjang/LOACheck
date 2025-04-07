@@ -13,6 +13,10 @@ struct CharacterDetailView: View {
     var isCurrentlyActive: Bool = true // 현재 활성화된 페이지인지 여부
     @State private var scrollViewID = UUID() // 페이지 전환 시 스크롤뷰 재설정용 ID
     
+    // 페이지 이동 관련 콜백
+    var goToPreviousPage: (() -> Void)?
+    var goToNextPage: (() -> Void)?
+    
     // 스크롤 위치 추적을 위한 네임스페이스
     private enum ScrollToTop {
         case top
@@ -28,7 +32,11 @@ struct CharacterDetailView: View {
                         .id(ScrollToTop.top)
                     
                     // 캐릭터 정보 헤더
-                    CharacterHeaderView(character: character)
+                    CharacterHeaderView(
+                        character: character,
+                        goToPreviousPage: goToPreviousPage,
+                        goToNextPage: goToNextPage
+                    )
                     
                     // 일일 숙제 섹션
                     if let dailyTasks = character.dailyTasks, !dailyTasks.isEmpty {
@@ -67,35 +75,79 @@ struct CharacterDetailView: View {
 // 캐릭터 헤더 뷰 추가
 struct CharacterHeaderView: View {
     var character: CharacterModel
+    var goToPreviousPage: (() -> Void)?
+    var goToNextPage: (() -> Void)?
     
     var body: some View {
         VStack(spacing: 12) {
-            // 캐릭터 이름 및 정보
-            Text(character.name)
-                .font(.title)
-                .fontWeight(.bold)
-            
-            Text("\(character.server) • \(character.characterClass)")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-            
-            Text("아이템 레벨: \(String(format: "%.2f", character.level))")
-                .font(.headline)
-                .padding(.vertical, 4)
-                .padding(.horizontal, 12)
-                .background(Color.blue.opacity(0.1))
-                .cornerRadius(8)
-            
-            // 골드 획득 캐릭터 표시
-            if character.isGoldEarner {
-                Text("골드 획득 캐릭터")
-                    .font(.caption)
-                    .padding(.vertical, 4)
-                    .padding(.horizontal, 8)
-                    .background(Color.yellow.opacity(0.2))
-                    .foregroundColor(.orange)
-                    .cornerRadius(4)
+            // 페이지 이동 버튼 포함한 캐릭터 헤더
+            HStack {
+                // 이전 페이지로 이동
+                Button(action: {
+                    goToPreviousPage?()
+                }) {
+                    Image(systemName: "chevron.left")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 20, height: 20)
+                        .foregroundColor(goToPreviousPage != nil ? .blue : .gray)
+                        .frame(width: 44, height: 44)
+                        .background(Color.clear)
+                        .cornerRadius(8)
+                }
+                .disabled(goToPreviousPage == nil)
+
+                
+                Spacer()
+                
+                VStack(spacing: 8) {
+                    // 캐릭터 이름 및 정보
+                    Text(character.name)
+                        .font(.title)
+                        .fontWeight(.bold)
+                    
+                    Text("\(character.server) • \(character.characterClass)")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    Text("아이템 레벨: \(String(format: "%.2f", character.level))")
+                        .font(.headline)
+                        .padding(.vertical, 4)
+                        .padding(.horizontal, 12)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(8)
+                    
+                    // 골드 획득 캐릭터 표시
+                    if character.isGoldEarner {
+                        Text("골드 획득 캐릭터")
+                            .font(.caption)
+                            .padding(.vertical, 4)
+                            .padding(.horizontal, 8)
+                            .background(Color.yellow.opacity(0.2))
+                            .foregroundColor(.orange)
+                            .cornerRadius(4)
+                    }
+                }
+                
+                Spacer()
+                
+                // 다음 페이지로 이동
+                Button(action: {
+                    goToNextPage?()
+                }) {
+                    Image(systemName: "chevron.right")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 20, height: 20)
+                        .foregroundColor(goToNextPage != nil ? .blue : .gray)
+                        .frame(width: 44, height: 44)
+                        .background(Color.clear)
+                        .cornerRadius(8)
+                }
+                .disabled(goToNextPage == nil)
+
             }
+            .padding(.horizontal)
         }
         .padding()
         .background(Color(.systemBackground))
