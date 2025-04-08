@@ -19,6 +19,9 @@ struct AdditionalGoldInputView: View {
         // baseGold 변수를 body 메서드 시작 부분에서 계산
         let baseGold = calculateBaseGold()
         
+        // 상위 3개 레이드인지 확인
+        let isTopRaid = isTopThreeRaid()
+        
         NavigationView {
             Form {
                 Section(header: Text("\(raidName) 추가 수익")) {
@@ -28,9 +31,9 @@ struct AdditionalGoldInputView: View {
                         
                         Spacer()
                         
-                        // 미리 계산된 baseGold 사용
+                        // 미리 계산된 baseGold 사용 (상위 3개 레이드인 경우만 주황색)
                         Text("\(baseGold)G")
-                            .foregroundColor(.orange)
+                            .foregroundColor(isTopRaid ? .orange : .gray)
                     }
                     
                     HStack {
@@ -64,9 +67,10 @@ struct AdditionalGoldInputView: View {
                         
                         Spacer()
                         
-                        // 합계 계산
+                        // 합계 계산 (상위 3개 레이드가 아니면 추가 수익만 표시)
                         let addGold = Int(additionalGold) ?? 0
-                        Text("\(baseGold + addGold)G")
+                        let totalGold = isTopRaid ? (baseGold + addGold) : addGold
+                        Text("\(totalGold)G")
                             .font(.headline)
                             .fontWeight(.bold)
                             .foregroundColor(.blue)
@@ -107,6 +111,12 @@ struct AdditionalGoldInputView: View {
         // 해당 레이드의 완료된 관문 골드 합산
         let raidGates = gates.filter { $0.raid == raidName && $0.isCompleted }
         return raidGates.reduce(0) { $0 + $1.goldReward }
+    }
+    
+    // 현재 레이드가 상위 3개 레이드인지 확인
+    private func isTopThreeRaid() -> Bool {
+        let topRaidNames = character.getTopRaidNames()
+        return topRaidNames.contains(raidName)
     }
     
     // 입력된 추가 골드 저장

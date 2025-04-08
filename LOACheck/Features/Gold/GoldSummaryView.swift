@@ -189,7 +189,7 @@ struct RaidInfoRow: View {
                     
                     Text(raidInfo.name)
                         .font(.subheadline)
-                        .foregroundColor(allCompleted ? .gray : (isTopRaid ? .primary : .gray))
+                        .foregroundColor(allCompleted ? .gray : .primary)
                         .strikethrough(allCompleted)
                     
                     // 완료 시 체크마크 추가
@@ -223,9 +223,17 @@ struct RaidInfoRow: View {
                 let displayAdditionalGold = hasCompletedGates ? additionalGold : 0
                 
                 HStack(spacing: 4) {
-                    Text("\(raidInfo.earnedGold + displayAdditionalGold) / \(raidInfo.gold + additionalGold) G")
-                        .font(.caption)
-                        .foregroundColor(isTopRaid ? .orange : .gray)
+                    if isTopRaid {
+                        // 상위 3개 레이드는 기본 골드 + 추가 골드 표시
+                        Text("\(raidInfo.earnedGold + displayAdditionalGold) / \(raidInfo.gold + additionalGold) G")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    } else {
+                        // 그 외 레이드는 추가 골드만 표시
+                        Text("\(displayAdditionalGold) / \(additionalGold) G")
+                            .font(.caption)
+                            .foregroundColor(additionalGold > 0 ? .green : .gray)
+                    }
                     
                     if additionalGold > 0 {
                         Text("(+\(additionalGold)G)")
@@ -234,16 +242,15 @@ struct RaidInfoRow: View {
                     }
                 }
                 
-                // 골드 획득 불가 표시 (상위 3개 레이드가 아닌 경우만)
+                // 골드 획득 불가 표시
                 if !isTopRaid {
-                    Text("골드 획득 불가")
+                    Text("클리어 골드 획득 불가")
                         .font(.caption2)
                         .foregroundColor(.gray)
                 }
             }
         }
         .padding(.vertical, 2)
-        .opacity(isTopRaid ? 1.0 : 0.7)
         
         if !isLastRaid {
             Divider()
