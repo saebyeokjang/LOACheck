@@ -286,9 +286,34 @@ struct GemPriceView: View {
                 // 먼저 JSON 형식인지 확인
                 if let _ = try? JSONSerialization.jsonObject(with: data) {
                     let decoder = JSONDecoder()
-                    let dateFormatter = DateFormatter()
-                    dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS"
-                    decoder.dateDecodingStrategy = .formatted(dateFormatter)
+                    
+                    // 날짜 디코딩 전략 설정
+                    decoder.dateDecodingStrategy = .custom { decoder in
+                        let container = try decoder.singleValueContainer()
+                        let dateString = try container.decode(String.self)
+                        
+                        // 여러 날짜 형식 시도
+                        let dateFormatter = DateFormatter()
+                        
+                        // 시도할 날짜 형식들
+                        let formats = [
+                            "yyyy-MM-dd'T'HH:mm:ss.SSSSSSS",
+                            "yyyy-MM-dd'T'HH:mm:ss.SSS",
+                            "yyyy-MM-dd'T'HH:mm:ss",
+                            "yyyy-MM-dd'T'HH:mm:ssZ"
+                        ]
+                        
+                        for format in formats {
+                            dateFormatter.dateFormat = format
+                            if let date = dateFormatter.date(from: dateString) {
+                                return date
+                            }
+                        }
+                        
+                        // 모든 형식이 실패하면 현재 날짜 반환 (에러 방지)
+                        Logger.debug("날짜 파싱 실패: \(dateString) - 현재 날짜 사용")
+                        return Date()
+                    }
                     
                     // 디코딩 시도
                     do {
