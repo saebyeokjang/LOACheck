@@ -111,9 +111,9 @@ class TaskResetManager {
     
     // 주간 레이드 관문 리셋
     private func resetRaidGates(modelContext: ModelContext) {
-        let fetchDescriptor = FetchDescriptor<RaidGate>()
+        let gateDescriptor = FetchDescriptor<RaidGate>()
         do {
-            let allRaidGates = try modelContext.fetch(fetchDescriptor)
+            let allRaidGates = try modelContext.fetch(gateDescriptor)
             Logger.info("주간 레이드 리셋 - \(allRaidGates.count)개 관문 리셋")
             
             for gate in allRaidGates {
@@ -121,6 +121,30 @@ class TaskResetManager {
             }
         } catch {
             Logger.error("주간 레이드 리셋 실패", error: error)
+        }
+        
+        let characterDescriptor = FetchDescriptor<CharacterModel>()
+        do {
+            let allCharacters = try modelContext.fetch(characterDescriptor)
+            Logger.info("주간 추가 수익 리셋 - \(allCharacters.count)개 캐릭터")
+            
+            // 모든 캐릭터와 해당 레이드의 추가 수익 초기화
+            for character in allCharacters {
+                // 모든 레이드에 대한 추가 수익을 0으로 초기화
+                if let raidGates = character.raidGates, !raidGates.isEmpty {
+                    // 레이드별로 그룹화하여 유니크한 레이드 이름 목록 생성
+                    let raidNames = Set(raidGates.map { $0.raid })
+                    
+                    // 각 레이드의 추가 수익 초기화
+                    for raidName in raidNames {
+                        character.setAdditionalGold(0, for: raidName)
+                    }
+                    
+                    Logger.debug("캐릭터 '\(character.name)'의 \(raidNames.count)개 레이드 추가 수익 초기화")
+                }
+            }
+        } catch {
+            Logger.error("주간 추가 수익 리셋 실패", error: error)
         }
     }
     

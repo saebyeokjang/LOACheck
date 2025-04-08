@@ -103,10 +103,18 @@ struct RaidListCardView: View {
         let topRaidNames = character.isGoldEarner ?
         Array(raidTotalGolds.prefix(3)).map { $0.name } : []
         
-        // 전체 골드 계산 (추가 골드 포함)
-        let totalGold = character.isGoldEarner ? raidTotalGolds
-            .filter { topRaidNames.contains($0.name) }
-            .reduce(0) { $0 + $1.gold } : 0
+        // 전체 골드 계산 - 기본 레이드 골드는 상위 3개만, 추가 골드는 모든 레이드
+        let totalGold = character.isGoldEarner ? (
+            // 기본 레이드 골드 (상위 3개)
+            raidTotalGolds
+                .filter { topRaidNames.contains($0.name) }
+                .reduce(0) { $0 + $1.gold } +
+            
+            // 모든 레이드의 추가 골드 - 상위 3개와 중복되지 않는 것만
+            sortedRaidNames
+                .filter { !topRaidNames.contains($0) }
+                .reduce(0) { $0 + character.getAdditionalGold(for: $1) }
+        ) : 0
         
         // 획득 골드 계산 (추가 골드 포함)
         let earnedBaseGold = character.isGoldEarner ? groupedGates
@@ -115,8 +123,8 @@ struct RaidListCardView: View {
             .filter { $0.isCompleted }
             .reduce(0) { $0 + $1.goldReward } : 0
         
-        // 추가 골드 계산 (완료된 레이드만)
-        let earnedAdditionalGold = character.isGoldEarner ? topRaidNames
+        // 추가 골드 계산
+        let earnedAdditionalGold = character.isGoldEarner ? sortedRaidNames
             .filter { raidName in
                 let raidGates = groupedGates[raidName] ?? []
                 return raidGates.contains { $0.isCompleted }
@@ -220,14 +228,24 @@ struct RaidCardView: View {
                         let displayAdditionalGold = hasCompletedGates ? additionalGold : 0
                         
                         HStack {
-                            Text("\(earnedGold + displayAdditionalGold) / \(totalGold + additionalGold) G")
-                                .font(.caption)
-                                .foregroundColor(isTopRaid ? .orange : .gray)
+                            // 상위 3개 레이드가 아니면 기본 골드 표시 안 함
+                            if isTopRaid {
+                                Text("\(earnedGold + displayAdditionalGold) / \(totalGold + additionalGold) G")
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                            } else {
+                                // 상위 3개가 아닌 레이드는 추가 골드만 표시
+                                Text("\(displayAdditionalGold) / \(additionalGold) G")
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                                    .opacity(1.0)
+                            }
                             
                             if additionalGold > 0 {
                                 Text("(+\(additionalGold)G)")
                                     .font(.caption)
                                     .foregroundColor(.green)
+                                    .opacity(1.0)
                             }
                         }
                     }
@@ -236,20 +254,16 @@ struct RaidCardView: View {
                 Spacer()
                 
                 // 추가 수익 버튼
-                if isGoldEarner && isTopRaid {
+                if isGoldEarner {
                     Button(action: {
                         showAdditionalGoldSheet = true
                     }) {
                         HStack(spacing: 4) {
-                            Image(systemName: "plus.circle")
-                            Text("추가 수익")
-                                .font(.caption)
+                            Image(systemName: "plus").font(.title3)
                         }
                         .foregroundColor(.green)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color.green.opacity(0.1))
-                        .cornerRadius(8)
                     }
                     .buttonStyle(ScaleButtonStyle())
                     .padding(.trailing, 8)
@@ -279,7 +293,7 @@ struct RaidCardView: View {
                 }
                 .foregroundColor(isAllCompleted ? .secondary : .primary)
                 .cornerRadius(4)
-                .frame(width: 44, height: 44) // 터치 영역 확장
+                .frame(width: 30, height: 30) // 터치 영역 확장
                 .contentShape(Rectangle()) // 명확한 터치 영역 정의
                 .buttonStyle(ScaleButtonStyle()) // 커스텀 버튼 스타일 적용
             }
