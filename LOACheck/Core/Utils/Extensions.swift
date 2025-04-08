@@ -34,6 +34,13 @@ struct Logger {
         print("INFO [\(fileName):\(line)] \(function) - \(message)")
         #endif
     }
+    
+    static func warning(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
+        #if DEBUG
+        let fileName = URL(fileURLWithPath: file).lastPathComponent
+        print("WARNING [\(fileName):\(line)] \(function) - \(message)")
+        #endif
+    }
 }
 
 // MARK: - UserDefaults 확장
