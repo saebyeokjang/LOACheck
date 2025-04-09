@@ -13,15 +13,19 @@ struct ContentView: View {
     @State private var isInitialLoad = true
     @Environment(\.modelContext) private var modelContext
     @Query private var characters: [CharacterModel]
+    @EnvironmentObject var authManager: AuthManager
     
     @State private var resetTimer: Timer?
     
-    // 업데이트 관련 상태
+    // 앱 업데이트 관련 상태
     @State private var showUpdateAlert = false
     @State private var latestVersion = ""
     @State private var releaseNotes: String? = nil
     @AppStorage("lastUpdateCheckDate") private var lastUpdateCheckDate = Date.distantPast.timeIntervalSince1970
     @AppStorage("skipVersion") private var skipVersion = ""
+    
+    // 로그인 화면 표시 여부
+    @State private var showSignIn = false
     
     var body: some View {
         ZStack {
@@ -53,11 +57,17 @@ struct ContentView: View {
                     }
                     .tag(3)
                 
+                FriendsListView()
+                    .tabItem {
+                        Label("친구", systemImage: "person.2.fill")
+                    }
+                    .tag(4)
+                
                 SettingsView()
                     .tabItem {
                         Label("설정", systemImage: "gear")
                     }
-                    .tag(4)
+                    .tag(5)
             }
             .onAppear {
                 if isInitialLoad && characters.isEmpty {
@@ -100,6 +110,9 @@ struct ContentView: View {
                 .transition(.scale)
                 .zIndex(1)
             }
+        }
+        .sheet(isPresented: $showSignIn) {
+            SignInView(isPresented: $showSignIn)
         }
     }
     
