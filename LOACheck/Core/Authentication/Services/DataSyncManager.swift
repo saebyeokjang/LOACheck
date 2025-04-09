@@ -25,7 +25,7 @@ class DataSyncManager: ObservableObject {
     
     // 인증 매니저 구독
     private var cancellables = Set<AnyCancellable>()
-    private var modelContext: ModelContext?
+    var modelContext: ModelContext?
     
     // 동기화 전략 선택
     enum SyncStrategy {
