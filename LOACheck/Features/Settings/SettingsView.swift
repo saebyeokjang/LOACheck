@@ -33,10 +33,12 @@ struct SettingsView: View {
     
     // 인증 관련 상태
     @EnvironmentObject var authManager: AuthManager
+    @EnvironmentObject var errorService: ErrorHandlingService
+    @ObservedObject private var dataSyncManager = DataSyncManager.shared
+    @ObservedObject private var networkMonitor = NetworkMonitorService.shared
     @State private var showSignIn = false
     @State private var showSignOut = false
     @State private var isDataSyncing = false
-    @StateObject private var dataSyncManager = DataSyncManager.shared
     
     var body: some View {
         NavigationStack {
@@ -59,16 +61,43 @@ struct SettingsView: View {
                                 .foregroundColor(.secondary)
                         }
                         
-                        // 데이터 동기화 버튼
-                        if dataSyncManager.hasPendingChanges {
-                            HStack {
-                                Text("동기화 필요")
-                                Spacer()
-                                Image(systemName: "exclamationmark.triangle")
-                                    .foregroundColor(.orange)
+                        // 데이터 동기화 상태
+                        HStack {
+                            Text("동기화 상태")
+                            Spacer()
+                            
+                            if dataSyncManager.isSyncing {
+                                HStack {
+                                    Text("동기화 중...")
+                                    ProgressView()
+                                        .controlSize(.small)
+                                }
+                                .foregroundColor(.blue)
+                            } else if dataSyncManager.hasPendingChanges {
+                                HStack {
+                                    Text("동기화 필요")
+                                    Image(systemName: "exclamationmark.triangle")
+                                        .foregroundColor(.orange)
+                                }
+                            } else {
+                                Text("동기화됨")
+                                    .foregroundColor(.green)
                             }
                         }
                         
+                        // 네트워크 상태
+                        HStack {
+                            Text("네트워크")
+                            Spacer()
+                            NetworkStatusIndicatorView()
+                        }
+                        
+                        // 동기화 설정 이동 버튼
+                        NavigationLink(destination: SyncSettingsView()) {
+                            Text("동기화 설정")
+                        }
+                        
+                        // 데이터 동기화 버튼
                         Button(action: syncData) {
                             HStack {
                                 Text("데이터 동기화")
@@ -80,7 +109,7 @@ struct SettingsView: View {
                                 }
                             }
                         }
-                        .disabled(isDataSyncing)
+                        .disabled(isDataSyncing || !networkMonitor.isConnected)
                         
                         // 로그아웃 버튼
                         Button(action: {
@@ -144,7 +173,7 @@ struct SettingsView: View {
                             }
                         }
                     }
-                    .disabled(apiKey.isEmpty || representativeCharacter.isEmpty || isRefreshing)
+                    .disabled(apiKey.isEmpty || representativeCharacter.isEmpty || isRefreshing || !networkMonitor.isConnected)
                 }
                 
                 Section(header: Text("앱 정보")) {
@@ -176,7 +205,7 @@ struct SettingsView: View {
                             }
                         }
                     }
-                    .disabled(isRefreshing)
+                    .disabled(isRefreshing || !networkMonitor.isConnected)
                 }
                 
                 Section(header: Text("데이터 관리")) {
@@ -204,6 +233,7 @@ struct SettingsView: View {
             }
             // 키보드 입력모드 수정
             .scrollDismissesKeyboard(.interactively)
+            .overlay(OfflineOverlayView())
         }
         .alert("데이터 초기화 확인", isPresented: $isShowingResetConfirmation) {
             Button("취소", role: .cancel) { }
@@ -242,6 +272,12 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showSignIn) {
             SignInView(isPresented: $showSignIn)
+                .onDisappear {
+                    // 로그인 완료 후 데이터 마이그레이션 수행
+                    if authManager.isLoggedIn {
+                        DataMigrationService.shared.performInitialMigrationAfterLogin(modelContext: modelContext)
+                    }
+                }
         }
     }
     
@@ -253,13 +289,19 @@ struct SettingsView: View {
         
         apiKey = tempApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         representativeCharacter = tempRepChar.trimmingCharacters(in: .whitespacesAndNewlines)
-        uploadCharacterNameToFirestore(representativeCharacter)
+        
+        if authManager.isLoggedIn {
+            // 로그인 상태에서는 Firebase에 캐릭터 이름 등록
+            uploadCharacterNameToFirestore(representativeCharacter)
+        } else {
+            alertMessage = "설정이 저장되었습니다."
+            isShowingAlert = true
+        }
     }
     
     func uploadCharacterNameToFirestore(_ characterName: String) {
         guard let user = Auth.auth().currentUser else {
-            print("로그인된 유저가 없습니다.")
-            alertMessage = "로그인이 필요합니다."
+            alertMessage = "로그인된 상태에서만 캐릭터 등록이 가능합니다."
             isShowingAlert = true
             return
         }
@@ -270,15 +312,15 @@ struct SettingsView: View {
         // 캐릭터 중복 확인
         docRef.getDocument { document, error in
             if let error = error {
-                print("문서 확인 실패: \(error.localizedDescription)")
+                errorService.handleError(error, source: .database)
                 alertMessage = "캐릭터 중복 확인 중 오류가 발생했습니다."
                 isShowingAlert = true
                 return
             }
 
-            if let document = document, document.exists {
+            if let document = document, document.exists,
+               let existingUserId = document.data()?["userId"] as? String, existingUserId != user.uid {
                 // 이미 존재함
-                print("이미 등록된 캐릭터 이름입니다.")
                 alertMessage = "이미 사용 중인 캐릭터 이름입니다. 다른 이름을 입력해주세요."
                 isShowingAlert = true
             } else {
@@ -288,14 +330,12 @@ struct SettingsView: View {
                     "timestamp": FieldValue.serverTimestamp()
                 ]) { error in
                     if let error = error {
-                        print("Firestore 저장 실패: \(error.localizedDescription)")
+                        errorService.handleError(error, source: .database)
                         alertMessage = "저장 중 오류가 발생했습니다."
-                        isShowingAlert = true
                     } else {
-                        print("캐릭터 이름 '\(characterName)' 저장 완료")
                         alertMessage = "설정이 저장되었습니다."
-                        isShowingAlert = true
                     }
+                    isShowingAlert = true
                 }
             }
         }
@@ -315,33 +355,56 @@ struct SettingsView: View {
             return
         }
         
+        guard networkMonitor.isConnected else {
+            alertMessage = "오프라인 상태에서는 캐릭터 정보를 불러올 수 없습니다."
+            isShowingAlert = true
+            return
+        }
+        
         isRefreshing = true
         
         Task {
-            let result = await LostArkAPIService.shared.fetchCharacters(apiKey: apiKey, modelContext: modelContext)
-            
-            await MainActor.run {
-                isRefreshing = false
+            do {
+                let result = await LostArkAPIService.shared.fetchCharacters(apiKey: apiKey, modelContext: modelContext)
                 
-                switch result {
-                case .success(let count):
-                    alertMessage = "캐릭터 정보를 성공적으로 불러왔습니다. (\(count)개)"
+                await MainActor.run {
+                    isRefreshing = false
                     
-                    // 로그인 상태면 데이터 동기화 필요 표시
-                    if authManager.isLoggedIn {
-                        dataSyncManager.markLocalChanges()
+                    switch result {
+                    case .success(let count):
+                        alertMessage = "캐릭터 정보를 성공적으로 불러왔습니다. (\(count)개)"
+                        
+                        // 로그인 상태면 데이터 동기화 필요 표시
+                        if authManager.isLoggedIn {
+                            dataSyncManager.markLocalChanges()
+                        }
+                    case .failure(let error):
+                        errorService.handleError(error, source: .api) {
+                            // 재시도 액션
+                            testAndFetchCharacters()
+                        }
+                        alertMessage = "오류가 발생했습니다: \(error.localizedDescription)"
                     }
-                case .failure(let error):
-                    alertMessage = "오류가 발생했습니다: \(error.localizedDescription)"
+                    
+                    isShowingAlert = true
                 }
-                
-                isShowingAlert = true
+            } catch {
+                await MainActor.run {
+                    isRefreshing = false
+                    errorService.handleError(error, source: .api)
+                }
             }
         }
     }
     
     // 데이터 동기화
     private func syncData() {
+        guard networkMonitor.isConnected else {
+            alertMessage = "오프라인 상태에서는 동기화할 수 없습니다."
+            isShowingAlert = true
+            return
+        }
+        
         isDataSyncing = true
         
         Task {
@@ -353,7 +416,10 @@ struct SettingsView: View {
                 if success {
                     alertMessage = "데이터가 성공적으로 동기화되었습니다."
                 } else if let error = dataSyncManager.syncError {
-                    alertMessage = "동기화 오류: \(error.localizedDescription)"
+                    errorService.handleError(error, source: .sync) {
+                        // 재시도 액션
+                        syncData()
+                    }
                 } else {
                     alertMessage = "동기화 중 오류가 발생했습니다."
                 }
@@ -377,8 +443,12 @@ struct SettingsView: View {
             } else {
                 // 로그아웃 실패
                 await MainActor.run {
-                    alertMessage = "로그아웃 중 오류가 발생했습니다."
-                    isShowingAlert = true
+                    if let error = authManager.error {
+                        errorService.handleError(error, source: .authentication)
+                    } else {
+                        alertMessage = "로그아웃 중 오류가 발생했습니다."
+                        isShowingAlert = true
+                    }
                 }
             }
         }
@@ -393,26 +463,25 @@ struct SettingsView: View {
             isShowingAlert = true
             
             // 로그인 상태면 클라우드 데이터도 삭제
-            if authManager.isLoggedIn {
+            if authManager.isLoggedIn && networkMonitor.isConnected {
                 Task {
                     let repository = DataRepositoryFactory.getRepository(modelContext: modelContext)
-                    try await repository.deleteAllCharacters()
+                    do {
+                        try await repository.deleteAllCharacters()
+                    } catch {
+                        await MainActor.run {
+                            errorService.handleError(error, source: .sync)
+                        }
+                    }
                 }
+            } else if authManager.isLoggedIn {
+                // 오프라인이면 변경 사항 표시
+                dataSyncManager.markLocalChanges()
             }
         } catch {
+            errorService.handleError(error, source: .database)
             alertMessage = "데이터 초기화 중 오류가 발생했습니다."
             isShowingAlert = true
-        }
-    }
-}
-
-// SwiftData 모델 삭제 확장
-extension ModelContext {
-    func delete<T: PersistentModel>(model: T.Type) throws {
-        let descriptor = FetchDescriptor<T>()
-        let items = try fetch(descriptor)
-        for item in items {
-            delete(item)
         }
     }
 }
@@ -421,6 +490,12 @@ extension ModelContext {
 extension SettingsView {
     // 업데이트 확인
     func checkForUpdates() {
+        guard networkMonitor.isConnected else {
+            alertMessage = "오프라인 상태에서는 업데이트를 확인할 수 없습니다."
+            isShowingAlert = true
+            return
+        }
+        
         isRefreshing = true
         
         Task {
@@ -459,6 +534,10 @@ extension SettingsView {
                     }
                     
                 case .failure(let error):
+                    errorService.handleError(error, source: .network) {
+                        // 재시도 액션
+                        checkForUpdates()
+                    }
                     alertMessage = "업데이트 확인 중 오류가 발생했습니다: \(error.localizedDescription)"
                     isShowingAlert = true
                 }
