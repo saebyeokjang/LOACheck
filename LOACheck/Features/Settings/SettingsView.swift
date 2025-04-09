@@ -7,6 +7,8 @@
 
 import SwiftUI
 import SwiftData
+import FirebaseFirestore
+import FirebaseAuth
 
 struct SettingsView: View {
     @AppStorage("apiKey") private var apiKey: String = ""
@@ -29,9 +31,87 @@ struct SettingsView: View {
     @AppStorage("skipVersion") private var skipVersion = ""
     @Environment(\.modelContext) private var modelContext
     
+    // 인증 관련 상태
+    @EnvironmentObject var authManager: AuthManager
+    @State private var showSignIn = false
+    @State private var showSignOut = false
+    @State private var isDataSyncing = false
+    @StateObject private var dataSyncManager = DataSyncManager.shared
+    
     var body: some View {
         NavigationStack {
             Form {
+                // 인증 섹션
+                Section(header: Text("계정")) {
+                    if authManager.isLoggedIn {
+                        // 로그인 상태
+                        HStack {
+                            Text("로그인 상태")
+                            Spacer()
+                            Text(authManager.displayName)
+                                .foregroundColor(.green)
+                        }
+                        
+                        HStack {
+                            Text("이메일")
+                            Spacer()
+                            Text(authManager.email)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        // 데이터 동기화 버튼
+                        if dataSyncManager.hasPendingChanges {
+                            HStack {
+                                Text("동기화 필요")
+                                Spacer()
+                                Image(systemName: "exclamationmark.triangle")
+                                    .foregroundColor(.orange)
+                            }
+                        }
+                        
+                        Button(action: syncData) {
+                            HStack {
+                                Text("데이터 동기화")
+                                
+                                if isDataSyncing {
+                                    Spacer()
+                                    ProgressView()
+                                        .controlSize(.small)
+                                }
+                            }
+                        }
+                        .disabled(isDataSyncing)
+                        
+                        // 로그아웃 버튼
+                        Button(action: {
+                            showSignOut = true
+                        }) {
+                            Text("로그아웃")
+                                .foregroundColor(.red)
+                        }
+                    } else {
+                        // 비로그인 상태
+                        HStack {
+                            Text("로그인 상태")
+                            Spacer()
+                            Text("로그인하지 않음")
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        // 로그인 버튼
+                        Button(action: {
+                            showSignIn = true
+                        }) {
+                            Text("로그인")
+                                .foregroundColor(.blue)
+                        }
+                        
+                        Text("로그인하면 친구와 진행 상황을 공유할 수 있습니다")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
                 Section(header: Text("로스트아크 API 설정"), footer: Text("로스트아크 개발자 포털 (https://developer-lostark.game.onstove.com) 에서 API 키를 발급받을 수 있습니다.")) {
                     SecureField("API 키 입력", text: $tempApiKey)
                         .autocorrectionDisabled()
@@ -133,6 +213,14 @@ struct SettingsView: View {
         } message: {
             Text("모든 캐릭터 데이터가 영구적으로 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.\n계속하시겠습니까?")
         }
+        .alert("로그아웃", isPresented: $showSignOut) {
+            Button("취소", role: .cancel) { }
+            Button("로그아웃", role: .destructive) {
+                logOut()
+            }
+        } message: {
+            Text("로그아웃 하시겠습니까?\n비로그인 모드로 전환됩니다.")
+        }
         .sheet(isPresented: $showUpdateAlert) {
             ZStack {
                 Color(.systemBackground).edgesIgnoringSafeArea(.all)
@@ -152,6 +240,9 @@ struct SettingsView: View {
                 .padding()
             }
         }
+        .sheet(isPresented: $showSignIn) {
+            SignInView(isPresented: $showSignIn)
+        }
     }
     
     // 설정 저장 (API 키와 대표 캐릭터)
@@ -162,8 +253,52 @@ struct SettingsView: View {
         
         apiKey = tempApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         representativeCharacter = tempRepChar.trimmingCharacters(in: .whitespacesAndNewlines)
-        alertMessage = "설정이 저장되었습니다."
-        isShowingAlert = true
+        uploadCharacterNameToFirestore(representativeCharacter)
+    }
+    
+    func uploadCharacterNameToFirestore(_ characterName: String) {
+        guard let user = Auth.auth().currentUser else {
+            print("로그인된 유저가 없습니다.")
+            alertMessage = "로그인이 필요합니다."
+            isShowingAlert = true
+            return
+        }
+
+        let db = Firestore.firestore()
+        let docRef = db.collection("characterNames").document(characterName)
+
+        // 캐릭터 중복 확인
+        docRef.getDocument { document, error in
+            if let error = error {
+                print("문서 확인 실패: \(error.localizedDescription)")
+                alertMessage = "캐릭터 중복 확인 중 오류가 발생했습니다."
+                isShowingAlert = true
+                return
+            }
+
+            if let document = document, document.exists {
+                // 이미 존재함
+                print("이미 등록된 캐릭터 이름입니다.")
+                alertMessage = "이미 사용 중인 캐릭터 이름입니다. 다른 이름을 입력해주세요."
+                isShowingAlert = true
+            } else {
+                // 저장
+                docRef.setData([
+                    "userId": user.uid,
+                    "timestamp": FieldValue.serverTimestamp()
+                ]) { error in
+                    if let error = error {
+                        print("Firestore 저장 실패: \(error.localizedDescription)")
+                        alertMessage = "저장 중 오류가 발생했습니다."
+                        isShowingAlert = true
+                    } else {
+                        print("캐릭터 이름 '\(characterName)' 저장 완료")
+                        alertMessage = "설정이 저장되었습니다."
+                        isShowingAlert = true
+                    }
+                }
+            }
+        }
     }
     
     // API 키 테스트 및 캐릭터 불러오기
@@ -191,11 +326,60 @@ struct SettingsView: View {
                 switch result {
                 case .success(let count):
                     alertMessage = "캐릭터 정보를 성공적으로 불러왔습니다. (\(count)개)"
+                    
+                    // 로그인 상태면 데이터 동기화 필요 표시
+                    if authManager.isLoggedIn {
+                        dataSyncManager.markLocalChanges()
+                    }
                 case .failure(let error):
                     alertMessage = "오류가 발생했습니다: \(error.localizedDescription)"
                 }
                 
                 isShowingAlert = true
+            }
+        }
+    }
+    
+    // 데이터 동기화
+    private func syncData() {
+        isDataSyncing = true
+        
+        Task {
+            let success = await dataSyncManager.performManualSync()
+            
+            await MainActor.run {
+                isDataSyncing = false
+                
+                if success {
+                    alertMessage = "데이터가 성공적으로 동기화되었습니다."
+                } else if let error = dataSyncManager.syncError {
+                    alertMessage = "동기화 오류: \(error.localizedDescription)"
+                } else {
+                    alertMessage = "동기화 중 오류가 발생했습니다."
+                }
+                
+                isShowingAlert = true
+            }
+        }
+    }
+    
+    // 로그아웃
+    private func logOut() {
+        Task {
+            let success = await authManager.signOut()
+            
+            if success {
+                // 로그아웃 성공
+                await MainActor.run {
+                    alertMessage = "로그아웃되었습니다."
+                    isShowingAlert = true
+                }
+            } else {
+                // 로그아웃 실패
+                await MainActor.run {
+                    alertMessage = "로그아웃 중 오류가 발생했습니다."
+                    isShowingAlert = true
+                }
             }
         }
     }
@@ -207,6 +391,14 @@ struct SettingsView: View {
             try modelContext.delete(model: CharacterModel.self)
             alertMessage = "모든 데이터가 초기화되었습니다."
             isShowingAlert = true
+            
+            // 로그인 상태면 클라우드 데이터도 삭제
+            if authManager.isLoggedIn {
+                Task {
+                    let repository = DataRepositoryFactory.getRepository(modelContext: modelContext)
+                    try await repository.deleteAllCharacters()
+                }
+            }
         } catch {
             alertMessage = "데이터 초기화 중 오류가 발생했습니다."
             isShowingAlert = true
