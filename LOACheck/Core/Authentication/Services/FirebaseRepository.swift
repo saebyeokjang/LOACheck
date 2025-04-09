@@ -235,47 +235,56 @@ class FirebaseRepository {
             throw FirebaseError.dataError
         }
         
-        // 2. 이미 친구인지 확인
-        let friendRef = db.collection("users").document(currentUserId).collection("friends").document(targetUserId)
+        let db = Firestore.firestore()
+        let batch = db.batch()
+        
+        // 친구 요청 참조
+        let receivedRequestRef = db.collection("users")
+            .document(targetUserId)
+            .collection("friendRequests")
+            .document(currentUserId)
+        
+        let sentRequestRef = db.collection("users")
+            .document(currentUserId)
+            .collection("sentRequests")
+            .document(targetUserId)
+        
+        // 요청 데이터 구성
+        let requestData: [String: Any] = [
+            "fromUserId": currentUserId,
+            "fromUserName": currentUserName,
+            "toUserId": targetUserId,
+            "status": "pending",
+            "timestamp": FieldValue.serverTimestamp()
+        ]
+        
+        // 이미 친구인지 확인
+        let friendRef = db.collection("users")
+            .document(currentUserId)
+            .collection("friends")
+            .document(targetUserId)
+        
         let friendDoc = try await friendRef.getDocument()
         
         if friendDoc.exists {
             throw FirebaseError.dataError
         }
         
-        // 3. 이미 요청한 적이 있는지 확인
-        let sentRequestRef = db.collection("users").document(currentUserId).collection("sentRequests").document(targetUserId)
+        // 이미 요청한 적 있는지 확인
         let sentRequestDoc = try await sentRequestRef.getDocument()
-        
+
         if sentRequestDoc.exists {
-            let data = sentRequestDoc.data()
+            let data: [String: Any]? = sentRequestDoc.data()
             if let status = data?["status"] as? String, status == "pending" {
                 throw FirebaseError.dataError
             }
         }
         
-        // 4. 친구 요청 보내기
-        let batch = db.batch()
+        // 배치에 쓰기 작업 추가
+        batch.setData(requestData, forDocument: receivedRequestRef)
+        batch.setData(requestData, forDocument: sentRequestRef)
         
-        // 대상 사용자의 수신 요청 컬렉션에 추가
-        let requestData: [String: Any] = [
-            "fromUserId": currentUserId,
-            "fromUserName": currentUserName,
-            "status": "pending",
-            "timestamp": FieldValue.serverTimestamp()
-        ]
-        let targetRequestRef = db.collection("users").document(targetUserId).collection("friendRequests").document(currentUserId)
-        batch.setData(requestData, forDocument: targetRequestRef)
-        
-        // 내 발신 요청 컬렉션에도 추가
-        let sentRequestData: [String: Any] = [
-            "toUserId": targetUserId,
-            "status": "pending",
-            "timestamp": FieldValue.serverTimestamp()
-        ]
-        batch.setData(sentRequestData, forDocument: sentRequestRef)
-        
-        // 일괄 처리 실행
+        // 배치 커밋
         try await batch.commit()
     }
     
