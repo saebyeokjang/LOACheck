@@ -243,10 +243,6 @@ struct UserSearchResultView: View {
                 Text(user.displayName)
                     .font(.title3)
                     .fontWeight(.semibold)
-                
-                Text("캐릭터: \(characterName)")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
             }
             
             // 요청 버튼

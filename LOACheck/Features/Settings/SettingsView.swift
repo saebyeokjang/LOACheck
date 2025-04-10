@@ -195,15 +195,15 @@ struct SettingsView: View {
                         .submitLabel(.done)
                     
                     Button(action: {
+                        // 캐릭터 이름이 비어있지 않은 경우에만 진행
                         if !tempRepChar.isEmpty {
-                            authManager.representativeCharacter = tempRepChar
-                            alertMessage = "대표 캐릭터가 '\(tempRepChar)'(으)로 설정되었습니다."
-                            isShowingAlert = true
+                            // 캐릭터 존재 여부 확인 후 설정
+                            checkAndSetRepresentativeCharacter()
                         }
                     }) {
                         Text("대표 캐릭터 설정")
                     }
-                    .disabled(tempRepChar.isEmpty)
+                    .disabled(tempRepChar.isEmpty || isRefreshing)
                     
                     Button(action: testAndFetchCharacters) {
                         HStack {
@@ -324,6 +324,45 @@ struct SettingsView: View {
                         }
                     }
                 }
+        }
+    }
+    
+    private func checkAndSetRepresentativeCharacter() {
+        isRefreshing = true
+        
+        Task {
+            let result = await LostArkAPIService.shared.validateCharacter(name: tempRepChar, apiKey: apiKey)
+            
+            await MainActor.run {
+                isRefreshing = false
+                
+                switch result {
+                case .success(let exists):
+                    if exists {
+                        // 캐릭터가 존재하면 설정 저장
+                        authManager.representativeCharacter = tempRepChar
+                        alertMessage = "대표 캐릭터가 '\(tempRepChar)'(으)로 설정되었습니다."
+                        
+                        // 서버 동기화
+                        if authManager.isLoggedIn {
+                            Task {
+                                let success = await authManager.updateFirestoreDisplayName()
+                                if !success {
+                                    alertMessage += "\n서버 업데이트에 실패했습니다."
+                                }
+                            }
+                        }
+                    } else {
+                        // 캐릭터가 존재하지 않음
+                        alertMessage = "해당 캐릭터를 찾을 수 없습니다. 캐릭터 이름을 다시 확인해주세요."
+                    }
+                    isShowingAlert = true
+                    
+                case .failure(let error):
+                    alertMessage = "캐릭터 확인 중 오류가 발생했습니다: \(error.userFriendlyMessage)"
+                    isShowingAlert = true
+                }
+            }
         }
     }
     

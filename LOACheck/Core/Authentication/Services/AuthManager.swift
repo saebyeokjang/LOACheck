@@ -97,8 +97,12 @@ class AuthManager: ObservableObject {
         return currentUser?.email ?? ""
     }
     
-    // 대표 캐릭터 설정
+    // 대표 캐릭터 설정 (characterNames 컬렉션에도 등록하도록 수정)
     func setRepresentativeCharacter(_ characterName: String) {
+        // 이전 대표 캐릭터 이름 저장
+        let oldCharacterName = self.representativeCharacter
+        
+        // 새 대표 캐릭터 이름 설정
         self.representativeCharacter = characterName
         
         // 전역 설정에 저장
@@ -108,17 +112,36 @@ class AuthManager: ObservableObject {
         if isLoggedIn, let uid = currentUser?.id {
             UserDefaults.standard.set(characterName, forKey: "representativeCharacter_\(uid)")
             
-            // 여기서 직접 Firestore 업데이트를 명시적으로 수행
+            // Firestore 업데이트 및 characterNames 컬렉션에도 함께 등록
             Task {
                 do {
                     let db = Firestore.firestore()
+                    
+                    // 1. users 컬렉션의 displayName 업데이트
                     try await db.collection("users").document(uid).updateData([
                         "displayName": characterName
                     ])
                     
-                    Logger.debug("Firestore에 대표 캐릭터 이름 '\(characterName)' 업데이트 완료")
+                    // 2. 이전 대표 캐릭터가 characterNames에 등록되어 있으면 삭제
+                    if !oldCharacterName.isEmpty {
+                        // 먼저 문서가 존재하고 현재 사용자의 것인지 확인
+                        let oldCharDoc = try await db.collection("characterNames").document(oldCharacterName).getDocument()
+                        if oldCharDoc.exists, let data = oldCharDoc.data(), data["userId"] as? String == uid {
+                            // 사용자 소유의 캐릭터인 경우만 삭제
+                            try await db.collection("characterNames").document(oldCharacterName).delete()
+                            Logger.debug("이전 대표 캐릭터 '\(oldCharacterName)' characterNames에서 삭제 완료")
+                        }
+                    }
                     
-                    // 현재 사용자 객체도 업데이트
+                    // 3. 새 대표 캐릭터를 characterNames에 등록
+                    try await db.collection("characterNames").document(characterName).setData([
+                        "userId": uid,
+                        "timestamp": FieldValue.serverTimestamp()
+                    ], merge: true)
+                    
+                    Logger.debug("새 대표 캐릭터 '\(characterName)' 설정 완료 (characterNames 포함)")
+                    
+                    // 4. 현재 사용자 객체도 업데이트
                     if var updatedUser = self.currentUser {
                         updatedUser.displayName = characterName
                         await MainActor.run {
@@ -126,7 +149,7 @@ class AuthManager: ObservableObject {
                         }
                     }
                 } catch {
-                    Logger.error("Firestore 대표 캐릭터 업데이트 실패: \(error.localizedDescription)")
+                    Logger.error("대표 캐릭터 설정 중 오류 발생", error: error)
                 }
             }
         }
@@ -138,13 +161,38 @@ class AuthManager: ObservableObject {
         
         Task {
             do {
-                // Firestore에 표시 이름 업데이트
                 let db = Firestore.firestore()
+                
+                // 1. 현재 사용자의 기존 characterNames 검색 및 삭제
+                let snapshot = try await db.collection("characterNames")
+                    .whereField("userId", isEqualTo: uid)
+                    .getDocuments()
+                
+                // 기존 등록된 캐릭터들 삭제 (배치 처리)
+                if !snapshot.documents.isEmpty {
+                    let batch = db.batch()
+                    for doc in snapshot.documents {
+                        // 현재 설정하려는 캐릭터와 다른 경우만 삭제
+                        if doc.documentID != representativeCharacter {
+                            batch.deleteDocument(doc.reference)
+                        }
+                    }
+                    try await batch.commit()
+                    Logger.debug("기존 characterNames 엔트리 정리 완료")
+                }
+                
+                // 2. Firestore에 표시 이름 업데이트
                 try await db.collection("users").document(uid).updateData([
                     "displayName": representativeCharacter
                 ])
                 
-                // 현재 사용자 객체 업데이트
+                // 3. characterNames 컬렉션에 새 대표 캐릭터 등록
+                try await db.collection("characterNames").document(representativeCharacter).setData([
+                    "userId": uid,
+                    "timestamp": FieldValue.serverTimestamp()
+                ], merge: true)
+                
+                // 4. 현재 사용자 객체 업데이트
                 if var updatedUser = currentUser {
                     updatedUser.displayName = representativeCharacter
                     await MainActor.run {
@@ -152,7 +200,7 @@ class AuthManager: ObservableObject {
                     }
                 }
                 
-                Logger.debug("사용자 표시 이름이 '\(representativeCharacter)'(으)로 업데이트되었습니다.")
+                Logger.debug("사용자 표시 이름이 '\(representativeCharacter)'(으)로 업데이트되었습니다. (characterNames 포함)")
             } catch {
                 Logger.error("사용자 표시 이름 업데이트 실패", error: error)
             }
@@ -166,11 +214,37 @@ class AuthManager: ObservableObject {
         
         do {
             let db = Firestore.firestore()
+            
+            // 1. 현재 사용자의 기존 characterNames 검색 및 삭제
+            let snapshot = try await db.collection("characterNames")
+                .whereField("userId", isEqualTo: uid)
+                .getDocuments()
+            
+            // 기존 등록된 캐릭터들 삭제 (배치 처리)
+            if !snapshot.documents.isEmpty {
+                let batch = db.batch()
+                for doc in snapshot.documents {
+                    // 현재 설정하려는 캐릭터와 다른 경우만 삭제
+                    if doc.documentID != representativeCharacter {
+                        batch.deleteDocument(doc.reference)
+                    }
+                }
+                try await batch.commit()
+                Logger.debug("기존 characterNames 엔트리 \(snapshot.documents.count)개 삭제 완료")
+            }
+            
+            // 2. users 컬렉션의 displayName 업데이트
             try await db.collection("users").document(uid).updateData([
                 "displayName": representativeCharacter
             ])
             
-            Logger.debug("Firestore displayName 직접 업데이트 성공: '\(representativeCharacter)'")
+            // 3. characterNames 컬렉션에 새 대표 캐릭터 등록
+            try await db.collection("characterNames").document(representativeCharacter).setData([
+                "userId": uid,
+                "timestamp": FieldValue.serverTimestamp()
+            ], merge: true)
+            
+            Logger.debug("Firestore displayName 직접 업데이트 성공: '\(representativeCharacter)' (characterNames 포함)")
             return true
         } catch {
             Logger.error("Firestore displayName 직접 업데이트 실패: \(error.localizedDescription)")
