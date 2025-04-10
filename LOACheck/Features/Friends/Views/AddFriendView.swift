@@ -15,7 +15,6 @@ struct AddFriendView: View {
     @State private var searchedUser: User?
     @State private var characterDetails: CharacterModel?
     @State private var isSearching = false
-    @State private var isLoadingCharDetails = false
     @State private var hasSearched = false
     @State private var showAlert = false
     @State private var alertTitle = ""
@@ -76,10 +75,11 @@ struct AddFriendView: View {
                                 user: user,
                                 characterName: searchCharacterName,
                                 characterDetails: characterDetails,
-                                isLoading: isLoadingCharDetails
-                            ) {
-                                sendFriendRequest(to: searchCharacterName)
-                            }
+                                isLoading: false,
+                                onSendRequest: {
+                                    sendFriendRequest(to: searchCharacterName)
+                                }
+                            )
                         }
                         .padding()
                     } else {
@@ -124,7 +124,6 @@ struct AddFriendView: View {
             .onChange(of: shouldDismiss) { newValue in
                 if newValue {
                     // shouldDismiss가 true로 바뀌면 약간의 지연 후 화면 닫기
-                    // 이렇게 하면 알림이 충분히 표시된 후 화면이 닫힘
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                         dismiss()
                     }
@@ -134,7 +133,7 @@ struct AddFriendView: View {
     }
     
     // 사용자 검색
-    private func searchUser() {
+    func searchUser() {
         guard !searchCharacterName.isEmpty else { return }
         
         isSearching = true
@@ -144,29 +143,17 @@ struct AddFriendView: View {
         Task {
             do {
                 let trimmedName = searchCharacterName.trimmingCharacters(in: .whitespacesAndNewlines)
-                let user = try await friendsService.searchUserByCharacterName(trimmedName)
-                
-                // 사용자를 찾았으면 캐릭터 상세 정보도 가져오기
-                if let foundUser = user {
-                    isLoadingCharDetails = true
-                    
-                    // 캐릭터 상세 정보 비동기 로드
-                    let details = await friendsService.fetchCharacterDetails(characterName: trimmedName)
-                    
-                    await MainActor.run {
-                        self.characterDetails = details
-                        self.isLoadingCharDetails = false
-                    }
-                }
+                let result = try await friendsService.searchUserByCharacterName(trimmedName)
                 
                 // MainActor를 사용하여 UI 업데이트를 메인 스레드에서 처리
                 await MainActor.run {
-                    self.searchedUser = user
+                    self.searchedUser = result.0
+                    self.characterDetails = result.1
                     self.isSearching = false
                     self.hasSearched = true
                     
                     // 내 캐릭터를 검색한 경우 - 약간의 지연 추가
-                    if user?.id == AuthManager.shared.userId {
+                    if result.0?.id == AuthManager.shared.userId {
                         // 화면 전환이 완료된 후 알림 표시
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                             self.alertTitle = "알림"
@@ -192,7 +179,7 @@ struct AddFriendView: View {
     }
     
     // 친구 요청 보내기
-    private func sendFriendRequest(to characterName: String) {
+    func sendFriendRequest(to characterName: String) {
         isSearching = true
         
         Task {
@@ -250,17 +237,17 @@ struct UserSearchResultView: View {
     var user: User
     var characterName: String
     var characterDetails: CharacterModel?
-    var isLoading: Bool = false
+    var isLoading: Bool
     var onSendRequest: () -> Void
     
     var body: some View {
         VStack(spacing: 16) {
             // 사용자 프로필 아이콘
-            Image(systemName: "person.crop.circle.fill")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: 60, height: 60)
-                .foregroundColor(.blue)
+//            Image(systemName: "person.crop.circle.fill")
+//                .resizable()
+//                .aspectRatio(contentMode: .fit)
+//                .frame(width: 60, height: 60)
+//                .foregroundColor(.blue)
             
             // 사용자 정보
             VStack(spacing: 8) {
@@ -278,18 +265,18 @@ struct UserSearchResultView: View {
                         HStack(spacing: 8) {
                             Text(characterDetails.server)
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(.blue)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(Color.gray.opacity(0.1))
+                                .background(Color.blue.opacity(0.1))
                                 .cornerRadius(8)
                             
                             Text(characterDetails.characterClass)
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(.blue)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(Color.gray.opacity(0.1))
+                                .background(Color.blue.opacity(0.1))
                                 .cornerRadius(8)
                             
                             Text("Lv. \(String(format: "%.2f", characterDetails.level))")
