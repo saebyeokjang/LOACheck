@@ -40,6 +40,25 @@ struct SettingsView: View {
     @State private var showSignOut = false
     @State private var isDataSyncing = false
     
+    // 캐릭터 목록 쿼리 (대표 캐릭터 이름 표시용)
+    @Query(sort: \CharacterModel.level, order: .reverse) var characters: [CharacterModel]
+    
+    // 대표 캐릭터 이름 계산 속성
+    private var displayName: String {
+        // 1. 대표 캐릭터 설정 값이 있고 로그인 상태라면 해당 값 사용
+        if !representativeCharacter.isEmpty && authManager.isLoggedIn {
+            return representativeCharacter
+        }
+        
+        // 2. 캐릭터가 있다면 가장 높은 레벨의 캐릭터 이름 사용
+        if let mainCharacter = characters.first {
+            return mainCharacter.name
+        }
+        
+        // 3. 기본값 반환
+        return authManager.displayName
+    }
+    
     var body: some View {
         NavigationStack {
             Form {
@@ -50,7 +69,7 @@ struct SettingsView: View {
                         HStack {
                             Text("로그인 상태")
                             Spacer()
-                            Text(authManager.displayName)
+                            Text(displayName)
                                 .foregroundColor(.green)
                         }
                         
@@ -141,7 +160,7 @@ struct SettingsView: View {
                     }
                 }
                 
-                Section(header: Text("로스트아크 API 설정"), footer: Text("로스트아크 개발자 포털 (https://developer-lostark.game.onstove.com) 에서 API 키를 발급받을 수 있습니다.")) {
+                Section(header: Text("로스트아크 API 설정"), footer: Text("API키 발급받으러 가기\nhttps://developer-lostark.game.onstove.com")) {
                     SecureField("API 키 입력", text: $tempApiKey)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
