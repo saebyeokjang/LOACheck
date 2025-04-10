@@ -167,7 +167,7 @@ struct SyncSettingsView: View {
                             action: resetCloudData
                         )
                     }) {
-                        Label("클라우드 데이터 초기화", systemImage: "cloud.slash")
+                        Label("클라우드 데이터 초기화", systemImage: "icloud.slash")
                             .foregroundColor(.red)
                     }
                     .disabled(!authManager.isLoggedIn)

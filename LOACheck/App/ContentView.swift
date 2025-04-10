@@ -52,29 +52,23 @@ struct ContentView: View {
                     }
                     .tag(1)
                 
-                GoldSummaryView()
-                    .tabItem {
-                        Label("골드", systemImage: "dollarsign.circle")
-                    }
-                    .tag(2)
-                
                 MarketView()
                     .tabItem {
                         Label("시세", systemImage: "magnifyingglass")
                     }
-                    .tag(3)
+                    .tag(2)
                 
                 FriendsListView()
                     .tabItem {
                         Label("친구", systemImage: "person.2.fill")
                     }
-                    .tag(4)
+                    .tag(3)
                 
                 SettingsView()
                     .tabItem {
                         Label("설정", systemImage: "gear")
                     }
-                    .tag(5)
+                    .tag(4)
             }
             .onAppear {
                 if isInitialLoad {

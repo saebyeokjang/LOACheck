@@ -18,6 +18,7 @@ struct CharacterPagingView: View {
     @State private var showCharacterSelector = false // 캐릭터 선택기 표시 여부
     @State private var animationDirection: Int = 0 // 애니메이션 방향 (1: 다음 페이지, -1: 이전 페이지, 0: 없음)
     @State private var isAnimating = false // 애니메이션 진행 중 상태
+    @State private var showGoldSummary = false // 골드 요약 시트 표시 여부
     
     init(goToSettingsAction: (() -> Void)? = nil) {
         var descriptor = FetchDescriptor<CharacterModel>(predicate: #Predicate<CharacterModel> { !$0.isHidden })
@@ -38,7 +39,7 @@ struct CharacterPagingView: View {
                         showCharacterSelector = true
                     }) {
                         HStack(spacing: 4) {
-                            Text("바로가기")
+                            Text("캐릭터 바로가기")
                                 .font(.caption)
                         }
                         .foregroundColor(.blue)
@@ -50,10 +51,21 @@ struct CharacterPagingView: View {
                     
                     Spacer()
                     
-                    // 페이지 번호 표시
-                    Text("\(currentPage + 1) / \(characters.count)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    // 골드 요약 버튼
+                    Button(action: {
+                        showGoldSummary = true
+                    }) {
+                        HStack(spacing: 4) {
+                            Text("주간 획득 골드")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        }
+                        .foregroundColor(.orange)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.yellow.opacity(0.2))
+                        .cornerRadius(12)
+                    }
                 }
                 .padding(.horizontal)
                 .padding(.top, 8)
@@ -133,6 +145,19 @@ struct CharacterPagingView: View {
                 dismiss: { showCharacterSelector = false },
                 navigateToPage: navigateToPage
             )
+        }
+        .sheet(isPresented: $showGoldSummary) {
+            NavigationStack {
+                GoldSummaryView()
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("닫기") {
+                                showGoldSummary = false
+                            }
+                        }
+                    }
+            }
         }
     }
     

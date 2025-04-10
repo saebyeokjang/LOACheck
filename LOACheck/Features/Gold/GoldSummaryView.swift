@@ -18,29 +18,27 @@ struct GoldSummaryView: View {
     }
     
     var body: some View {
-        NavigationStack {
-            List {
-                // 총 예상 골드 섹션
-                GoldSummaryHeader(totalGold: totalGold, earnedGold: earnedGold)
-                
-                // 골드 획득 캐릭터별 상세 내역
-                Section(header: Text("캐릭터별 골드 내역")) {
-                    if goldEarners.isEmpty {
-                        EmptyGoldEarnersView()
-                    } else {
-                        ForEach(goldEarners) { character in
-                            CharacterGoldRow(character: character)
-                        }
+        List {
+            // 총 예상 골드 섹션
+            GoldSummaryHeader(totalGold: totalGold, earnedGold: earnedGold)
+            
+            // 골드 획득 캐릭터별 상세 내역
+            Section(header: Text("캐릭터별 골드 내역")) {
+                if goldEarners.isEmpty {
+                    EmptyGoldEarnersView()
+                } else {
+                    ForEach(goldEarners) { character in
+                        CharacterGoldRow(character: character)
                     }
                 }
-                
-                // 안내 섹션
-                Section(footer: Text("캐릭터당 골드 보상이 높은 최대 3개 레이드에서만 골드를 획득할 수 있습니다.")) {
-                    EmptyView()
-                }
             }
-            .navigationTitle("골드 요약")
+            
+            // 안내 섹션
+            Section(footer: Text("캐릭터당 골드 보상이 높은 최대 3개 레이드에서만 골드를 획득할 수 있습니다.")) {
+                EmptyView()
+            }
         }
+        .navigationTitle("주간 획득 골드")
     }
     
     // 총 예상 골드
