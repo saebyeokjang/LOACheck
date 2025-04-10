@@ -134,8 +134,8 @@ struct CharacterGoldRow: View {
                 // 레이드별로 그룹화
                 let groupedGates = Dictionary(grouping: gates) { $0.raid }
                 
-                // 레이드 총 골드 계산
-                let raidGolds = groupedGates.map { raidName, gates -> (name: String, gold: Int, earnedGold: Int) in
+                // 레이드 총 골드 계산 및 정렬 로직 개선
+                let raidGolds = groupedGates.map { raidName, gates -> (name: String, gold: Int, earnedGold: Int, sortOrder: Int) in
                     // 골드 합계 안정적으로 계산 (reduce 명시적 사용)
                     let totalGold = gates.reduce(0) { result, gate in
                         // 골드리워드 대신 계산 속성 사용
@@ -147,17 +147,22 @@ struct CharacterGoldRow: View {
                         return result + gate.currentGoldReward
                     }
                     
-                    return (name: raidName, gold: totalGold, earnedGold: earnedGold)
-                }.sorted { $0.gold > $1.gold }
+                    // RaidType 순서 가져오기 - 정렬을 위해 사용
+                    let sortOrder = getSortOrderForRaid(raidName)
+                    
+                    return (name: raidName, gold: totalGold, earnedGold: earnedGold, sortOrder: sortOrder)
+                }
+                // 정렬 로직 개선: 먼저 RaidData의 sortOrder 기준으로 정렬 (높은 순)
+                .sorted { $0.sortOrder > $1.sortOrder }
                 
-                // 상위 3개 레이드 이름
-                let topRaidNames = raidGolds.prefix(3).map { $0.name }
+                // 상위 3개 레이드 이름 (골드 높은 순 기준)
+                let topRaidNames = character.getTopRaidNames()
                 
                 // 레이드별 정보 표시
                 ForEach(raidGolds, id: \.name) { raidInfo in
                     RaidInfoRow(
                         character: character,
-                        raidInfo: raidInfo,
+                        raidInfo: (name: raidInfo.name, gold: raidInfo.gold, earnedGold: raidInfo.earnedGold),
                         isTopRaid: topRaidNames.contains(raidInfo.name),
                         groupedGates: groupedGates,
                         isLastRaid: raidInfo.name == raidGolds.last?.name
@@ -166,6 +171,15 @@ struct CharacterGoldRow: View {
             }
         }
         .padding(.vertical, 4)
+    }
+    
+    // 레이드 정렬을 위한 우선순위 값 가져오기
+    private func getSortOrderForRaid(_ raidName: String) -> Int {
+        // RaidData.RaidType 열거형에서 sortOrder 값 활용
+        if let raidType = RaidData.RaidType.allCases.first(where: { $0.rawValue == raidName }) {
+            return raidType.sortOrder
+        }
+        return 0 // 기본값
     }
 }
 
