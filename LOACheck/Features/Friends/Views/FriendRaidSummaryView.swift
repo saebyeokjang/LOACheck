@@ -15,49 +15,59 @@ struct FriendRaidSummaryView: View {
         ScrollView {
             VStack(spacing: 16) {
                 // 친구 정보 헤더
-                HStack {
-                    Text(friend.displayName)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
-                    Spacer()
+                VStack(spacing: 12) {
+                    HStack {
+                        Text(friend.displayName)
+                            .font(.title2)
+                            .fontWeight(.bold)
+                        
+                        Spacer()
+                    }
                     
                     // 골드 획득 요약
-                    VStack(alignment: .trailing) {
-                        Text("주간 획득 골드")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                    VStack(spacing: 8) {
+                        HStack {
+                            Text("주간 획득 골드:")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                            
+                            Spacer()
+                            
+                            // 기본 골드 + 추가 골드 합계
+                            Text("\(totalEarnedGold) / \(totalExpectedGold) G")
+                                .font(.title3)
+                                .fontWeight(.bold)
+                                .foregroundColor(.orange)
+                        }
                         
-                        // 기본 골드 + 추가 골드 합계
-                        Text("\(totalEarnedGold) / \(totalExpectedGold) G")
-                            .font(.headline)
-                            .foregroundColor(.orange)
+                        // 기본 골드와 추가 골드 내역 분리 표시
+                        HStack {
+                            Text("기본 골드:")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            
+                            Spacer()
+                            
+                            Text("\(totalEarnedBaseGold) / \(totalBaseGold) G")
+                                .font(.subheadline)
+                                .foregroundColor(.orange)
+                        }
                         
-                        // 기본 골드와 추가 골드 내역 표시
-                        if totalBaseGold > 0 && totalAdditionalGold > 0 {
-                            HStack(spacing: 2) {
-                                Text("기본:")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                                
-                                Text("\(totalEarnedBaseGold)G")
-                                    .font(.caption2)
-                                    .foregroundColor(.orange)
-                                
-                                Text("+")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                                
-                                Text("추가:")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                                
-                                Text("\(totalEarnedAdditionalGold)G")
-                                    .font(.caption2)
-                                    .foregroundColor(.green)
-                            }
+                        HStack {
+                            Text("추가 골드:")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            
+                            Spacer()
+                            
+                            Text("\(totalEarnedAdditionalGold) / \(totalAdditionalGold) G")
+                                .font(.subheadline)
+                                .foregroundColor(.green)
                         }
                     }
+                    .padding()
+                    .background(Color(.secondarySystemBackground))
+                    .cornerRadius(10)
                 }
                 .padding()
                 .background(Color(.systemBackground))
@@ -244,27 +254,28 @@ struct CharacterRaidSummaryCard: View {
                         if let raidGates = character.raidGates, !raidGates.isEmpty {
                             // 추가 골드 계산
                             let addGold = getAdditionalGoldSum(character)
+                            let baseGold = earnedGold - addGold
                             
                             if addGold > 0 {
                                 HStack(spacing: 2) {
                                     Text("기본:")
-                                        .font(.caption2)
+                                        .font(.caption)
                                         .foregroundColor(.secondary)
                                     
-                                    Text("\(earnedGold - addGold)G")
-                                        .font(.caption2)
+                                    Text("\(baseGold)G")
+                                        .font(.caption)
                                         .foregroundColor(.orange)
                                     
                                     Text("+")
-                                        .font(.caption2)
+                                        .font(.caption)
                                         .foregroundColor(.secondary)
                                     
                                     Text("추가:")
-                                        .font(.caption2)
+                                        .font(.caption)
                                         .foregroundColor(.secondary)
                                     
                                     Text("\(addGold)G")
-                                        .font(.caption2)
+                                        .font(.caption)
                                         .foregroundColor(.green)
                                 }
                             }
@@ -368,7 +379,7 @@ struct CharacterRaidSummaryCard: View {
 struct FriendRaidRow: View {
     var raidName: String
     var gates: [RaidGate]
-    var character: CharacterModel  // 캐릭터 정보 추가
+    var character: CharacterModel
     var isTopRaid: Bool
     var isLastRaid: Bool
     
@@ -399,13 +410,25 @@ struct FriendRaidRow: View {
                     .foregroundColor(completedCount == gates.count ? .green : .blue)
             }
             
-            // 추가 수익 표시
-            let additionalGold = character.getAdditionalGold(for: raidName)
-            let hasCompletedGates = gates.contains { $0.isCompleted }
-            
-            if additionalGold > 0 {
-                HStack {
-                    Spacer()
+            // 레이드 골드 정보 (기본 + 추가)
+            HStack {
+                // 기본 골드 정보 (상위 레이드만)
+                if isTopRaid {
+                    let totalGold = gates.reduce(0) { $0 + $1.goldReward }
+                    let earnedGold = gates.filter { $0.isCompleted }.reduce(0) { $0 + $1.goldReward }
+                    
+                    Text("기본 골드: \(earnedGold)/\(totalGold)G")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
+                
+                Spacer()
+                
+                // 추가 수익 표시 (모든 레이드)
+                let additionalGold = character.getAdditionalGold(for: raidName)
+                let hasCompletedGates = gates.contains { $0.isCompleted }
+                
+                if additionalGold > 0 {
                     if hasCompletedGates {
                         Text("추가 수익: +\(additionalGold)G")
                             .font(.caption)
@@ -424,8 +447,8 @@ struct FriendRaidRow: View {
                             .cornerRadius(4)
                     }
                 }
-                .padding(.top, 2)
             }
+            .padding(.top, 2)
             
             // 관문 그리드
             LazyVGrid(
