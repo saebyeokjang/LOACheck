@@ -9,6 +9,7 @@ import Foundation
 import FirebaseAuth
 import FirebaseCore
 import FirebaseFirestore
+import GoogleSignIn
 
 /// Firebase 인증을 관리하는 클래스
 class AuthManager: ObservableObject {
@@ -42,7 +43,7 @@ class AuthManager: ObservableObject {
     private func setupAuthStateListener() {
         authStateHandler = Auth.auth().addStateDidChangeListener { [weak self] (_, firebaseUser) in
             guard let self = self else { return }
-
+            
             Task {
                 await MainActor.run {
                     if let firebaseUser = firebaseUser {
@@ -112,22 +113,22 @@ class AuthManager: ObservableObject {
         await MainActor.run {
             self.isLoading = true
         }
-
+        
         do {
             let credential = OAuthProvider.credential(
                 withProviderID: "apple.com",
                 idToken: idToken,
                 rawNonce: nonce
             )
-
+            
             let result = try await Auth.auth().signIn(with: credential)
-
+            
             await MainActor.run {
                 self.currentUser = User(from: result.user)
                 self.isLoggedIn = true
                 self.isLoading = false
             }
-
+            
             // 여기서 직접 사용자 프로필 저장
             let db = Firestore.firestore()
             try await db.collection("users").document(result.user.uid).setData([
@@ -135,7 +136,7 @@ class AuthManager: ObservableObject {
                 "email": result.user.email ?? "",
                 "lastActive": FieldValue.serverTimestamp()
             ], merge: true)
-
+            
             return true
         } catch {
             await MainActor.run {
@@ -156,5 +157,73 @@ class AuthManager: ObservableObject {
         guard let userId = currentUser?.id else { return }
         UserDefaults.standard.set(true, forKey: "hasCompletedInitialSync_\(userId)")
         isFirstTimeLogin = false
+    }
+    
+    // MARK: - Google 로그인
+    func signInWithGoogle() async -> Bool {
+        await MainActor.run {
+            self.isLoading = true
+        }
+        
+        do {
+            // 루트 뷰 컨트롤러 가져오기
+            guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                  let rootViewController = windowScene.windows.first?.rootViewController else {
+                await MainActor.run {
+                    self.error = NSError(domain: "AuthManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "No root view controller found"])
+                    self.isLoading = false
+                }
+                return false
+            }
+            
+            // 구글 로그인 SDK 호출 - 타입 명시
+            let result = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<GIDSignInResult, Error>) in
+                GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController) { signInResult, error in
+                    if let error = error {
+                        continuation.resume(throwing: error)
+                        return
+                    }
+                    
+                    guard let signInResult = signInResult else {
+                        continuation.resume(throwing: NSError(domain: "AuthManager", code: 2, userInfo: [NSLocalizedDescriptionKey: "No sign in result"]))
+                        return
+                    }
+                    
+                    continuation.resume(returning: signInResult)
+                }
+            }
+            
+            // 구글 인증 정보 가져오기
+            guard let idToken = result.user.idToken?.tokenString else {
+                throw NSError(domain: "AuthManager", code: 3, userInfo: [NSLocalizedDescriptionKey: "No ID token"])
+            }
+            
+            // Firebase에 구글 인증 정보로 로그인
+            let credential = GoogleAuthProvider.credential(withIDToken: idToken, accessToken: result.user.accessToken.tokenString)
+            let authResult = try await Auth.auth().signIn(with: credential)
+            
+            // 유저 정보 저장
+            await MainActor.run {
+                self.currentUser = User(from: authResult.user)
+                self.isLoggedIn = true
+                self.isLoading = false
+            }
+            
+            // Firestore에 사용자 정보 저장
+            let db = Firestore.firestore()
+            try await db.collection("users").document(authResult.user.uid).setData([
+                "displayName": authResult.user.displayName ?? "사용자",
+                "email": authResult.user.email ?? "",
+                "lastActive": FieldValue.serverTimestamp()
+            ], merge: true)
+            
+            return true
+        } catch {
+            await MainActor.run {
+                self.error = error
+                self.isLoading = false
+            }
+            return false
+        }
     }
 }

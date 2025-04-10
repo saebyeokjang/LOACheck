@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import FirebaseCore
+import GoogleSignIn
 
 @main
 struct LOACheckApp: App {
@@ -36,13 +37,17 @@ struct LOACheckApp: App {
                     // 앱 전체 새로고침 로직 - 동기 함수로 변경
                     Task { await performGlobalRefresh() }
                 })
-//                .overlay(
-//                    // 오류 알림 오버레이 - 동기 함수로 변경
-//                    AppErrorAlertView {
-//                        // 공통 재시도 액션
-//                        Task { await performGlobalRefresh() }
-//                    }
-//                )
+                .onOpenURL { url in
+                    // 구글 로그인 URL 처리
+                    GIDSignIn.sharedInstance.handle(url)
+                }
+            //                .overlay(
+            //                    // 오류 알림 오버레이 - 동기 함수로 변경
+            //                    AppErrorAlertView {
+            //                        // 공통 재시도 액션
+            //                        Task { await performGlobalRefresh() }
+            //                    }
+            //                )
                 .onAppear {
                     // 여기서 한 번만 실행되는 초기화 코드 실행
                     if !isInitialized {
@@ -76,13 +81,24 @@ struct LOACheckApp: App {
         }
     }
     
+    class AppDelegate: NSObject, UIApplicationDelegate {
+        func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+            return true
+        }
+        
+        // iOS 9 이상에서 구글 로그인 URL 처리를 위해 필요
+        func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+            return GIDSignIn.sharedInstance.handle(url)
+        }
+    }
+    
     // 로그 시스템 초기화
     private func setupLoggingSystem() {
-        #if DEBUG
+#if DEBUG
         // 디버그 모드에서는 자세한 로그 활성화
-        #else
+#else
         // 릴리스 모드에서는 중요 로그만 활성화
-        #endif
+#endif
     }
     
     // 전역 새로고침 수행

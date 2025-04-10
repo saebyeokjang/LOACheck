@@ -27,9 +27,10 @@ struct SignInView: View {
     
     var body: some View {
         VStack(spacing: 30) {
+            Spacer()
             // 헤더 이미지 및 제목
             VStack(spacing: 20) {
-                Image(systemName: "person.crop.circle.badge.checkmark")
+                Image("Logo")
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 80, height: 80)
@@ -49,7 +50,7 @@ struct SignInView: View {
             Spacer()
             
             // 로그인 버튼들
-            VStack(spacing: 20) {
+            VStack(spacing: 10) {
                 // Apple 로그인 버튼
                 SignInWithAppleButton(.signIn) { request in
                     // 요청 설정
@@ -106,6 +107,31 @@ struct SignInView: View {
                 .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
                 .frame(height: 50)
                 .cornerRadius(8)
+                
+                // 구글 로그인 버튼을 위한 뷰
+                Button(action: {
+                    Task {
+                        let success = await authManager.signInWithGoogle()
+                        if success {
+                            isPresented = false
+                        }
+                    }
+                }) {
+                    HStack {
+                        Image("google_logo") // 구글 로고 이미지 추가 필요
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 24, height: 24)
+                        
+                        Text("Google로 로그인")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(8)
+                }
                 
                 // 비회원 사용 버튼
                 Button(action: {
