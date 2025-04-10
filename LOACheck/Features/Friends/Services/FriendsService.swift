@@ -235,6 +235,30 @@ class FriendsService: ObservableObject {
         }
     }
     
+    // 캐릭터 이름으로 상세 정보 가져오기
+    func fetchCharacterDetails(characterName: String) async -> CharacterModel? {
+        do {
+            guard !characterName.isEmpty, AuthManager.shared.isLoggedIn else {
+                return nil
+            }
+            
+            // 먼저 캐릭터 이름으로 사용자 검색
+            let user = try await searchUserByCharacterName(characterName)
+            guard let userId = user?.id else {
+                return nil
+            }
+            
+            // 해당 사용자의 캐릭터 목록 가져오기
+            let characters = try await FirebaseRepository.shared.fetchFriendCharacters(friendUserId: userId)
+            
+            // 검색한 캐릭터 이름과 일치하는 캐릭터 찾기
+            return characters.first(where: { $0.name == characterName })
+        } catch {
+            Logger.error("캐릭터 상세 정보 가져오기 실패: \(error.localizedDescription)")
+            return nil
+        }
+    }
+    
     /// 친구 요청 수락
     func acceptFriendRequest(from userId: String) async -> Bool {
         guard AuthManager.shared.isLoggedIn else { return false }

@@ -13,7 +13,9 @@ struct AddFriendView: View {
     
     @State private var searchCharacterName = ""
     @State private var searchedUser: User?
+    @State private var characterDetails: CharacterModel?
     @State private var isSearching = false
+    @State private var isLoadingCharDetails = false
     @State private var hasSearched = false
     @State private var showAlert = false
     @State private var alertTitle = ""
@@ -70,7 +72,12 @@ struct AddFriendView: View {
                     if let user = searchedUser {
                         // 검색 결과 표시
                         VStack(spacing: 16) {
-                            UserSearchResultView(user: user, characterName: searchCharacterName) {
+                            UserSearchResultView(
+                                user: user,
+                                characterName: searchCharacterName,
+                                characterDetails: characterDetails,
+                                isLoading: isLoadingCharDetails
+                            ) {
                                 sendFriendRequest(to: searchCharacterName)
                             }
                         }
@@ -132,11 +139,25 @@ struct AddFriendView: View {
         
         isSearching = true
         hasSearched = false
+        characterDetails = nil // 검색 시작 시 상세 정보 초기화
         
         Task {
             do {
                 let trimmedName = searchCharacterName.trimmingCharacters(in: .whitespacesAndNewlines)
                 let user = try await friendsService.searchUserByCharacterName(trimmedName)
+                
+                // 사용자를 찾았으면 캐릭터 상세 정보도 가져오기
+                if let foundUser = user {
+                    isLoadingCharDetails = true
+                    
+                    // 캐릭터 상세 정보 비동기 로드
+                    let details = await friendsService.fetchCharacterDetails(characterName: trimmedName)
+                    
+                    await MainActor.run {
+                        self.characterDetails = details
+                        self.isLoadingCharDetails = false
+                    }
+                }
                 
                 // MainActor를 사용하여 UI 업데이트를 메인 스레드에서 처리
                 await MainActor.run {
@@ -158,6 +179,7 @@ struct AddFriendView: View {
                 // 에러 처리
                 await MainActor.run {
                     self.searchedUser = nil
+                    self.characterDetails = nil
                     self.isSearching = false
                     self.hasSearched = true
                     
@@ -223,10 +245,12 @@ struct AddFriendView: View {
     }
 }
 
-// 검색 결과 UI 컴포넌트 수정
+// 친구 검색 결과 UI 컴포넌트
 struct UserSearchResultView: View {
     var user: User
     var characterName: String
+    var characterDetails: CharacterModel?
+    var isLoading: Bool = false
     var onSendRequest: () -> Void
     
     var body: some View {
@@ -243,6 +267,52 @@ struct UserSearchResultView: View {
                 Text(user.displayName)
                     .font(.title3)
                     .fontWeight(.semibold)
+                
+                if let characterDetails = characterDetails {
+                    // 대표 캐릭터 상세 정보가 있는 경우
+                    VStack(spacing: 4) {
+                        Text("캐릭터: \(characterDetails.name)")
+                            .font(.subheadline)
+                            .foregroundColor(.primary)
+                        
+                        HStack(spacing: 8) {
+                            Text(characterDetails.server)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.gray.opacity(0.1))
+                                .cornerRadius(8)
+                            
+                            Text(characterDetails.characterClass)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.gray.opacity(0.1))
+                                .cornerRadius(8)
+                            
+                            Text("Lv. \(String(format: "%.2f", characterDetails.level))")
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.blue.opacity(0.1))
+                                .cornerRadius(8)
+                        }
+                    }
+                } else {
+                    // 대표 캐릭터 기본 정보만 있는 경우
+                    Text("캐릭터: \(characterName)")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    if isLoading {
+                        // 캐릭터 정보 로딩 중
+                        ProgressView("캐릭터 정보 로딩 중...")
+                            .font(.caption)
+                    }
+                }
             }
             
             // 요청 버튼
