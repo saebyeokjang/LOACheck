@@ -171,6 +171,11 @@ class FriendsService: ObservableObject {
             throw FirebaseError.notAuthenticated
         }
         
+        // 대표 캐릭터 이름 또는 기본 표시 이름 사용
+            let displayName = AuthManager.shared.representativeCharacter.isEmpty ?
+                              currentUser.displayName :
+                              AuthManager.shared.representativeCharacter
+        
         do {
             // 캐릭터 이름으로 사용자 검색
             guard let targetUser = try await searchUserByCharacterName(characterName) else {
@@ -200,7 +205,7 @@ class FriendsService: ObservableObject {
             // 요청 데이터 구성
             let requestData: [String: Any] = [
                 "fromUserId": currentUser.id,
-                "fromUserName": currentUser.displayName,
+                "fromUserName": displayName,
                 "toUserId": targetUser.id,
                 "status": "pending",
                 "timestamp": FieldValue.serverTimestamp()

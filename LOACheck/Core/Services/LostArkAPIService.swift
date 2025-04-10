@@ -39,6 +39,23 @@ enum APIError: Error, LocalizedError {
     case unknown(Int)
     case networkError(Error)
     
+    static func == (lhs: APIError, rhs: APIError) -> Bool {
+        switch (lhs, rhs) {
+        case (.invalidResponse, .invalidResponse),
+            (.unauthorized, .unauthorized),
+            (.forbidden, .forbidden),
+            (.rateLimit, .rateLimit),
+            (.serviceUnavailable, .serviceUnavailable):
+            return true
+        case (.unknown(let lhsCode), .unknown(let rhsCode)):
+            return lhsCode == rhsCode
+        case (.networkError(let lhsError), .networkError(let rhsError)):
+            return lhsError.localizedDescription == rhsError.localizedDescription
+        default:
+            return false
+        }
+    }
+    
     var errorDescription: String? {
         switch self {
         case .invalidResponse:
@@ -103,11 +120,11 @@ class LostArkAPIService {
             }
             
             // 디버그 모드에서만 응답 로깅
-            #if DEBUG
+#if DEBUG
             let responseString = String(data: data, encoding: .utf8) ?? "Unable to decode response"
             Logger.debug("API Response Status: \(httpResponse.statusCode)")
             Logger.debug("API Response: \(responseString)")
-            #endif
+#endif
             
             switch httpResponse.statusCode {
             case 200:
@@ -229,6 +246,46 @@ class LostArkAPIService {
             )
             modelContext.insert(newCharacter)
             Logger.debug("Added representative character manually: \(characterName)")
+        }
+    }
+    
+    // 캐릭터 존재 여부 확인 메서드
+    func validateCharacter(name: String, apiKey: String) async -> Result<Bool, APIError> {
+        do {
+            let encodedName = name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? name
+            let url = URL(string: "\(baseURL)/characters/\(encodedName)")!
+            
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            request.addValue("application/json", forHTTPHeaderField: "accept")
+            request.addValue("bearer \(apiKey)", forHTTPHeaderField: "authorization")
+            
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                return .failure(.invalidResponse)
+            }
+            
+            switch httpResponse.statusCode {
+            case 200:
+                // 성공적으로 캐릭터 정보를 받으면 존재하는 캐릭터
+                return .success(true)
+            case 404:
+                // 404 오류는 캐릭터를 찾을 수 없음을 의미
+                return .success(false)
+            case 401:
+                return .failure(.unauthorized)
+            case 403:
+                return .failure(.forbidden)
+            case 429:
+                return .failure(.rateLimit)
+            case 503:
+                return .failure(.serviceUnavailable)
+            default:
+                return .failure(.unknown(httpResponse.statusCode))
+            }
+        } catch {
+            return .failure(.networkError(error))
         }
     }
 }
