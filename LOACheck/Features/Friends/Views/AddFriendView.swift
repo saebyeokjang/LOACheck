@@ -19,7 +19,7 @@ struct AddFriendView: View {
     @State private var showAlert = false
     @State private var alertTitle = ""
     @State private var alertMessage = ""
-    @State private var shouldDismiss = false
+    @State private var requestSent = false
     
     var body: some View {
         NavigationStack {
@@ -71,15 +71,85 @@ struct AddFriendView: View {
                     if let user = searchedUser {
                         // 검색 결과 표시
                         VStack(spacing: 16) {
-                            UserSearchResultView(
-                                user: user,
-                                characterName: searchCharacterName,
-                                characterDetails: characterDetails,
-                                isLoading: false,
-                                onSendRequest: {
-                                    sendFriendRequest(to: searchCharacterName)
+                            // 요청 상태에 따라 다른 UI 표시
+                            if requestSent {
+                                // 요청 전송 성공 시 표시할 UI
+                                VStack(spacing: 16) {
+                                    // 사용자 정보
+                                    VStack(spacing: 8) {
+                                        Text(user.displayName)
+                                            .font(.title3)
+                                            .fontWeight(.semibold)
+                                        
+                                        if let characterDetails = characterDetails {
+                                            // 대표 캐릭터 상세 정보
+                                            VStack(spacing: 4) {
+                                                Text("캐릭터: \(characterDetails.name)")
+                                                    .font(.subheadline)
+                                                    .foregroundColor(.primary)
+                                                
+                                                HStack(spacing: 8) {
+                                                    Text(characterDetails.server)
+                                                        .font(.caption)
+                                                        .foregroundColor(.blue)
+                                                        .padding(.horizontal, 8)
+                                                        .padding(.vertical, 4)
+                                                        .background(Color.blue.opacity(0.1))
+                                                        .cornerRadius(8)
+                                                    
+                                                    Text(characterDetails.characterClass)
+                                                        .font(.caption)
+                                                        .foregroundColor(.blue)
+                                                        .padding(.horizontal, 8)
+                                                        .padding(.vertical, 4)
+                                                        .background(Color.blue.opacity(0.1))
+                                                        .cornerRadius(8)
+                                                    
+                                                    Text("Lv. \(String(format: "%.2f", characterDetails.level))")
+                                                        .font(.caption)
+                                                        .foregroundColor(.blue)
+                                                        .padding(.horizontal, 8)
+                                                        .padding(.vertical, 4)
+                                                        .background(Color.blue.opacity(0.1))
+                                                        .cornerRadius(8)
+                                                }
+                                            }
+                                        } else {
+                                            Text("캐릭터: \(searchCharacterName)")
+                                                .font(.subheadline)
+                                                .foregroundColor(.secondary)
+                                        }
+                                    }
+                                    
+                                    // 요청 성공 메시지
+                                    HStack {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.green)
+                                            .font(.title2)
+                                        Text("친구 요청을 보냈습니다")
+                                            .font(.headline)
+                                            .foregroundColor(.green)
+                                    }
+                                    .padding()
+                                    .frame(maxWidth: .infinity)
+                                    .background(Color.green.opacity(0.1))
+                                    .cornerRadius(10)
                                 }
-                            )
+                                .padding()
+                                .background(Color(.systemGray6))
+                                .cornerRadius(16)
+                            } else {
+                                // 기존 검색 결과 UI
+                                UserSearchResultView(
+                                    user: user,
+                                    characterName: searchCharacterName,
+                                    characterDetails: characterDetails,
+                                    isLoading: false,
+                                    onSendRequest: {
+                                        sendFriendRequest(to: searchCharacterName)
+                                    }
+                                )
+                            }
                         }
                         .padding()
                     } else {
@@ -114,20 +184,8 @@ struct AddFriendView: View {
                 Alert(
                     title: Text(alertTitle),
                     message: Text(alertMessage),
-                    dismissButton: .default(Text("확인")) {
-                        if shouldDismiss {
-                            dismiss()
-                        }
-                    }
+                    dismissButton: .default(Text("확인"))
                 )
-            }
-            .onChange(of: shouldDismiss) { _, newValue in
-                if newValue {
-                    // shouldDismiss가 true로 바뀌면 약간의 지연 후 화면 닫기
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                        dismiss()
-                    }
-                }
             }
         }
     }
@@ -139,6 +197,7 @@ struct AddFriendView: View {
         isSearching = true
         hasSearched = false
         characterDetails = nil // 검색 시작 시 상세 정보 초기화
+        requestSent = false    // 새 검색 시 요청 상태 초기화
         
         Task {
             do {
@@ -152,14 +211,11 @@ struct AddFriendView: View {
                     self.isSearching = false
                     self.hasSearched = true
                     
-                    // 내 캐릭터를 검색한 경우 - 약간의 지연 추가
+                    // 내 캐릭터를 검색한 경우
                     if result.0?.id == AuthManager.shared.userId {
-                        // 화면 전환이 완료된 후 알림 표시
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            self.alertTitle = "알림"
-                            self.alertMessage = "자신을 친구로 추가할 수 없습니다."
-                            self.showAlert = true
-                        }
+                        self.alertTitle = "알림"
+                        self.alertMessage = "자신을 친구로 추가할 수 없습니다."
+                        self.showAlert = true
                     }
                 }
             } catch {
@@ -189,44 +245,36 @@ struct AddFriendView: View {
                 await MainActor.run {
                     self.isSearching = false
                     
-                    // 약간의 지연 후 알림 표시
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        if success {
-                            self.alertTitle = "요청 성공"
-                            self.alertMessage = "\(characterName) 캐릭터의 사용자에게 친구 요청을 보냈습니다."
-                            self.shouldDismiss = true
-                            self.showAlert = true
-                        } else {
-                            self.alertTitle = "요청 실패"
-                            self.alertMessage = "친구 요청을 보내는 중 오류가 발생했습니다."
-                            self.showAlert = true
-                        }
+                    if success {
+                        // 요청 성공 상태 설정
+                        self.requestSent = true
+                    } else {
+                        self.alertTitle = "요청 실패"
+                        self.alertMessage = "친구 요청을 보내는 중 오류가 발생했습니다."
+                        self.showAlert = true
                     }
                 }
             } catch {
                 await MainActor.run {
                     self.isSearching = false
                     
-                    // 약간의 지연 후 알림 표시
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        self.alertTitle = "요청 실패"
-                        if let firebaseError = error as? FirebaseError {
-                            switch firebaseError {
-                            case .notAuthenticated:
-                                self.alertMessage = "로그인이 필요합니다."
-                            case .documentNotFound:
-                                self.alertMessage = "해당 캐릭터를 찾을 수 없습니다."
-                            case .dataError:
-                                self.alertMessage = "이미 친구이거나 요청 중인 사용자입니다."
-                            default:
-                                self.alertMessage = "친구 요청을 보내는 중 오류가 발생했습니다."
-                            }
-                        } else {
-                            self.alertMessage = error.localizedDescription
+                    self.alertTitle = "요청 실패"
+                    if let firebaseError = error as? FirebaseError {
+                        switch firebaseError {
+                        case .notAuthenticated:
+                            self.alertMessage = "로그인이 필요합니다."
+                        case .documentNotFound:
+                            self.alertMessage = "해당 캐릭터를 찾을 수 없습니다."
+                        case .dataError:
+                            self.alertMessage = "이미 친구이거나 요청 중인 사용자입니다."
+                        default:
+                            self.alertMessage = "친구 요청을 보내는 중 오류가 발생했습니다."
                         }
-                        
-                        self.showAlert = true
+                    } else {
+                        self.alertMessage = error.localizedDescription
                     }
+                    
+                    self.showAlert = true
                 }
             }
         }
@@ -239,7 +287,6 @@ struct UserSearchResultView: View {
     var characterName: String
     var characterDetails: CharacterModel?
     var isLoading: Bool
-    @State private var requestSent: Bool = false
     var onSendRequest: () -> Void
     
     var body: some View {
@@ -281,40 +328,19 @@ struct UserSearchResultView: View {
             }
             
             // 요청 버튼
-            if requestSent {
-                // 요청 전송 완료 상태 표시
+            Button(action: onSendRequest) {
                 HStack {
-                    Spacer()
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                        .imageScale(.large)
-                    Text("친구 요청 전송 완료")
+                    Image(systemName: "person.badge.plus")
+                    Text("친구 요청 보내기")
                         .font(.headline)
-                        .foregroundColor(.green)
-                    Spacer()
                 }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.green.opacity(0.1))
+                .background(Color.blue)
                 .cornerRadius(10)
-            } else {
-                // 요청 버튼
-                Button(action: {
-                    requestSent = true
-                    onSendRequest()
-                }) {
-                    HStack {
-                        Image(systemName: "person.badge.plus")
-                        Text("친구 요청 보내기")
-                            .font(.headline)
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.blue)
-                    .cornerRadius(10)
-                }
-                .disabled(isLoading)
             }
+            .disabled(isLoading)
         }
         .padding()
         .background(Color(.systemGray6))
