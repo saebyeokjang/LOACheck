@@ -1,5 +1,5 @@
 //
-//  DataRepository.swift
+//  FirebaseRepository.swift
 //  LOACheck
 //
 //  Created by Saebyeok Jang on 4/8/25.
@@ -215,6 +215,84 @@ class FirebaseRepository {
     }
     
     // MARK: - 친구 관련
+    
+    // 캐릭터 이름으로 사용자 검색 (기본 메소드)
+    func searchUserByCharacterName(_ characterName: String) async throws -> User? {
+        print("📱 캐릭터 검색 시작: \(characterName)")
+        
+        let db = Firestore.firestore()
+        let characterNamesRef = db.collection("characterNames").document(characterName)
+        
+        let document = try await characterNamesRef.getDocument()
+        
+        guard document.exists, let data = document.data(),
+              let userId = data["userId"] as? String else {
+            print("❌ 캐릭터 검색 실패: 캐릭터 정보 없음")
+            return nil
+        }
+        
+        print("✅ 캐릭터 검색 성공: \(characterName), 사용자 ID: \(userId)")
+        
+        // 사용자 정보 가져오기
+        let userRef = db.collection("users").document(userId)
+        let userDoc = try await userRef.getDocument()
+        
+        if let userData = userDoc.data(),
+           let displayName = userData["displayName"] as? String,
+           let email = userData["email"] as? String {
+            print("✅ 사용자 정보 조회 성공: \(displayName)")
+            return User(id: userId, displayName: displayName, email: email)
+        }
+        
+        print("❌ 사용자 정보 조회 실패: \(userId)")
+        return nil
+    }
+    
+    // 캐릭터 이름으로 사용자 및 캐릭터 상세 정보 검색 (새 메소드)
+    func searchUserAndCharacterDetails(_ characterName: String) async throws -> (User?, CharacterModel?) {
+        print("📱 캐릭터 및 상세 정보 검색 시작: \(characterName)")
+        
+        let db = Firestore.firestore()
+        let characterNamesRef = db.collection("characterNames").document(characterName)
+        
+        let document = try await characterNamesRef.getDocument()
+        
+        guard document.exists, let data = document.data(),
+              let userId = data["userId"] as? String else {
+            print("❌ 캐릭터 검색 실패: 캐릭터 정보 없음")
+            return (nil, nil)
+        }
+        
+        // 캐릭터 정보 추출
+        let server = data["server"] as? String ?? ""
+        let characterClass = data["characterClass"] as? String ?? ""
+        let level = data["level"] as? Double ?? 0.0
+        
+        // 캐릭터 모델 생성
+        let characterModel = CharacterModel(
+            name: characterName,
+            server: server,
+            characterClass: characterClass,
+            level: level
+        )
+        
+        print("✅ 캐릭터 검색 성공: \(characterName), 사용자 ID: \(userId)")
+        
+        // 사용자 정보 가져오기
+        let userRef = db.collection("users").document(userId)
+        let userDoc = try await userRef.getDocument()
+        
+        if let userData = userDoc.data(),
+           let displayName = userData["displayName"] as? String,
+           let email = userData["email"] as? String {
+            print("✅ 사용자 정보 조회 성공: \(displayName)")
+            let user = User(id: userId, displayName: displayName, email: email)
+            return (user, characterModel)
+        }
+        
+        print("❌ 사용자 정보 조회 실패: \(userId)")
+        return (nil, characterModel)  // 사용자 정보는 없지만 캐릭터 정보는 반환
+    }
     
     // 친구 요청 보내기
     func sendFriendRequest(to characterName: String) async throws {
@@ -502,36 +580,60 @@ class FirebaseRepository {
         return characters
     }
     
-    // 캐릭터 이름으로 사용자 검색
-    func searchUserByCharacterName(_ characterName: String) async throws -> User? {
-        print("📱 캐릭터 검색 시작: \(characterName)")
+    // 캐릭터 상세 정보 저장 메소드
+    func storeCharacterDetails(characterName: String) async throws {
+        // 사용자 인증 확인
+        guard let userId = AuthManager.shared.currentUser?.id else {
+            Logger.error("캐릭터 상세 정보 저장 실패: 인증되지 않은 사용자")
+            throw FirebaseError.notAuthenticated
+        }
         
+        // DB 참조
         let db = Firestore.firestore()
-        let characterNamesRef = db.collection("characterNames").document(characterName)
         
-        let document = try await characterNamesRef.getDocument()
-        
-        guard document.exists, let data = document.data(),
-              let userId = data["userId"] as? String else {
-            print("❌ 캐릭터 검색 실패: 캐릭터 정보 없음")
-            return nil
+        // SwiftData에서 캐릭터 정보 찾기
+        if let modelContext = DataSyncManager.shared.modelContext {
+            do {
+                let descriptor = FetchDescriptor<CharacterModel>(
+                    predicate: #Predicate<CharacterModel> { $0.name == characterName }
+                )
+                
+                let characters = try modelContext.fetch(descriptor)
+                
+                if let character = characters.first {
+                    // 캐릭터 정보가 있으면 상세 정보 저장
+                    try await db.collection("characterNames").document(characterName).setData([
+                        "userId": userId,
+                        "server": character.server,
+                        "characterClass": character.characterClass,
+                        "level": character.level,
+                        "timestamp": FieldValue.serverTimestamp()
+                    ], merge: true)
+                    
+                    Logger.debug("캐릭터 '\(characterName)' 상세 정보 저장 완료")
+                } else {
+                    // 캐릭터 정보가 없으면 기본 정보만 저장
+                    try await db.collection("characterNames").document(characterName).setData([
+                        "userId": userId,
+                        "timestamp": FieldValue.serverTimestamp()
+                    ], merge: true)
+                    
+                    Logger.debug("캐릭터 '\(characterName)' 기본 정보만 저장 (캐릭터 정보 없음)")
+                }
+            } catch {
+                Logger.error("캐릭터 정보 조회 중 오류 발생", error: error)
+                throw error
+            }
+        } else {
+            // ModelContext가 없는 경우
+            Logger.error("ModelContext가 없어 캐릭터 정보를 찾을 수 없음")
+            
+            // 기본 정보만 저장
+            try await db.collection("characterNames").document(characterName).setData([
+                "userId": userId,
+                "timestamp": FieldValue.serverTimestamp()
+            ], merge: true)
         }
-        
-        print("✅ 캐릭터 검색 성공: \(characterName), 사용자 ID: \(userId)")
-        
-        // 사용자 정보 가져오기
-        let userRef = db.collection("users").document(userId)
-        let userDoc = try await userRef.getDocument()
-        
-        if let userData = userDoc.data(),
-           let displayName = userData["displayName"] as? String,
-           let email = userData["email"] as? String {
-            print("✅ 사용자 정보 조회 성공: \(displayName)")
-            return User(id: userId, displayName: displayName, email: email)
-        }
-        
-        print("❌ 사용자 정보 조회 실패: \(userId)")
-        return nil
     }
     
     // MARK: - 사용자 데이터 관리

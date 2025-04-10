@@ -133,13 +133,8 @@ class AuthManager: ObservableObject {
                         }
                     }
                     
-                    // 3. 새 대표 캐릭터를 characterNames에 등록
-                    try await db.collection("characterNames").document(characterName).setData([
-                        "userId": uid,
-                        "timestamp": FieldValue.serverTimestamp()
-                    ], merge: true)
-                    
-                    Logger.debug("새 대표 캐릭터 '\(characterName)' 설정 완료 (characterNames 포함)")
+                    // 3. 새 대표 캐릭터 상세 정보 저장
+                    try await FirebaseRepository.shared.storeCharacterDetails(characterName: characterName)
                     
                     // 4. 현재 사용자 객체도 업데이트
                     if var updatedUser = self.currentUser {
@@ -148,6 +143,8 @@ class AuthManager: ObservableObject {
                             self.currentUser = updatedUser
                         }
                     }
+                    
+                    Logger.debug("새 대표 캐릭터 '\(characterName)' 설정 완료")
                 } catch {
                     Logger.error("대표 캐릭터 설정 중 오류 발생", error: error)
                 }
@@ -186,11 +183,8 @@ class AuthManager: ObservableObject {
                     "displayName": representativeCharacter
                 ])
                 
-                // 3. characterNames 컬렉션에 새 대표 캐릭터 등록
-                try await db.collection("characterNames").document(representativeCharacter).setData([
-                    "userId": uid,
-                    "timestamp": FieldValue.serverTimestamp()
-                ], merge: true)
+                // 3. 캐릭터 상세 정보 저장
+                try await FirebaseRepository.shared.storeCharacterDetails(characterName: representativeCharacter)
                 
                 // 4. 현재 사용자 객체 업데이트
                 if var updatedUser = currentUser {
@@ -238,11 +232,8 @@ class AuthManager: ObservableObject {
                 "displayName": representativeCharacter
             ])
             
-            // 3. characterNames 컬렉션에 새 대표 캐릭터 등록
-            try await db.collection("characterNames").document(representativeCharacter).setData([
-                "userId": uid,
-                "timestamp": FieldValue.serverTimestamp()
-            ], merge: true)
+            // 3. 캐릭터 상세 정보 저장
+            try await FirebaseRepository.shared.storeCharacterDetails(characterName: representativeCharacter)
             
             Logger.debug("Firestore displayName 직접 업데이트 성공: '\(representativeCharacter)' (characterNames 포함)")
             return true

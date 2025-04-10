@@ -119,50 +119,14 @@ class FriendsService: ObservableObject {
         }
     }
     
-    // 캐릭터 이름으로 사용자 검색
-    func searchUserByCharacterName(_ characterName: String) async throws -> User? {
+    // 캐릭터 이름으로 사용자 및 캐릭터 정보 검색
+    func searchUserByCharacterName(_ characterName: String) async throws -> (User?, CharacterModel?) {
         guard !characterName.isEmpty, AuthManager.shared.isLoggedIn else {
             throw FirebaseError.notAuthenticated
         }
         
-        let db = Firestore.firestore()
-        let characterNamesRef = db.collection("characterNames").document(characterName)
-        
-        do {
-            let document = try await characterNamesRef.getDocument()
-            
-            guard document.exists,
-                  let data = document.data(),
-                  let userId = data["userId"] as? String else {
-                return nil
-            }
-            
-            // 사용자 정보 가져오기
-            let userRef = db.collection("users").document(userId)
-            
-            do {
-                let userDocument = try await userRef.getDocument()
-                
-                guard userDocument.exists,
-                      let userData = userDocument.data(),
-                      let displayName = userData["displayName"] as? String,
-                      let email = userData["email"] as? String else {
-                    return nil
-                }
-                
-                return User(
-                    id: userId,
-                    displayName: displayName,
-                    email: email
-                )
-            } catch {
-                print("사용자 정보 조회 실패: \(error.localizedDescription)")
-                throw error
-            }
-        } catch {
-            print("캐릭터 이름 조회 실패: \(error.localizedDescription)")
-            throw error
-        }
+        // FirebaseRepository의 새 메소드 사용
+        return try await FirebaseRepository.shared.searchUserAndCharacterDetails(characterName)
     }
     
     // 캐릭터 이름으로 친구 요청 보내기
@@ -172,13 +136,14 @@ class FriendsService: ObservableObject {
         }
         
         // 대표 캐릭터 이름 또는 기본 표시 이름 사용
-            let displayName = AuthManager.shared.representativeCharacter.isEmpty ?
-                              currentUser.displayName :
-                              AuthManager.shared.representativeCharacter
+        let displayName = AuthManager.shared.representativeCharacter.isEmpty ?
+                          currentUser.displayName :
+                          AuthManager.shared.representativeCharacter
         
         do {
             // 캐릭터 이름으로 사용자 검색
-            guard let targetUser = try await searchUserByCharacterName(characterName) else {
+            let result = try await searchUserByCharacterName(characterName)
+            guard let targetUser = result.0 else {
                 throw FirebaseError.documentNotFound
             }
             
@@ -242,17 +207,9 @@ class FriendsService: ObservableObject {
                 return nil
             }
             
-            // 먼저 캐릭터 이름으로 사용자 검색
-            let user = try await searchUserByCharacterName(characterName)
-            guard let userId = user?.id else {
-                return nil
-            }
-            
-            // 해당 사용자의 캐릭터 목록 가져오기
-            let characters = try await FirebaseRepository.shared.fetchFriendCharacters(friendUserId: userId)
-            
-            // 검색한 캐릭터 이름과 일치하는 캐릭터 찾기
-            return characters.first(where: { $0.name == characterName })
+            // 캐릭터 이름으로 사용자 및 캐릭터 정보 검색
+            let result = try await searchUserByCharacterName(characterName)
+            return result.1  // 직접 캐릭터 모델 반환
         } catch {
             Logger.error("캐릭터 상세 정보 가져오기 실패: \(error.localizedDescription)")
             return nil

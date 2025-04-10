@@ -341,6 +341,25 @@ struct SettingsView: View {
                     if exists {
                         // 캐릭터가 존재하면 설정 저장
                         authManager.representativeCharacter = tempRepChar
+                        
+                        // 캐릭터 정보 찾기
+                        let descriptor = FetchDescriptor<CharacterModel>(
+                            predicate: #Predicate<CharacterModel> { $0.name == tempRepChar }
+                        )
+                        
+                        if let character = try? modelContext.fetch(descriptor).first {
+                            // 캐릭터 정보를 찾았으면 저장
+                            Task {
+                                do {
+                                    try await FirebaseRepository.shared.storeCharacterDetails(
+                                        characterName: tempRepChar
+                                    )
+                                } catch {
+                                    Logger.error("캐릭터 상세 정보 등록 실패", error: error)
+                                }
+                            }
+                        }
+                        
                         alertMessage = "대표 캐릭터가 '\(tempRepChar)'(으)로 설정되었습니다."
                         
                         // 서버 동기화
