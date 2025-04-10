@@ -69,15 +69,32 @@ struct SettingsView: View {
                         HStack {
                             Text("로그인 상태")
                             Spacer()
-                            Text(displayName)
-                                .foregroundColor(.green)
+                            
+                            if authManager.isLoggedIn {
+                                Text("온라인")
+                                    .foregroundColor(.green)
+                            } else {
+                                Text("오프라인")
+                                    .foregroundColor(.secondary)
+                            }
                         }
                         
-                        HStack {
-                            Text("이메일")
-                            Spacer()
-                            Text(authManager.email)
-                                .foregroundColor(.secondary)
+                        // 로그인 된 경우에만 사용자 정보 표시
+                        if authManager.isLoggedIn {
+                            HStack {
+                                Text("계정")
+                                Spacer()
+                                Text(authManager.email)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            // 대표 캐릭터 정보
+                            HStack {
+                                Text("대표 캐릭터")
+                                Spacer()
+                                Text(authManager.representativeCharacter.isEmpty ? "미설정" : authManager.representativeCharacter)
+                                    .foregroundColor(authManager.representativeCharacter.isEmpty ? .orange : .blue)
+                            }
                         }
                         
                         // 데이터 동기화 상태
@@ -173,14 +190,20 @@ struct SettingsView: View {
                         .autocorrectionDisabled()
                         .focused($isCharNameFocused)
                         .onAppear {
-                            tempRepChar = representativeCharacter
+                            tempRepChar = authManager.representativeCharacter
                         }
-                        .submitLabel(.done) // 키보드 Return 버튼 레이블 설정
+                        .submitLabel(.done)
                     
-                    Button(action: saveSettings) {
-                        Text("설정 저장")
+                    Button(action: {
+                        if !tempRepChar.isEmpty {
+                            authManager.representativeCharacter = tempRepChar
+                            alertMessage = "대표 캐릭터가 '\(tempRepChar)'(으)로 설정되었습니다."
+                            isShowingAlert = true
+                        }
+                    }) {
+                        Text("대표 캐릭터 설정")
                     }
-                    .disabled(tempApiKey.isEmpty || tempRepChar.isEmpty)
+                    .disabled(tempRepChar.isEmpty)
                     
                     Button(action: testAndFetchCharacters) {
                         HStack {
@@ -295,6 +318,10 @@ struct SettingsView: View {
                     // 로그인 완료 후 데이터 마이그레이션 수행
                     if authManager.isLoggedIn {
                         DataMigrationService.shared.performInitialMigrationAfterLogin(modelContext: modelContext)
+                        // 대표 캐릭터가 있으면 표시 이름으로 설정
+                        if !authManager.representativeCharacter.isEmpty {
+                            authManager.updateDisplayNameToRepCharacter()
+                        }
                     }
                 }
         }
@@ -306,14 +333,60 @@ struct SettingsView: View {
         isApiKeyFocused = false
         isCharNameFocused = false
         
+        // API 키 저장
         apiKey = tempApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        representativeCharacter = tempRepChar.trimmingCharacters(in: .whitespacesAndNewlines)
+        let newRepChar = tempRepChar.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        if authManager.isLoggedIn {
-            // 로그인 상태에서는 Firebase에 캐릭터 이름 등록
-            uploadCharacterNameToFirestore(representativeCharacter)
+        // 캐릭터 존재 여부 확인
+        if newRepChar != representativeCharacter {
+            isRefreshing = true
+            
+            Task {
+                let result = await LostArkAPIService.shared.validateCharacter(name: newRepChar, apiKey: apiKey)
+                
+                await MainActor.run {
+                    isRefreshing = false
+                    
+                    switch result {
+                    case .success(let exists):
+                        if exists {
+                            // 캐릭터가 존재하면 설정 저장
+                            representativeCharacter = newRepChar
+                            authManager.setRepresentativeCharacter(newRepChar)
+                            
+                            // 서버 동기화
+                            if authManager.isLoggedIn {
+                                Task {
+                                    let success = await authManager.updateFirestoreDisplayName()
+                                    
+                                    await MainActor.run {
+                                        if success {
+                                            alertMessage = "설정이 저장되었으며 대표 캐릭터가 서버에 업데이트되었습니다."
+                                        } else {
+                                            alertMessage = "설정은 저장되었으나 서버 업데이트에 실패했습니다."
+                                        }
+                                        isShowingAlert = true
+                                    }
+                                }
+                            } else {
+                                alertMessage = "설정이 저장되었습니다."
+                                isShowingAlert = true
+                            }
+                        } else {
+                            // 존재하지 않는 캐릭터
+                            alertMessage = "해당 캐릭터를 찾을 수 없습니다. 캐릭터 이름을 다시 확인해주세요."
+                            isShowingAlert = true
+                        }
+                        
+                    case .failure(let error):
+                        alertMessage = "캐릭터 확인 중 오류가 발생했습니다: \(error.userFriendlyMessage)"
+                        isShowingAlert = true
+                    }
+                }
+            }
         } else {
-            alertMessage = "설정이 저장되었습니다."
+            // 캐릭터 이름이 변경되지 않은 경우 API 키만 저장
+            alertMessage = "API 키가 저장되었습니다."
             isShowingAlert = true
         }
     }
@@ -324,10 +397,10 @@ struct SettingsView: View {
             isShowingAlert = true
             return
         }
-
+        
         let db = Firestore.firestore()
         let docRef = db.collection("characterNames").document(characterName)
-
+        
         // 캐릭터 중복 확인
         docRef.getDocument { document, error in
             if let error = error {
@@ -336,7 +409,7 @@ struct SettingsView: View {
                 isShowingAlert = true
                 return
             }
-
+            
             if let document = document, document.exists,
                let existingUserId = document.data()?["userId"] as? String, existingUserId != user.uid {
                 // 이미 존재함
