@@ -24,3 +24,18 @@ xcuserdata/
 # Xcode User Data
 *.xcuserdatad
 xcuserdata/
+
+# Firebase config files
+GoogleService-Info.plist
+
+# Xcode build
+build/
+DerivedData/
+xcuserdata/
+
+# macOS
+.DS_Store
+
+# Swift Package Manager
+Packages/
+.swiftpm/
