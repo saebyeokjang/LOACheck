@@ -122,16 +122,3 @@ struct RosterManagementSectionView: View {
         }
     }
 }
-
-#Preview {
-    RosterManagementSectionView(
-        apiKey: "",
-        authManager: AuthManager.shared,
-        networkMonitor: NetworkMonitorService.shared,
-        modelContext: ModelContext(try! ModelContainer(for: CharacterModel.self)),
-        dataSyncManager: DataSyncManager.shared,
-        errorService: ErrorHandlingService(),
-        alertMessage: .constant(""),
-        isShowingAlert: .constant(false)
-    )
-}
