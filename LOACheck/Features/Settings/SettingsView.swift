@@ -268,7 +268,7 @@ struct SettingsView: View {
                     }
                     .disabled(apiKey.isEmpty || representativeCharacter.isEmpty || isRefreshing || !networkMonitor.isConnected)
                     
-                    Text("다른 원정대 불러오기")
+                    Text("다른 원정대 추가하기")
                         .font(.headline)
                         .padding(.top, 4)
                     
@@ -276,9 +276,9 @@ struct SettingsView: View {
                         .autocorrectionDisabled()
                         .submitLabel(.done)
                     
-                    Button(action: fetchOtherRosterCharacters) {
+                    Button(action: fetchAdditionalRoster) {
                         HStack {
-                            Text("해당 캐릭터의 원정대 불러오기")
+                            Text("해당 캐릭터의 원정대 추가하기")
                             if isFetchingOtherRoster {
                                 Spacer()
                                 ProgressView()
@@ -417,54 +417,40 @@ struct SettingsView: View {
                 switch result {
                 case .success(let exists):
                     if exists {
-                        // 2. 존재하는 캐릭터인 경우, 실제 내 캐릭터인지 확인
-                        // 현재 캐릭터 목록에서 같은 이름을 가진 캐릭터 확인
+                        // 이제 기존 로직 진행 - 현재 캐릭터 목록에서 같은 이름을 가진 캐릭터 확인
                         let isMine = characters.contains { $0.name == tempRepChar }
                         
                         if isMine {
-                            // 내 캐릭터인 경우 대표 캐릭터로 설정
-                            authManager.representativeCharacter = tempRepChar
-                            
-                            // 캐릭터 정보 찾기
-                            let descriptor = FetchDescriptor<CharacterModel>(
-                                predicate: #Predicate<CharacterModel> { $0.name == tempRepChar }
-                            )
-                            
-                            if let character = try? modelContext.fetch(descriptor).first {
-                                // 캐릭터 정보를 찾았으면 저장
-                                Task {
-                                    do {
-                                        try await FirebaseRepository.shared.storeCharacterDetails(
-                                            characterName: tempRepChar
-                                        )
-                                    } catch {
-                                        Logger.error("캐릭터 상세 정보 등록 실패", error: error)
-                                    }
-                                }
-                            }
-                            
-                            alertMessage = "대표 캐릭터가 '\(tempRepChar)'(으)로 설정되었습니다."
-                            
-                            // 서버 동기화
-                            if authManager.isLoggedIn {
-                                Task {
-                                    let success = await authManager.updateFirestoreDisplayName()
-                                    if !success {
-                                        await MainActor.run {
-                                            alertMessage += "\n서버 업데이트에 실패했습니다."
+                            // 내 캐릭터인 경우, 이제 서버에서 중복 확인 후 대표 캐릭터로 설정
+                            Task {
+                                do {
+                                    let success = try await authManager.setRepresentativeCharacter(tempRepChar)
+                                    
+                                    await MainActor.run {
+                                        if success {
+                                            alertMessage = "대표 캐릭터가 '\(tempRepChar)'(으)로 설정되었습니다."
+                                        } else {
+                                            alertMessage = "'\(tempRepChar)'는 이미 다른 사용자가 대표 캐릭터로 사용 중입니다."
                                         }
+                                        isShowingAlert = true
+                                    }
+                                } catch {
+                                    await MainActor.run {
+                                        alertMessage = "대표 캐릭터 설정 중 오류가 발생했습니다: \(error.localizedDescription)"
+                                        isShowingAlert = true
                                     }
                                 }
                             }
                         } else {
                             // 존재하지만 내 캐릭터가 아닌 경우
                             alertMessage = "'\(tempRepChar)'는 내 캐릭터가 아닙니다. 먼저 캐릭터 정보를 불러와주세요."
+                            isShowingAlert = true
                         }
                     } else {
                         // 캐릭터가 존재하지 않음
                         alertMessage = "해당 캐릭터를 찾을 수 없습니다. 캐릭터 이름을 다시 확인해주세요."
+                        isShowingAlert = true
                     }
-                    isShowingAlert = true
                     
                 case .failure(let error):
                     alertMessage = "캐릭터 확인 중 오류가 발생했습니다: \(error.userFriendlyMessage)"
@@ -477,7 +463,7 @@ struct SettingsView: View {
     }
     
     // 다른 원정대의 캐릭터 정보를 불러오는 함수
-    private func fetchOtherRosterCharacters() {
+    private func fetchAdditionalRoster() {
         guard !apiKey.isEmpty else {
             alertMessage = "API 키를 먼저 입력해주세요."
             isShowingAlert = true
@@ -485,7 +471,7 @@ struct SettingsView: View {
         }
         
         guard !otherCharacterName.isEmpty else {
-            alertMessage = "불러올 캐릭터 이름을 입력해주세요."
+            alertMessage = "추가할 캐릭터 이름을 입력해주세요."
             isShowingAlert = true
             return
         }
@@ -514,15 +500,19 @@ struct SettingsView: View {
                         return
                     }
                     
-                    // 캐릭터가 존재하면 해당 캐릭터의 원정대 정보 불러오기
-                    let result = await LostArkAPIService.shared.fetchSiblingsForCharacter(name: otherCharacterName, apiKey: apiKey, modelContext: modelContext)
+                    // 캐릭터가 존재하면 해당 캐릭터의 원정대 정보 추가
+                    let result = await LostArkAPIService.shared.fetchAdditionalRoster(
+                        characterName: otherCharacterName,
+                        apiKey: apiKey,
+                        modelContext: modelContext
+                    )
                     
                     await MainActor.run {
                         isFetchingOtherRoster = false
                         
                         switch result {
                         case .success(let count):
-                            alertMessage = "'\(otherCharacterName)'의 원정대 캐릭터 정보를 성공적으로 불러왔습니다. (\(count)개)"
+                            alertMessage = "'\(otherCharacterName)'의 원정대 캐릭터를 기존 데이터에 추가했습니다. (\(count)개)"
                             
                             // 로그인 상태면 데이터 동기화 필요 표시
                             if authManager.isLoggedIn {
@@ -532,7 +522,7 @@ struct SettingsView: View {
                         case .failure(let error):
                             errorService.handleError(error, source: .api) {
                                 // 재시도 액션
-                                fetchOtherRosterCharacters()
+                                fetchAdditionalRoster()
                             }
                             alertMessage = "오류가 발생했습니다: \(error.userFriendlyMessage)"
                         }
@@ -614,41 +604,43 @@ struct SettingsView: View {
                         }
                         return
                     }
-                    // 캐릭터가 존재하면 계속 진행
+                    
+                    // 2. 캐릭터 정보 불러오기 (기존 데이터 초기화)
+                    let result = await LostArkAPIService.shared.fetchCharacters(
+                        apiKey: apiKey,
+                        modelContext: modelContext,
+                        clearExisting: true  // 기존 데이터 초기화 옵션
+                    )
+                    
+                    await MainActor.run {
+                        isRefreshing = false
+                        
+                        switch result {
+                        case .success(let count):
+                            alertMessage = "캐릭터 정보를 성공적으로 불러왔습니다. (\(count)개)"
+                            
+                            // 로그인 상태면 데이터 동기화 필요 표시
+                            if authManager.isLoggedIn {
+                                dataSyncManager.markLocalChanges()
+                            }
+                            
+                        case .failure(let error):
+                            errorService.handleError(error, source: .api) {
+                                // 재시도 액션
+                                testAndFetchCharacters()
+                            }
+                            alertMessage = "오류가 발생했습니다: \(error.userFriendlyMessage)"
+                        }
+                        
+                        isShowingAlert = true
+                    }
                     
                 case .failure(let error):
-                    // API 키 유효성 등의 오류 발생 시
                     await MainActor.run {
                         isRefreshing = false
                         alertMessage = "API 오류: \(error.userFriendlyMessage)"
                         isShowingAlert = true
                     }
-                    return
-                }
-                
-                // 2. 캐릭터 정보 불러오기
-                let result = await LostArkAPIService.shared.fetchCharacters(apiKey: apiKey, modelContext: modelContext)
-                
-                await MainActor.run {
-                    isRefreshing = false
-                    
-                    switch result {
-                    case .success(let count):
-                        alertMessage = "캐릭터 정보를 성공적으로 불러왔습니다. (\(count)개)"
-                        
-                        // 로그인 상태면 데이터 동기화 필요 표시
-                        if authManager.isLoggedIn {
-                            dataSyncManager.markLocalChanges()
-                        }
-                    case .failure(let error):
-                        errorService.handleError(error, source: .api) {
-                            // 재시도 액션
-                            testAndFetchCharacters()
-                        }
-                        alertMessage = "오류가 발생했습니다: \(error.userFriendlyMessage)"
-                    }
-                    
-                    isShowingAlert = true
                 }
             } catch {
                 await MainActor.run {
@@ -718,32 +710,44 @@ struct SettingsView: View {
     
     // 모든 데이터 초기화
     private func resetAllData() {
-        // 모든 캐릭터 삭제
-        do {
-            try modelContext.delete(model: CharacterModel.self)
-            alertMessage = "모든 데이터가 초기화되었습니다."
-            isShowingAlert = true
-            
-            // 로그인 상태면 클라우드 데이터도 삭제
-            if authManager.isLoggedIn && networkMonitor.isConnected {
-                Task {
-                    let repository = DataRepositoryFactory.getRepository(modelContext: modelContext)
-                    do {
-                        try await repository.deleteAllCharacters()
-                    } catch {
-                        await MainActor.run {
-                            errorService.handleError(error, source: .sync)
-                        }
-                    }
+        isRefreshing = true
+        
+        Task {
+            do {
+                // 1. 모델 컨텍스트 확인
+                guard let modelContext = DataSyncManager.shared.modelContext else {
+                    throw NSError(domain: "App", code: 1, userInfo: [NSLocalizedDescriptionKey: "Model context is nil"])
                 }
-            } else if authManager.isLoggedIn {
-                // 오프라인이면 변경 사항 표시
-                dataSyncManager.markLocalChanges()
+                
+                // 2. 각 모델 타입을 안전하게 삭제 (순서가 중요함)
+                try modelContext.safeDeleteAll(of: DailyTask.self)
+                try modelContext.safeDeleteAll(of: RaidGate.self)
+                try modelContext.safeDeleteAll(of: CharacterModel.self)
+                
+                // 3. 클라우드 데이터도 삭제 (로그인 상태인 경우)
+                if authManager.isLoggedIn && networkMonitor.isConnected {
+                    let repository = DataRepositoryFactory.getRepository(modelContext: modelContext)
+                    try await repository.deleteAllCharacters()
+                } else if authManager.isLoggedIn {
+                    // 오프라인이면 변경 사항 표시
+                    dataSyncManager.markLocalChanges()
+                }
+                
+                // 4. 작업 완료 후 UI 업데이트
+                await MainActor.run {
+                    isRefreshing = false
+                    alertMessage = "모든 데이터가 초기화되었습니다."
+                    isShowingAlert = true
+                }
+            } catch {
+                // 오류 처리
+                await MainActor.run {
+                    isRefreshing = false
+                    errorService.handleError(error, source: .database)
+                    alertMessage = "데이터 초기화 중 오류가 발생했습니다: \(error.localizedDescription)"
+                    isShowingAlert = true
+                }
             }
-        } catch {
-            errorService.handleError(error, source: .database)
-            alertMessage = "데이터 초기화 중 오류가 발생했습니다."
-            isShowingAlert = true
         }
     }
     

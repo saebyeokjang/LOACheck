@@ -86,7 +86,7 @@ class LostArkAPIService {
     
     // 캐릭터 정보 가져오기
     @MainActor
-    func fetchCharacters(apiKey: String, modelContext: ModelContext) async -> Result<Int, APIError> {
+    func fetchCharacters(apiKey: String, modelContext: ModelContext, clearExisting: Bool = false) async -> Result<Int, APIError> {
         do {
             let characterName = UserDefaults.standard.string(forKey: "representativeCharacter") ?? ""
             
@@ -97,6 +97,12 @@ class LostArkAPIService {
             
             Logger.debug("API Request: Fetching siblings for \(characterName)")
             
+            // 기존 데이터를 초기화해야 하는 경우
+            if clearExisting {
+                try safeClearExistingData(modelContext: modelContext)
+            }
+            
+            // API 호출 및 데이터 처리
             let encodedName = characterName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? characterName
             let url = URL(string: "\(baseURL)/characters/\(encodedName)/siblings")!
             
@@ -105,35 +111,19 @@ class LostArkAPIService {
             request.addValue("application/json", forHTTPHeaderField: "accept")
             request.addValue("bearer \(apiKey)", forHTTPHeaderField: "authorization")
             
-            Logger.debug("Request Headers: \(request.allHTTPHeaderFields ?? [:])")
-            
             let (data, response) = try await URLSession.shared.data(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse else {
                 return .failure(.invalidResponse)
             }
             
-            // 응답 헤더 확인 (요청 제한 정보)
-            if let limitValue = httpResponse.value(forHTTPHeaderField: "X-RateLimit-Limit"),
-               let remainingValue = httpResponse.value(forHTTPHeaderField: "X-RateLimit-Remaining") {
-                Logger.debug("API Rate Limit: \(limitValue), Remaining: \(remainingValue)")
-            }
-            
-            // 디버그 모드에서만 응답 로깅
-    #if DEBUG
-            let responseString = String(data: data, encoding: .utf8) ?? "Unable to decode response"
-            Logger.debug("API Response Status: \(httpResponse.statusCode)")
-            Logger.debug("API Response: \(responseString)")
-    #endif
-            
+            // API 응답 처리
             switch httpResponse.statusCode {
             case 200:
                 let decoder = JSONDecoder()
                 let charactersData = try decoder.decode([CharacterResponse].self, from: data)
                 
-                Logger.debug("Successfully decoded \(charactersData.count) characters")
-                
-                // 대표 캐릭터가 목록에 없는 경우 추가 확인
+                // 대표 캐릭터가 있는지 확인
                 var hasRepresentativeCharacter = false
                 for character in charactersData {
                     if character.characterName == characterName {
@@ -142,38 +132,27 @@ class LostArkAPIService {
                     }
                 }
                 
+                var allCharactersData = charactersData
+                
+                // 대표 캐릭터가 없으면 따로 추가
                 if !hasRepresentativeCharacter {
-                    // 대표 캐릭터가 응답에 없는 경우, 직접 추가 요청
                     Logger.debug("대표 캐릭터가 응답에 없음, 직접 요청 시도: \(characterName)")
                     if let singleCharacter = try? await fetchCharacter(name: characterName, apiKey: apiKey) {
-                        var updatedCharactersData = charactersData
-                        updatedCharactersData.append(singleCharacter)
-                        
-                        await MainActor.run {
-                            self.updateCharacterModels(charactersData: updatedCharactersData, modelContext: modelContext)
-                        }
-                        
-                        return .success(updatedCharactersData.count)
+                        allCharactersData.append(singleCharacter)
                     }
                 }
                 
-                await MainActor.run {
-                    self.updateCharacterModels(charactersData: charactersData, modelContext: modelContext)
-                }
+                // 안전하게 캐릭터 모델 업데이트
+                await updateCharacterModels(charactersData: allCharactersData, modelContext: modelContext, clearExisting: clearExisting)
                 
-                return .success(charactersData.count)
+                return .success(allCharactersData.count)
                 
             case 401:
                 Logger.error("Authorization failed: Invalid API key or format")
-                
-                // 오류 시 단일 캐릭터 추가 시도
-                await addSingleCharacterManually(characterName: characterName, modelContext: modelContext)
                 return .failure(.unauthorized)
                 
             case 403:
                 Logger.error("Access forbidden: Insufficient permissions")
-                
-                await addSingleCharacterManually(characterName: characterName, modelContext: modelContext)
                 return .failure(.forbidden)
                 
             case 429:
@@ -194,12 +173,14 @@ class LostArkAPIService {
         }
     }
     
+    // 다른 원정대의 캐릭터 정보를 기존 데이터에 추가하는 함수
     @MainActor
-    func fetchSiblingsForCharacter(name: String, apiKey: String, modelContext: ModelContext) async -> Result<Int, APIError> {
+    func fetchAdditionalRoster(characterName: String, apiKey: String, modelContext: ModelContext) async -> Result<Int, APIError> {
         do {
-            Logger.debug("API Request: Fetching siblings for specific character: \(name)")
+            Logger.debug("API Request: Fetching additional roster for \(characterName)")
             
-            let encodedName = name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? name
+            // API 호출 및 데이터 처리
+            let encodedName = characterName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? characterName
             let url = URL(string: "\(baseURL)/characters/\(encodedName)/siblings")!
             
             var request = URLRequest(url: url)
@@ -207,79 +188,46 @@ class LostArkAPIService {
             request.addValue("application/json", forHTTPHeaderField: "accept")
             request.addValue("bearer \(apiKey)", forHTTPHeaderField: "authorization")
             
-            Logger.debug("Request Headers: \(request.allHTTPHeaderFields ?? [:])")
-            
             let (data, response) = try await URLSession.shared.data(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse else {
                 return .failure(.invalidResponse)
             }
             
-            // 응답 헤더 확인 (요청 제한 정보)
-            if let limitValue = httpResponse.value(forHTTPHeaderField: "X-RateLimit-Limit"),
-               let remainingValue = httpResponse.value(forHTTPHeaderField: "X-RateLimit-Remaining") {
-                Logger.debug("API Rate Limit: \(limitValue), Remaining: \(remainingValue)")
-            }
-            
-    #if DEBUG
-            let responseString = String(data: data, encoding: .utf8) ?? "Unable to decode response"
-            Logger.debug("API Response Status: \(httpResponse.statusCode)")
-            Logger.debug("API Response: \(responseString)")
-    #endif
-            
+            // API 응답 처리
             switch httpResponse.statusCode {
             case 200:
                 let decoder = JSONDecoder()
                 let charactersData = try decoder.decode([CharacterResponse].self, from: data)
                 
-                Logger.debug("Successfully decoded \(charactersData.count) characters for \(name)'s roster")
+                var allCharactersData = charactersData
                 
-                // 입력한 캐릭터가 목록에 없는 경우 추가 확인
-                var hasSpecifiedCharacter = false
+                // 검색한 캐릭터가 목록에 없으면 따로 추가
+                var hasSearchedCharacter = false
                 for character in charactersData {
-                    if character.characterName == name {
-                        hasSpecifiedCharacter = true
+                    if character.characterName == characterName {
+                        hasSearchedCharacter = true
                         break
                     }
                 }
                 
-                if !hasSpecifiedCharacter {
-                    // 지정한 캐릭터가 응답에 없는 경우, 직접 추가 요청
-                    Logger.debug("지정한 캐릭터가 응답에 없음, 직접 요청 시도: \(name)")
-                    if let singleCharacter = try? await fetchCharacter(name: name, apiKey: apiKey) {
-                        var updatedCharactersData = charactersData
-                        updatedCharactersData.append(singleCharacter)
-                        
-                        await MainActor.run {
-                            self.updateCharacterModels(charactersData: updatedCharactersData, modelContext: modelContext)
-                        }
-                        
-                        return .success(updatedCharactersData.count)
+                if !hasSearchedCharacter {
+                    Logger.debug("검색한 캐릭터가 응답에 없음, 직접 요청 시도: \(characterName)")
+                    if let singleCharacter = try? await fetchCharacter(name: characterName, apiKey: apiKey) {
+                        allCharactersData.append(singleCharacter)
                     }
                 }
                 
-                await MainActor.run {
-                    self.updateCharacterModels(charactersData: charactersData, modelContext: modelContext)
-                }
+                // 기존 데이터를 유지하면서 추가 캐릭터만 업데이트
+                await updateCharacterModels(charactersData: allCharactersData, modelContext: modelContext, clearExisting: false)
                 
-                return .success(charactersData.count)
+                return .success(allCharactersData.count)
                 
             case 401:
                 Logger.error("Authorization failed: Invalid API key or format")
                 return .failure(.unauthorized)
                 
-            case 403:
-                Logger.error("Access forbidden: Insufficient permissions")
-                return .failure(.forbidden)
-                
-            case 429:
-                Logger.error("Rate limit exceeded: Too many requests")
-                return .failure(.rateLimit)
-                
-            case 503:
-                Logger.error("Service unavailable: Maintenance in progress")
-                return .failure(.serviceUnavailable)
-                
+            // 다른 상태 코드 처리는 위와 동일
             default:
                 Logger.error("Unexpected error occurred with status code: \(httpResponse.statusCode)")
                 return .failure(.unknown(httpResponse.statusCode))
@@ -290,12 +238,139 @@ class LostArkAPIService {
         }
     }
     
+    // 기존 데이터를 안전하게 초기화하는 함수
+    @MainActor
+    private func safeClearExistingData(modelContext: ModelContext) throws {
+        // 안전하게 데이터 삭제 (순서 중요)
+        let taskDescriptor = FetchDescriptor<DailyTask>()
+        let tasks = try modelContext.fetch(taskDescriptor)
+        for task in tasks {
+            modelContext.delete(task)
+        }
+        try modelContext.save()
+        
+        let gateDescriptor = FetchDescriptor<RaidGate>()
+        let gates = try modelContext.fetch(gateDescriptor)
+        for gate in gates {
+            modelContext.delete(gate)
+        }
+        try modelContext.save()
+        
+        let characterDescriptor = FetchDescriptor<CharacterModel>()
+        let characters = try modelContext.fetch(characterDescriptor)
+        for character in characters {
+            modelContext.delete(character)
+        }
+        try modelContext.save()
+    }
+    
+//    @MainActor
+//    func fetchSiblingsForCharacter(name: String, apiKey: String, modelContext: ModelContext) async -> Result<Int, APIError> {
+//        do {
+//            Logger.debug("API Request: Fetching siblings for specific character: \(name)")
+//            
+//            let encodedName = name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? name
+//            let url = URL(string: "\(baseURL)/characters/\(encodedName)/siblings")!
+//            
+//            var request = URLRequest(url: url)
+//            request.httpMethod = "GET"
+//            request.addValue("application/json", forHTTPHeaderField: "accept")
+//            request.addValue("bearer \(apiKey)", forHTTPHeaderField: "authorization")
+//            
+//            Logger.debug("Request Headers: \(request.allHTTPHeaderFields ?? [:])")
+//            
+//            let (data, response) = try await URLSession.shared.data(for: request)
+//            
+//            guard let httpResponse = response as? HTTPURLResponse else {
+//                return .failure(.invalidResponse)
+//            }
+//            
+//            // 응답 헤더 확인 (요청 제한 정보)
+//            if let limitValue = httpResponse.value(forHTTPHeaderField: "X-RateLimit-Limit"),
+//               let remainingValue = httpResponse.value(forHTTPHeaderField: "X-RateLimit-Remaining") {
+//                Logger.debug("API Rate Limit: \(limitValue), Remaining: \(remainingValue)")
+//            }
+//            
+//#if DEBUG
+//            let responseString = String(data: data, encoding: .utf8) ?? "Unable to decode response"
+//            Logger.debug("API Response Status: \(httpResponse.statusCode)")
+//            Logger.debug("API Response: \(responseString)")
+//#endif
+//            
+//            switch httpResponse.statusCode {
+//            case 200:
+//                let decoder = JSONDecoder()
+//                let charactersData = try decoder.decode([CharacterResponse].self, from: data)
+//                
+//                Logger.debug("Successfully decoded \(charactersData.count) characters for \(name)'s roster")
+//                
+//                // 입력한 캐릭터가 목록에 없는 경우 추가 확인
+//                var hasSpecifiedCharacter = false
+//                for character in charactersData {
+//                    if character.characterName == name {
+//                        hasSpecifiedCharacter = true
+//                        break
+//                    }
+//                }
+//                
+//                if !hasSpecifiedCharacter {
+//                    // 지정한 캐릭터가 응답에 없는 경우, 직접 추가 요청
+//                    Logger.debug("지정한 캐릭터가 응답에 없음, 직접 요청 시도: \(name)")
+//                    if let singleCharacter = try? await fetchCharacter(name: name, apiKey: apiKey) {
+//                        var updatedCharactersData = charactersData
+//                        updatedCharactersData.append(singleCharacter)
+//                        
+//                        await MainActor.run {
+//                            self.updateCharacterModels(charactersData: updatedCharactersData, modelContext: modelContext)
+//                        }
+//                        
+//                        return .success(updatedCharactersData.count)
+//                    }
+//                }
+//                
+//                await MainActor.run {
+//                    self.updateCharacterModels(charactersData: charactersData, modelContext: modelContext)
+//                }
+//                
+//                return .success(charactersData.count)
+//                
+//            case 401:
+//                Logger.error("Authorization failed: Invalid API key or format")
+//                return .failure(.unauthorized)
+//                
+//            case 403:
+//                Logger.error("Access forbidden: Insufficient permissions")
+//                return .failure(.forbidden)
+//                
+//            case 429:
+//                Logger.error("Rate limit exceeded: Too many requests")
+//                return .failure(.rateLimit)
+//                
+//            case 503:
+//                Logger.error("Service unavailable: Maintenance in progress")
+//                return .failure(.serviceUnavailable)
+//                
+//            default:
+//                Logger.error("Unexpected error occurred with status code: \(httpResponse.statusCode)")
+//                return .failure(.unknown(httpResponse.statusCode))
+//            }
+//        } catch {
+//            Logger.error("API Error", error: error)
+//            return .failure(.networkError(error))
+//        }
+//    }
+    
     // 캐릭터 데이터 업데이트를 위한 별도 메소드
     @MainActor
-    private func updateCharacterModels(charactersData: [CharacterResponse], modelContext: ModelContext) {
+    private func updateCharacterModels(charactersData: [CharacterResponse], modelContext: ModelContext, clearExisting: Bool) async {
+        // 추가하려는 캐릭터 이름 목록
+        let newCharacterNames = charactersData.map { $0.characterName }
+        
+        // 캐릭터 데이터 처리
         for characterData in charactersData {
-            // 이미 존재하는 캐릭터인지 확인
             let characterName = characterData.characterName
+            
+            // 이미 존재하는 캐릭터인지 확인
             let fetchDescriptor = FetchDescriptor<CharacterModel>(
                 predicate: #Predicate<CharacterModel> { character in
                     character.name == characterName
@@ -311,7 +386,7 @@ class LostArkAPIService {
                 existingCharacter.level = characterData.itemLevel
                 existingCharacter.lastUpdated = Date()
                 
-                Logger.debug("Updated character: \(characterData.characterName)")
+                Logger.debug("Updated character: \(characterName)")
             } else {
                 // 새 캐릭터 추가
                 let newCharacter = CharacterModel(
@@ -322,9 +397,11 @@ class LostArkAPIService {
                 )
                 modelContext.insert(newCharacter)
                 
-                Logger.debug("Added new character: \(characterData.characterName)")
+                Logger.debug("Added new character: \(characterName)")
             }
         }
+        
+        try? modelContext.save()
     }
     
     // 단일 캐릭터 정보 가져오기
