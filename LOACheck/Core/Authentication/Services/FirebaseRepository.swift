@@ -31,10 +31,7 @@ class FirebaseRepository {
         // 캐릭터 컬렉션 참조
         let charactersRef = db.collection("users").document(userId).collection("characters")
         
-        // 기존 모든 캐릭터 문서 삭제 요청 추가
-        try await deleteAllCharacters(userId)
-        
-        // 새 캐릭터 추가
+        // 각 캐릭터를 개별적으로 업데이트 (삭제하지 않음)
         for character in characters {
             let docRef = charactersRef.document(character.name)
             
@@ -75,7 +72,7 @@ class FirebaseRepository {
             var raidGatesData: [[String: Any]] = []
             if let raidGates = character.raidGates {
                 for gate in raidGates {
-                    let gateData: [String: Any] = [
+                    var gateData: [String: Any] = [
                         "raid": gate.raid,
                         "gate": gate.gate,
                         "difficulty": gate.difficulty,
@@ -83,17 +80,21 @@ class FirebaseRepository {
                         "isCompleted": gate.isCompleted,
                         "additionalGold": gate.additionalGold
                     ]
+                    if let lastCompletedAt = gate.lastCompletedAt {
+                        gateData["lastCompletedAt"] = lastCompletedAt
+                    }
                     raidGatesData.append(gateData)
                 }
             }
             characterData["raidGates"] = raidGatesData
             
-            // 배치에 쓰기 작업 추가
-            batch.setData(characterData, forDocument: docRef)
+            // 배치에 쓰기 작업 추가 (merge: true로 업데이트)
+            batch.setData(characterData, forDocument: docRef, merge: true)
         }
         
         // 배치 커밋
         try await batch.commit()
+        Logger.info("Firebase에 캐릭터 \(characters.count)개 저장 완료")
     }
     
     /// 모든 캐릭터 삭제

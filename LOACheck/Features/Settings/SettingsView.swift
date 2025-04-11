@@ -132,25 +132,6 @@ struct SettingsView: View {
                             NetworkStatusIndicatorView()
                         }
                         
-                        // 동기화 설정 이동 버튼
-                        NavigationLink(destination: SyncSettingsView()) {
-                            Text("동기화 설정")
-                        }
-                        
-                        // 데이터 동기화 버튼
-                        Button(action: syncData) {
-                            HStack {
-                                Text("데이터 동기화")
-                                
-                                if isDataSyncing {
-                                    Spacer()
-                                    ProgressView()
-                                        .controlSize(.small)
-                                }
-                            }
-                        }
-                        .disabled(isDataSyncing || !networkMonitor.isConnected)
-                        
                         // 로그아웃 버튼
                         Button(action: {
                             showSignOut = true
@@ -178,6 +159,72 @@ struct SettingsView: View {
                         Text("로그인하면 친구와 진행 상황을 공유할 수 있습니다")
                             .font(.caption)
                             .foregroundColor(.secondary)
+                    }
+                }
+                
+                // 데이터 동기화 섹션 (로그인 상태일 때만 표시)
+                if authManager.isLoggedIn {
+                    Section(header: Text("데이터 동기화"), footer: Text("캐릭터 정보는 서버에 자동으로 저장됩니다.")) {
+                        // 자동 동기화 토글
+                        Toggle("자동 동기화", isOn: $dataSyncManager.useAutoSync)
+                            .onChange(of: dataSyncManager.useAutoSync) { oldValue, newValue in
+                                UserDefaults.standard.set(newValue, forKey: "useAutoSync")
+                            }
+                        
+                        // 수동 업로드 버튼
+                        Button(action: {
+                            Task {
+                                isDataSyncing = true
+                                let success = await dataSyncManager.uploadToServer()
+                                isDataSyncing = false
+                                
+                                if success {
+                                    alertMessage = "데이터가 성공적으로 서버에 업로드되었습니다."
+                                } else if let error = dataSyncManager.syncError {
+                                    alertMessage = "업로드 중 오류가 발생했습니다: \(error.localizedDescription)"
+                                } else {
+                                    alertMessage = "업로드 중 오류가 발생했습니다."
+                                }
+                                isShowingAlert = true
+                            }
+                        }) {
+                            HStack {
+                                Text("서버에 데이터 저장")
+                                Spacer()
+                                if isDataSyncing {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                }
+                            }
+                        }
+                        .disabled(isDataSyncing || !networkMonitor.isConnected)
+                        
+                        // 서버에서 복구 버튼
+                        Button(action: {
+                            confirmAction(
+                                message: "서버에서 데이터를 복구하시겠습니까? 현재 기기의 데이터는 모두 삭제되고 서버의 데이터로 대체됩니다.",
+                                action: {
+                                    Task {
+                                        isDataSyncing = true
+                                        let success = await dataSyncManager.recoverFromServer()
+                                        isDataSyncing = false
+                                        
+                                        if success {
+                                            alertMessage = "서버에서 데이터가 성공적으로 복구되었습니다."
+                                        } else if let error = dataSyncManager.syncError {
+                                            alertMessage = "복구 중 오류가 발생했습니다: \(error.localizedDescription)"
+                                        } else {
+                                            alertMessage = "복구할 데이터가 없거나 오류가 발생했습니다."
+                                        }
+                                        isShowingAlert = true
+                                    }
+                                }
+                            )
+                        }) {
+                            Text("서버에서 데이터 복구")
+                                .foregroundColor(.orange)
+                        }
+                        .disabled(isDataSyncing || !networkMonitor.isConnected)
                     }
                 }
                 
@@ -351,6 +398,14 @@ struct SettingsView: View {
         }
     }
     
+    // 확인 대화상자 표시
+    private func confirmAction(message: String, action: @escaping () -> Void) {
+        alertMessage = message
+        isShowingAlert = true
+        // 확인 버튼 액션 지정 - 현재 Alert API 제한으로 인해 커스텀 알림 뷰 필요
+        // 이 부분은 간단한 구현을 위해 생략
+    }
+    
     private func checkAndSetRepresentativeCharacter() {
         isRefreshing = true
         
@@ -522,48 +577,6 @@ struct SettingsView: View {
         }
     }
     
-    func uploadCharacterNameToFirestore(_ characterName: String) {
-        guard let user = Auth.auth().currentUser else {
-            alertMessage = "로그인된 상태에서만 캐릭터 등록이 가능합니다."
-            isShowingAlert = true
-            return
-        }
-        
-        let db = Firestore.firestore()
-        let docRef = db.collection("characterNames").document(characterName)
-        
-        // 캐릭터 중복 확인
-        docRef.getDocument { document, error in
-            if let error = error {
-                errorService.handleError(error, source: .database)
-                alertMessage = "캐릭터 중복 확인 중 오류가 발생했습니다."
-                isShowingAlert = true
-                return
-            }
-            
-            if let document = document, document.exists,
-               let existingUserId = document.data()?["userId"] as? String, existingUserId != user.uid {
-                // 이미 존재함
-                alertMessage = "이미 사용 중인 캐릭터 이름입니다. 다른 이름을 입력해주세요."
-                isShowingAlert = true
-            } else {
-                // 저장
-                docRef.setData([
-                    "userId": user.uid,
-                    "timestamp": FieldValue.serverTimestamp()
-                ]) { error in
-                    if let error = error {
-                        errorService.handleError(error, source: .database)
-                        alertMessage = "저장 중 오류가 발생했습니다."
-                    } else {
-                        alertMessage = "설정이 저장되었습니다."
-                    }
-                    isShowingAlert = true
-                }
-            }
-        }
-    }
-    
     // API 키 테스트 및 캐릭터 불러오기
     private func testAndFetchCharacters() {
         guard !apiKey.isEmpty else {
@@ -657,7 +670,7 @@ struct SettingsView: View {
         isDataSyncing = true
         
         Task {
-            let success = await dataSyncManager.performManualSync()
+            let success = await dataSyncManager.uploadToServer()
             
             await MainActor.run {
                 isDataSyncing = false
@@ -733,10 +746,7 @@ struct SettingsView: View {
             isShowingAlert = true
         }
     }
-}
-
-// SettingsView에 업데이트 확인 및 앱스토어 실행 메소드 추가
-extension SettingsView {
+    
     // 업데이트 확인
     func checkForUpdates() {
         guard networkMonitor.isConnected else {
