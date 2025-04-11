@@ -622,15 +622,42 @@ class FirebaseRepository {
                     ], merge: true)
                     
                     Logger.debug("캐릭터 '\(characterName)' 상세 정보 저장 완료")
-                } else {
-                    // 캐릭터 정보가 없으면 기본 정보만 저장
-                    try await db.collection("characterNames").document(characterName).setData([
-                        "userId": userId,
-                        "timestamp": FieldValue.serverTimestamp()
-                    ], merge: true)
-                    
-                    Logger.debug("캐릭터 '\(characterName)' 기본 정보만 저장 (캐릭터 정보 없음)")
+                    return
                 }
+                
+                // SwiftData에 캐릭터가 없으면 API를 통해 조회 시도
+                if let apiKey = UserDefaults.standard.string(forKey: "apiKey"),
+                   !apiKey.isEmpty {
+                    
+                    Logger.debug("SwiftData에 캐릭터 정보가 없음, API로 조회 시도: \(characterName)")
+                    
+                    do {
+                        if let character = try await LostArkAPIService.shared.fetchCharacter(name: characterName, apiKey: apiKey) {
+                            // API로 조회 성공시 Firebase에 저장
+                            try await db.collection("characterNames").document(characterName).setData([
+                                "userId": userId,
+                                "server": character.serverName,
+                                "characterClass": character.characterClassName,
+                                "level": character.itemLevel,
+                                "timestamp": FieldValue.serverTimestamp()
+                            ], merge: true)
+                            
+                            Logger.debug("API로 조회한 캐릭터 '\(characterName)' 정보 저장 완료")
+                            return
+                        }
+                    } catch {
+                        Logger.error("API로 캐릭터 조회 실패: \(error.localizedDescription)")
+                        // API 조회 실패해도 계속 진행 (기본 정보만 저장)
+                    }
+                }
+                
+                // 캐릭터 정보가 없으면 기본 정보만 저장
+                try await db.collection("characterNames").document(characterName).setData([
+                    "userId": userId,
+                    "timestamp": FieldValue.serverTimestamp()
+                ], merge: true)
+                
+                Logger.debug("캐릭터 '\(characterName)' 기본 정보만 저장 (캐릭터 정보 없음)")
             } catch {
                 Logger.error("캐릭터 정보 조회 중 오류 발생", error: error)
                 throw error
