@@ -63,37 +63,60 @@ struct AdditionalRosterSectionView: View {
         isFetchingOtherRoster = true
         
         Task {
-            // API 서비스를 통해 추가 원정대 정보 가져오기
-            // 특정 캐릭터의 원정대를 가져오는 메서드 사용
-            let result = await LostArkAPIService.shared.fetchCharacters(
-                apiKey: apiKey,
-                modelContext: modelContext,
-                clearExisting: false,
-                mainCharacter: otherCharacterName  // 가정: 이 파라미터가 특정 캐릭터를 지정
+            // 1. 먼저 캐릭터 존재 여부 확인
+            let validationResult = await LostArkAPIService.shared.validateCharacter(
+                name: otherCharacterName,
+                apiKey: apiKey
             )
             
-            await MainActor.run {
-                isFetchingOtherRoster = false
-                
-                switch result {
-                case .success(let count):
-                    alertMessage = "\(otherCharacterName) 원정대 정보를 성공적으로 불러왔습니다. (\(count)개)"
-                    otherCharacterName = "" // 입력 필드 초기화
-                    
-                    // 로그인 상태면 데이터 동기화 필요 표시
-                    if authManager.isLoggedIn {
-                        dataSyncManager.markLocalChanges()
+            switch validationResult {
+            case .success(let exists):
+                if !exists {
+                    await MainActor.run {
+                        isFetchingOtherRoster = false
+                        alertMessage = "입력한 캐릭터를 찾을 수 없습니다. 캐릭터 이름을 다시 확인해주세요."
+                        isShowingAlert = true
                     }
-                    
-                case .failure(let error):
-                    errorService.handleError(error, source: .api) {
-                        // 재시도 액션
-                        fetchAdditionalRoster()
-                    }
-                    alertMessage = "오류가 발생했습니다: \(error.userFriendlyMessage)"
+                    return
                 }
                 
-                isShowingAlert = true
+                // 2. 캐릭터 원정대 정보 불러오기 (기존 데이터 유지)
+                let result = await LostArkAPIService.shared.fetchAdditionalRoster(
+                    characterName: otherCharacterName,
+                    apiKey: apiKey,
+                    modelContext: modelContext
+                )
+                
+                await MainActor.run {
+                    isFetchingOtherRoster = false
+                    
+                    switch result {
+                    case .success(let count):
+                        alertMessage = "\(otherCharacterName) 원정대 정보를 성공적으로 불러왔습니다. (\(count)개)"
+                        otherCharacterName = "" // 입력 필드 초기화
+                        
+                        // 로그인 상태면 데이터 동기화 필요 표시
+                        if authManager.isLoggedIn {
+                            dataSyncManager.markLocalChanges()
+                        }
+                        
+                    case .failure(let error):
+                        errorService.handleError(error, source: .api) {
+                            // 재시도 액션
+                            fetchAdditionalRoster()
+                        }
+                        alertMessage = "오류가 발생했습니다: \(error.userFriendlyMessage)"
+                    }
+                    
+                    isShowingAlert = true
+                }
+                
+            case .failure(let error):
+                await MainActor.run {
+                    isFetchingOtherRoster = false
+                    alertMessage = "API 오류: \(error.userFriendlyMessage)"
+                    isShowingAlert = true
+                }
             }
         }
     }
