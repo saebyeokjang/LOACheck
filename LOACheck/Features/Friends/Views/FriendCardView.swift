@@ -10,9 +10,19 @@ import SwiftUI
 struct FriendCardView: View {
     var friendWithCharacters: FriendWithCharacters
     var onRemove: (Friend) -> Void
-    var onToggleExpand: () -> Void
     
     @State private var showRaidSummary = false
+    
+    // 대표 캐릭터 (사용자가 지정한 대표 캐릭터 - displayName과 이름이 일치하는 캐릭터)
+    private var representativeCharacter: CharacterModel? {
+        // 1. 친구의 displayName과 일치하는 캐릭터 찾기
+        if let character = friendWithCharacters.characters.first(where: { $0.name == friendWithCharacters.friend.displayName }) {
+            return character
+        }
+        
+        // 2. 일치하는 캐릭터가 없으면 레벨이 가장 높은 캐릭터 반환 (대체 방안)
+        return friendWithCharacters.characters.sorted(by: { $0.level > $1.level }).first
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -29,25 +39,6 @@ struct FriendCardView: View {
                 
                 Spacer()
                 
-                // 주간 레이드 요약 버튼
-                if friendWithCharacters.hasCharacters {
-                    Button(action: {
-                        showRaidSummary = true
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "chart.bar.fill")
-                            Text("레이드")
-                                .font(.caption)
-                        }
-                        .foregroundColor(.blue)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.blue.opacity(0.1))
-                        .cornerRadius(8)
-                    }
-                    .buttonStyle(BorderlessButtonStyle())
-                }
-                
                 // 삭제 버튼
                 Button(action: {
                     onRemove(friendWithCharacters.friend)
@@ -63,31 +54,50 @@ struct FriendCardView: View {
             Divider()
                 .padding(.horizontal)
             
-            // 캐릭터 목록
-            if friendWithCharacters.hasCharacters {
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(friendWithCharacters.visibleCharacters) { character in
-                        FriendCharacterRow(character: character)
-                    }
-                    
-                    // 더 보기 버튼 (캐릭터가 3개 초과인 경우)
-                    if friendWithCharacters.hiddenCharactersCount > 0 {
-                        Button(action: onToggleExpand) {
-                            HStack {
-                                Text(friendWithCharacters.isExpanded ? "접기" : "\(friendWithCharacters.hiddenCharactersCount)개 더 보기")
-                                    .font(.caption)
-                                    .foregroundColor(.blue)
+            // 대표 캐릭터만 표시
+            if let character = representativeCharacter {
+                Button(action: {
+                    showRaidSummary = true
+                }) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(character.name)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.primary)
+                            
+                            Text("\(character.server) • \(character.characterClass)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text("Lv. \(String(format: "%.2f", character.level))")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.blue)
+                            
+                            // 골드 획득 캐릭터인 경우 골드 표시
+                            if character.isGoldEarner, let raidGates = character.raidGates, !raidGates.isEmpty {
+                                let earnedGold = character.calculateEarnedGoldReward()
+                                let totalGold = character.calculateWeeklyGoldReward()
                                 
-                                Image(systemName: friendWithCharacters.isExpanded ? "chevron.up" : "chevron.down")
-                                    .font(.caption)
+                                // 기본 + 추가 골드 합산하여 표시
+                                HStack(spacing: 4) {
+                                    Text("\(earnedGold)/\(totalGold) G")
+                                        .font(.caption)
+                                        .foregroundColor(.orange)
+                                }
                             }
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.vertical, 4)
                         }
                     }
+                    .contentShape(Rectangle())
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
                 }
-                .padding(.horizontal)
-                .padding(.bottom)
+                .buttonStyle(PlainButtonStyle())
             } else {
                 Text("표시할 캐릭터가 없습니다")
                     .font(.subheadline)

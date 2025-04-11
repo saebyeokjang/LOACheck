@@ -70,7 +70,7 @@ struct GoldSummaryHeader: View {
     let earnedGold: Int
     
     var body: some View {
-        Section(header: Text("주간 예상 골드 수입")) {
+        Section(header: Text("주간 예상 골드 수익")) {
             HStack {
                 Text("총 예상 골드")
                     .font(.headline)
