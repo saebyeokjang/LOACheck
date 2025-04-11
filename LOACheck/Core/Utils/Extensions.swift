@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import SwiftData
 
 // MARK: - Logger
 struct Logger {
@@ -211,5 +212,20 @@ extension Int {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         return formatter.string(from: NSNumber(value: self)) ?? "\(self)"
+    }
+}
+
+// MARK: - ModelContext 확장
+extension ModelContext {
+    func safeDeleteAll<T: PersistentModel>(of modelType: T.Type) throws {
+        let descriptor = FetchDescriptor<T>()
+        let items = try fetch(descriptor)
+        
+        for item in items {
+            delete(item)
+        }
+        
+        // 즉시 변경사항 저장
+        try save()
     }
 }

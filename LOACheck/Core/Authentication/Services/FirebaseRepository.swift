@@ -97,6 +97,41 @@ class FirebaseRepository {
         Logger.info("Firebase에 캐릭터 \(characters.count)개 저장 완료")
     }
     
+    // 캐릭터 이름이 이미 다른 사용자에 의해 사용 중인지 확인
+    func isCharacterNameAlreadyInUse(_ characterName: String) async throws -> Bool {
+        // 빈 문자열이면 검사하지 않음
+        if characterName.isEmpty {
+            return false
+        }
+
+        print("캐릭터 이름 사용 여부 확인: \(characterName)")
+        
+        // characterNames 컬렉션에서 해당 이름의 문서 가져오기
+        let db = Firestore.firestore()
+        let characterDoc = try await db.collection("characterNames").document(characterName).getDocument()
+        
+        // 해당 문서가 존재하지 않으면 사용 가능
+        if !characterDoc.exists {
+            return false
+        }
+        
+        // 문서가 존재하면, 현재 사용자의 것인지 확인
+        guard let data = characterDoc.data(),
+              let ownerId = data["userId"] as? String else {
+            // 데이터가 없거나 형식이 잘못된 경우 안전하게 사용 중으로 간주
+            return true
+        }
+        
+        // 현재 사용자 ID 확인
+        guard let currentUserId = AuthManager.shared.currentUser?.id else {
+            // 로그인되지 않은 경우 사용 중으로 간주
+            return true
+        }
+        
+        // 문서의 소유자가 현재 사용자와 다르면 사용 중
+        return ownerId != currentUserId
+    }
+    
     /// 모든 캐릭터 삭제
     private func deleteAllCharacters(_ userId: String) async throws {
         let charactersRef = db.collection("users").document(userId).collection("characters")
