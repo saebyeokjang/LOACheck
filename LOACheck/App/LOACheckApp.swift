@@ -81,8 +81,8 @@ struct LOACheckApp: App {
         // 5분마다 한 번씩 변경사항이 있으면 동기화
         Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { _ in
             if AuthManager.shared.isLoggedIn &&
-               DataSyncManager.shared.hasPendingChanges &&
-               NetworkMonitorService.shared.isConnected {
+                DataSyncManager.shared.hasPendingChanges &&
+                NetworkMonitorService.shared.isConnected {
                 Task {
                     _ = await DataSyncManager.shared.pushToCloud()
                 }
@@ -173,6 +173,20 @@ struct LOACheckApp: App {
             }
         }
         
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.willTerminateNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            // 앱 종료 직전 중요 설정 강제 저장
+            let repChar = AuthManager.shared.representativeCharacter
+            UserDefaults.standard.set(repChar, forKey: "representativeCharacter")
+            
+            if AuthManager.shared.userId != "" {
+                UserDefaults.standard.set(repChar, forKey: "representativeCharacter_\(AuthManager.shared.userId)")
+            }
+        }
+        
         // 백그라운드로 갈 때 데이터 동기화
         NotificationCenter.default.addObserver(
             forName: UIApplication.didEnterBackgroundNotification,
@@ -180,8 +194,20 @@ struct LOACheckApp: App {
             queue: .main
         ) { _ in
             if authManager.isLoggedIn && DataSyncManager.shared.hasPendingChanges && networkMonitor.isConnected {
+                // 백그라운드 작업 식별자 생성
+                let taskID = UIApplication.shared.beginBackgroundTask(expirationHandler: nil)
+                
                 Task {
-                    await DataSyncManager.shared.pushToCloud()
+
+                    guard let modelContext = DataSyncManager.shared.modelContext else {
+                        await UIApplication.shared.endBackgroundTask(taskID)
+                        return
+                    }
+
+                    await DataSyncManager.shared.safeBackgroundSync()
+                    
+                    // 백그라운드 작업 완료
+                    await UIApplication.shared.endBackgroundTask(taskID)
                 }
             }
         }

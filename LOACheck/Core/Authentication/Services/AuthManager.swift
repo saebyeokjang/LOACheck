@@ -107,11 +107,14 @@ class AuthManager: ObservableObject {
         
         // 전역 설정에 저장
         UserDefaults.standard.set(characterName, forKey: "representativeCharacter")
-        UserDefaults.standard.synchronize()
         
         // 사용자별 설정에 저장
         if isLoggedIn, let uid = currentUser?.id {
             UserDefaults.standard.set(characterName, forKey: "representativeCharacter_\(uid)")
+            
+            // 즉시 값을 다시 읽어 검증 (디버깅용)
+            let savedValue = UserDefaults.standard.string(forKey: "representativeCharacter_\(uid)") ?? ""
+            Logger.debug("사용자별 대표 캐릭터 저장 확인: \(savedValue)")
             
             // Firestore 업데이트 및 characterNames 컬렉션에도 함께 등록
             Task {
@@ -179,6 +182,9 @@ class AuthManager: ObservableObject {
                 }
             }
         }
+        // 전역 설정 저장 확인 (디버깅용)
+        let savedGlobalValue = UserDefaults.standard.string(forKey: "representativeCharacter") ?? ""
+        Logger.debug("전역 대표 캐릭터 저장 확인: \(savedGlobalValue)")
     }
     
     // 대표 캐릭터 이름으로 표시 이름 업데이트

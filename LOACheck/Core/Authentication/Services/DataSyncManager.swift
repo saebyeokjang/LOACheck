@@ -527,6 +527,39 @@ class DataSyncManager: ObservableObject {
         }
     }
     
+    /// 백그라운드용 안전한 동기화 메소드
+    func safeBackgroundSync() async {
+        guard let modelContext = self.modelContext else {
+            return
+        }
+        
+        await MainActor.run {
+            self.isSyncing = true
+        }
+        
+        do {
+            // 로컬 캐릭터만 저장 (삭제 작업 없이)
+            let descriptor = FetchDescriptor<CharacterModel>()
+            let localCharacters = try modelContext.fetch(descriptor)
+            
+            if !localCharacters.isEmpty {
+                // 'await' 키워드 추가
+                try await FirebaseRepository.shared.saveCharacters(localCharacters)
+            }
+            
+            await MainActor.run {
+                self.lastSyncTime = Date()
+                self.isSyncing = false
+                self.hasPendingChanges = false
+            }
+        } catch {
+            await MainActor.run {
+                self.syncError = error
+                self.isSyncing = false
+            }
+        }
+    }
+    
     // 현재 동기화 상태 정보 문자열 반환
     func getSyncStatusDescription() -> String {
         var status = ""
