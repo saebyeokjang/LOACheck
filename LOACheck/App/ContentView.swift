@@ -71,9 +71,12 @@ struct ContentView: View {
                     .tag(4)
             }
             .onAppear {
-                if isInitialLoad {
-                    performInitialSetup()
-                    isInitialLoad = false
+                let appearance = UITabBarAppearance()
+                appearance.configureWithDefaultBackground()
+                UITabBar.appearance().standardAppearance = appearance
+                
+                if #available(iOS 15.0, *) {
+                    UITabBar.appearance().scrollEdgeAppearance = appearance
                 }
             }
             .onDisappear {
