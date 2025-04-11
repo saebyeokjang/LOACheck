@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 
 struct CharacterPagingView: View {
-    @Query var characters: [CharacterModel]
+    @State private var characters: [CharacterModel] = []
     var goToSettingsAction: (() -> Void)?
     @State private var currentPage = 0
     @State private var isPageChanging = false // 페이지 전환 중 상태
@@ -20,10 +20,9 @@ struct CharacterPagingView: View {
     @State private var isAnimating = false // 애니메이션 진행 중 상태
     @State private var showGoldSummary = false // 골드 요약 시트 표시 여부
     
+    @Environment(\.modelContext) private var modelContext
+    
     init(goToSettingsAction: (() -> Void)? = nil) {
-        var descriptor = FetchDescriptor<CharacterModel>(predicate: #Predicate<CharacterModel> { !$0.isHidden })
-        descriptor.sortBy = [SortDescriptor(\CharacterModel.level, order: .reverse)]
-        _characters = Query(descriptor)
         self.goToSettingsAction = goToSettingsAction
     }
     
@@ -135,6 +134,9 @@ struct CharacterPagingView: View {
                 }
             }
         }
+        .onAppear {
+            loadCharacters()
+        }
         .onChange(of: currentPage) { oldValue, newValue in
             Logger.debug("Page changed from \(oldValue) to \(newValue)")
         }
@@ -158,6 +160,24 @@ struct CharacterPagingView: View {
                         }
                     }
             }
+        }
+    }
+    
+    // SwiftData 수동 로드 기능 추가
+    private func loadCharacters() {
+        // 데이터 로딩 중 오류 로깅
+        print("캐릭터 데이터 로딩 시작")
+        
+        do {
+            var descriptor = FetchDescriptor<CharacterModel>()
+            descriptor.predicate = #Predicate<CharacterModel> { !$0.isHidden }
+            descriptor.sortBy = [SortDescriptor(\CharacterModel.level, order: .reverse)]
+            
+            // 데이터 가져오기
+            characters = try modelContext.fetch(descriptor)
+            print("캐릭터 \(characters.count)개 로드 완료")
+        } catch {
+            print("캐릭터 로드 오류: \(error.localizedDescription)")
         }
     }
     

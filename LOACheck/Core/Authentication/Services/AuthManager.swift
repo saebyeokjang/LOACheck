@@ -107,6 +107,7 @@ class AuthManager: ObservableObject {
         
         // 전역 설정에 저장
         UserDefaults.standard.set(characterName, forKey: "representativeCharacter")
+        UserDefaults.standard.synchronize()
         
         // 사용자별 설정에 저장
         if isLoggedIn, let uid = currentUser?.id {

@@ -123,6 +123,7 @@ struct AdditionalGoldInputView: View {
     private func saveAdditionalGold() {
         if let gold = Int(additionalGold) {
             character.setAdditionalGold(gold, for: raidName)
+            DataSyncManager.shared.markLocalChanges()
         }
     }
 }

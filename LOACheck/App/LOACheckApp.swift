@@ -42,9 +42,9 @@ struct LOACheckApp: App {
                     GIDSignIn.sharedInstance.handle(url)
                 }
                 .onAppear {
-                    // 여기서 한 번만 실행되는 초기화 코드 실행
                     if !isInitialized {
                         setupAppLifecycleHandlers()
+                        setupPeriodicSync()
                         isInitialized = true
                     }
                 }
@@ -54,6 +54,7 @@ struct LOACheckApp: App {
             DailyTask.self,
             RaidGate.self
         ], isAutosaveEnabled: true) { result in
+            print("🔵 ModelContainer 초기화 완료")
             switch result {
             case .success(let container):
                 // Model Context 설정
@@ -70,6 +71,21 @@ struct LOACheckApp: App {
             case .failure(let error):
                 Logger.error("ModelContainer 생성 실패: \(error)")
                 errorHandlingService.handleError(error, source: .database)
+                print("ModelContainer 초기화 상태: \(result)")
+            }
+        }
+    }
+    
+    // 앱 초기화 시 호출
+    private func setupPeriodicSync() {
+        // 5분마다 한 번씩 변경사항이 있으면 동기화
+        Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { _ in
+            if AuthManager.shared.isLoggedIn &&
+               DataSyncManager.shared.hasPendingChanges &&
+               NetworkMonitorService.shared.isConnected {
+                Task {
+                    _ = await DataSyncManager.shared.pushToCloud()
+                }
             }
         }
     }

@@ -180,7 +180,7 @@ struct TaskRowView: View {
         // 중복 처리 방지 플래그 설정
         isProcessing = true
         
-        // 즉시 상태 변경 - 중첩된 async 호출 제거
+        // 즉시 상태 변경
         let currentCount = task.completionCount
         let maxCount = task.type.maxCompletionCount
         
@@ -221,7 +221,10 @@ struct TaskRowView: View {
         let generator = UIImpactFeedbackGenerator(style: .light)
         generator.impactOccurred()
         
-        // 매우 짧은 지연 후 처리 상태 해제 (충분한 상태 업데이트 시간 확보)
+        // 동기화 플래그 설정 - 이 부분이 추가됨
+        DataSyncManager.shared.markLocalChanges()
+        
+        // 매우 짧은 지연 후 처리 상태 해제
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             isProcessing = false
         }
