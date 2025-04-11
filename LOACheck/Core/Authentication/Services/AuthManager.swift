@@ -144,6 +144,34 @@ class AuthManager: ObservableObject {
                         }
                     }
                     
+                    // 5. 내 친구 목록 가져오기
+                    let friendsSnapshot = try await db.collection("users")
+                        .document(uid)
+                        .collection("friends")
+                        .getDocuments()
+                    
+                    // 6. 친구들의 "friends" 컬렉션에서 나의 정보 업데이트
+                    if !friendsSnapshot.documents.isEmpty {
+                        let batch = db.batch()
+                        
+                        for friendDoc in friendsSnapshot.documents {
+                            if let friendId = friendDoc.data()["userId"] as? String {
+                                // 친구의 친구 목록에서 나의 문서 참조
+                                let friendRef = db.collection("users")
+                                    .document(friendId)
+                                    .collection("friends")
+                                    .document(uid)
+                                
+                                // 내 displayName 업데이트
+                                batch.updateData(["displayName": characterName], forDocument: friendRef)
+                            }
+                        }
+                        
+                        // 배치 커밋
+                        try await batch.commit()
+                        Logger.debug("친구들의 친구 목록에서 displayName 업데이트 완료: \(characterName)")
+                    }
+                    
                     Logger.debug("새 대표 캐릭터 '\(characterName)' 설정 완료")
                 } catch {
                     Logger.error("대표 캐릭터 설정 중 오류 발생", error: error)
@@ -194,6 +222,33 @@ class AuthManager: ObservableObject {
                     }
                 }
                 
+                // 5. 친구들의 친구 목록에서 나의 displayName 업데이트
+                let friendsSnapshot = try await db.collection("users")
+                    .document(uid)
+                    .collection("friends")
+                    .getDocuments()
+                
+                if !friendsSnapshot.documents.isEmpty {
+                    let batch = db.batch()
+                    
+                    for friendDoc in friendsSnapshot.documents {
+                        if let friendId = friendDoc.data()["userId"] as? String {
+                            // 친구의 친구 목록에서 나의 문서 참조
+                            let friendRef = db.collection("users")
+                                .document(friendId)
+                                .collection("friends")
+                                .document(uid)
+                            
+                            // 내 displayName 업데이트
+                            batch.updateData(["displayName": representativeCharacter], forDocument: friendRef)
+                        }
+                    }
+                    
+                    // 배치 커밋
+                    try await batch.commit()
+                    Logger.debug("친구들의 친구 목록에서 displayName 업데이트 완료: \(representativeCharacter)")
+                }
+                
                 Logger.debug("사용자 표시 이름이 '\(representativeCharacter)'(으)로 업데이트되었습니다. (characterNames 포함)")
             } catch {
                 Logger.error("사용자 표시 이름 업데이트 실패", error: error)
@@ -234,6 +289,33 @@ class AuthManager: ObservableObject {
             
             // 3. 캐릭터 상세 정보 저장
             try await FirebaseRepository.shared.storeCharacterDetails(characterName: representativeCharacter)
+            
+            // 4. 친구들의 친구 목록에서 나의 displayName 업데이트
+            let friendsSnapshot = try await db.collection("users")
+                .document(uid)
+                .collection("friends")
+                .getDocuments()
+            
+            if !friendsSnapshot.documents.isEmpty {
+                let batch = db.batch()
+                
+                for friendDoc in friendsSnapshot.documents {
+                    if let friendId = friendDoc.data()["userId"] as? String {
+                        // 친구의 친구 목록에서 나의 문서 참조
+                        let friendRef = db.collection("users")
+                            .document(friendId)
+                            .collection("friends")
+                            .document(uid)
+                        
+                        // 내 displayName 업데이트
+                        batch.updateData(["displayName": representativeCharacter], forDocument: friendRef)
+                    }
+                }
+                
+                // 배치 커밋
+                try await batch.commit()
+                Logger.debug("친구들의 친구 목록에서 displayName 업데이트 완료: \(representativeCharacter)")
+            }
             
             Logger.debug("Firestore displayName 직접 업데이트 성공: '\(representativeCharacter)' (characterNames 포함)")
             return true
