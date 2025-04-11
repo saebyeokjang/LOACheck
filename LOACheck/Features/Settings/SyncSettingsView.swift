@@ -13,6 +13,7 @@ struct SyncSettingsView: View {
     @EnvironmentObject var authManager: AuthManager
     @EnvironmentObject var errorService: ErrorHandlingService
     @ObservedObject var dataSyncManager = DataSyncManager.shared
+    @AppStorage("useAutoSync") private var useAutoSync: Bool = true
     @State private var showSyncStrategySheet = false
     @State private var showConfirmationDialog = false
     @State private var confirmationAction: (() -> Void)? = nil
@@ -86,11 +87,13 @@ struct SyncSettingsView: View {
                     }
                     
                     // 자동 동기화 버튼
-                    Toggle(isOn: .constant(true)) {
+                    Toggle(isOn: $useAutoSync) {
                         Label("자동 동기화", systemImage: "clock.arrow.2.circlepath")
                     }
                     .toggleStyle(SwitchToggleStyle(tint: .blue))
-                    .disabled(true) // 현재 버전에서는 항상 활성화됨
+                    .onChange(of: useAutoSync) { _, newValue in
+                        UserDefaults.standard.set(newValue, forKey: "useAutoSync")
+                    }
                     
                     // 충돌 감지 시 경고
                     if dataSyncManager.hasConflicts && !dataSyncManager.conflictsResolved {

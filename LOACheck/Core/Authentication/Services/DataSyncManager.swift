@@ -8,10 +8,14 @@
 import Foundation
 import SwiftData
 import Combine
+import SwiftUI
 
 /// 데이터 동기화 작업을 관리하는 매니저 클래스
 class DataSyncManager: ObservableObject {
     static let shared = DataSyncManager()
+    private var syncTimer: Timer?
+    private var lastChangeTimestamp: Date?
+    @AppStorage("useAutoSync") private var useAutoSync: Bool = true
     
     // 동기화 상태
     @Published var isSyncing = false
@@ -462,8 +466,39 @@ class DataSyncManager: ObservableObject {
     
     // 로컬 변경사항 표시
     func markLocalChanges() {
+        let now = Date()
+        
         DispatchQueue.main.async {
             self.hasPendingChanges = true
+            self.lastChangeTimestamp = now
+            
+            // 자동 동기화 활성화 상태면 타이머 시작
+            if self.useAutoSync {
+                self.startSyncTimer()
+            }
+        }
+    }
+    
+    // 자동 동기화 타이머 시작 메서드
+    private func startSyncTimer() {
+        // 이미 타이머가 실행 중이면 무시
+        if syncTimer != nil {
+            return
+        }
+        
+        // 변경 후 15초 후에 동기화 시도
+        syncTimer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
+            
+            Task {
+                // 네트워크 연결 확인
+                if self.hasPendingChanges && NetworkMonitorService.shared.isConnected && AuthManager.shared.isLoggedIn {
+                    _ = await self.performManualSync()
+                }
+                
+                // 타이머 정리
+                self.syncTimer = nil
+            }
         }
     }
     

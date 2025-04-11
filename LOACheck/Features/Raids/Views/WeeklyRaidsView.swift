@@ -375,6 +375,8 @@ struct RaidCardView: View {
         }
         
         isAllCompleted = newState
+        
+        DataSyncManager.shared.markLocalChanges()
     }
 }
 
@@ -467,6 +469,9 @@ struct GateButton: View {
             gate.isCompleted = true
             gate.lastCompletedAt = Date()
         }
+        
+        // 동기화 플래그 설정
+        DataSyncManager.shared.markLocalChanges()
     }
     
     // 난이도에 따른 색상 반환
