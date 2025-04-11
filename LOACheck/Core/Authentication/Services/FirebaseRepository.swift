@@ -528,6 +528,12 @@ class FirebaseRepository {
                 isGoldEarner: isGoldEarner
             )
             
+            // 추가 골드 맵 설정 - 이 부분이 중요합니다
+            if let additionalGoldMap = data["additionalGoldMap"] as? String {
+                character.additionalGoldMap = additionalGoldMap
+                Logger.debug("친구 캐릭터 '\(name)'의 additionalGoldMap: \(additionalGoldMap)")
+            }
+            
             // 일일 숙제 데이터 설정
             if let dailyTasksData = data["dailyTasks"] as? [[String: Any]] {
                 var dailyTasks: [DailyTask] = []
@@ -566,6 +572,11 @@ class FirebaseRepository {
                             goldReward: goldReward,
                             isCompleted: isCompleted
                         )
+                        
+                        // additionalGold 필드가 있으면 설정
+                        if let additionalGold = gateData["additionalGold"] as? Int {
+                            raidGate.additionalGold = additionalGold
+                        }
                         
                         raidGates.append(raidGate)
                     }

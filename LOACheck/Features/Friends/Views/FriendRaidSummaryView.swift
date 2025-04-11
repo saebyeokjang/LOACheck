@@ -24,44 +24,33 @@ struct FriendRaidSummaryView: View {
                         Spacer()
                     }
                     
-                    // 골드 획득 요약
+                    // 골드 획득 요약 - 내 골드 현황과 동일한 방식으로 수정
                     VStack(spacing: 8) {
                         HStack {
-                            Text("주간 획득 골드:")
+                            Text("주간 예상 골드 수익")
                                 .font(.headline)
                                 .foregroundColor(.secondary)
                             
                             Spacer()
-                            
-                            // 기본 골드 + 추가 골드 합계
-                            Text("\(totalEarnedGold) / \(totalExpectedGold) G")
-                                .font(.title3)
-                                .fontWeight(.bold)
-                                .foregroundColor(.orange)
                         }
                         
-                        // 기본 골드와 추가 골드 내역 분리 표시
+                        Divider()
+                        
                         HStack {
-                            Text("기본 골드:")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            
+                            Text("총 예상 골드")
+                                .font(.headline)
                             Spacer()
-                            
-                            Text("\(totalEarnedBaseGold) / \(totalBaseGold) G")
-                                .font(.subheadline)
+                            Text("\(totalExpectedGold) G")
+                                .font(.headline)
                                 .foregroundColor(.orange)
                         }
                         
                         HStack {
-                            Text("추가 골드:")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            
+                            Text("현재 획득 골드")
+                                .font(.headline)
                             Spacer()
-                            
-                            Text("\(totalEarnedAdditionalGold) / \(totalAdditionalGold) G")
-                                .font(.subheadline)
+                            Text("\(totalEarnedGold) G")
+                                .font(.headline)
                                 .foregroundColor(.green)
                         }
                     }
@@ -250,37 +239,6 @@ struct CharacterRaidSummaryCard: View {
                             .font(.headline)
                             .foregroundColor(.orange)
                         
-                        // 골드 내역 상세 표시 (기본 + 추가)
-                        if let raidGates = character.raidGates, !raidGates.isEmpty {
-                            // 추가 골드 계산
-                            let addGold = getAdditionalGoldSum(character)
-                            let baseGold = earnedGold - addGold
-                            
-                            if addGold > 0 {
-                                HStack(spacing: 2) {
-                                    Text("기본:")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    
-                                    Text("\(baseGold)G")
-                                        .font(.caption)
-                                        .foregroundColor(.orange)
-                                    
-                                    Text("+")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    
-                                    Text("추가:")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    
-                                    Text("\(addGold)G")
-                                        .font(.caption)
-                                        .foregroundColor(.green)
-                                }
-                            }
-                        }
-                        
                         // 골드 획득 캐릭터 표시
                         Text("골드 획득")
                             .font(.caption)
@@ -320,14 +278,15 @@ struct CharacterRaidSummaryCard: View {
                     return raid1Level > raid2Level
                 }
                 
+                // WeeklyRaidsView와 동일한 형태의 RaidListCardView 사용
+                // WeeklyRaidsView의 RaidCardView와 유사하게 변경
                 ForEach(sortedRaids, id: \.self) { raidName in
                     if let gates = groupedGates[raidName] {
-                        FriendRaidRow(
+                        FriendRaidCardView(
                             raidName: raidName,
                             gates: gates.sorted(by: { $0.gate < $1.gate }),
                             character: character,
-                            isTopRaid: topRaidNames.contains(raidName),
-                            isLastRaid: raidName == sortedRaids.last
+                            isTopRaid: topRaidNames.contains(raidName)
                         )
                     }
                 }
@@ -357,147 +316,200 @@ struct CharacterRaidSummaryCard: View {
         
         return 0.0
     }
-    
-    // 추가 수익 합계 계산
-    private func getAdditionalGoldSum(_ character: CharacterModel) -> Int {
-        guard let raidGates = character.raidGates else { return 0 }
-        
-        let groupedGates = Dictionary(grouping: raidGates) { $0.raid }
-        
-        // 완료된 관문이 있는 레이드의 추가 수익만 합산
-        return groupedGates.filter { raidName, gates in
-            // 완료된 관문이 하나라도 있는 레이드만 필터링
-            return gates.contains { $0.isCompleted }
-        }.reduce(0) { result, raid in
-            // 해당 레이드의 추가 수익 합산
-            return result + character.getAdditionalGold(for: raid.key)
-        }
-    }
 }
 
-// 레이드 행
-struct FriendRaidRow: View {
+// 친구 레이드 카드 뷰
+struct FriendRaidCardView: View {
     var raidName: String
     var gates: [RaidGate]
     var character: CharacterModel
     var isTopRaid: Bool
-    var isLastRaid: Bool
+    
+    @State private var isAllCompleted: Bool = false
+    
+    // 추가 골드 계산
+    private var additionalGold: Int {
+        return character.getAdditionalGold(for: raidName)
+    }
+    
+    // 레이드 총 골드 계산
+    private var totalGold: Int {
+        return gates.reduce(0) { $0 + $1.goldReward }
+    }
+    
+    // 획득한 골드 계산
+    private var earnedGold: Int {
+        return gates.filter { $0.isCompleted }.reduce(0) { $0 + $1.goldReward }
+    }
+    
+    // 완료된 관문이 있는지 확인
+    private var hasCompletedGates: Bool {
+        return gates.contains { $0.isCompleted }
+    }
+    
+    // 표시할 추가 골드 (완료된 관문이 있을 때만)
+    private var displayAdditionalGold: Int {
+        return hasCompletedGates ? additionalGold : 0
+    }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(spacing: 0) {
             // 레이드 헤더
-            HStack {
-                Text(raidName)
-                    .font(.headline)
-                    .foregroundColor(isTopRaid ? .primary : .gray)
-                
-                if isTopRaid {
-                    Text("골드 획득")
-                        .font(.caption)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.yellow.opacity(0.2))
-                        .foregroundColor(.orange)
-                        .cornerRadius(4)
-                }
-                
-                Spacer()
-                
-                // 완료 현황
-                let completedCount = gates.filter { $0.isCompleted }.count
-                Text("\(completedCount)/\(gates.count) 완료")
-                    .font(.subheadline)
-                    .foregroundColor(completedCount == gates.count ? .green : .blue)
-            }
-            
-            // 레이드 골드 정보 (기본 + 추가)
-            HStack {
-                // 기본 골드 정보 (상위 레이드만)
-                if isTopRaid {
-                    let totalGold = gates.reduce(0) { $0 + $1.goldReward }
-                    let earnedGold = gates.filter { $0.isCompleted }.reduce(0) { $0 + $1.goldReward }
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(getOrderString(for: raidName)) \(raidName)")
+                        .font(.headline)
+                        .foregroundColor(isTopRaid || !character.isGoldEarner ? .primary : .gray)
                     
-                    Text("기본 골드: \(earnedGold)/\(totalGold)G")
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                }
-                
-                Spacer()
-                
-                // 추가 수익 표시 (모든 레이드)
-                let additionalGold = character.getAdditionalGold(for: raidName)
-                let hasCompletedGates = gates.contains { $0.isCompleted }
-                
-                if additionalGold > 0 {
-                    if hasCompletedGates {
-                        Text("추가 수익: +\(additionalGold)G")
-                            .font(.caption)
-                            .foregroundColor(.green)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
-                            .background(Color.green.opacity(0.1))
-                            .cornerRadius(4)
-                    } else {
-                        Text("예상 추가 수익: +\(additionalGold)G")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
-                            .background(Color.gray.opacity(0.1))
-                            .cornerRadius(4)
+                    if character.isGoldEarner {
+                        HStack {
+                            // 상위 3개 레이드가 아니면 기본 골드 표시 안 함
+                            if isTopRaid {
+                                Text("\(earnedGold + displayAdditionalGold) / \(totalGold + additionalGold) G")
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                            } else {
+                                // 상위 3개가 아닌 레이드는 추가 골드만 표시
+                                Text("\(displayAdditionalGold) / \(additionalGold) G")
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                                    .opacity(additionalGold > 0 ? 1.0 : 0.0)
+                            }
+                            
+                            if additionalGold > 0 {
+                                Text("(+\(additionalGold)G)")
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                                    .opacity(1.0)
+                            }
+                        }
                     }
                 }
+                
+                Spacer()
+                
+                // 완료 상태 표시
+                ZStack {
+                    // 프레임 배경과 테두리
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(isAllGatesCompleted() ? Color.green.opacity(0.1) : Color.white)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(isAllGatesCompleted() ? Color.green.opacity(0.3) : Color.gray.opacity(0.3), lineWidth: 1)
+                        )
+                        .frame(width: 32, height: 32)
+                    
+                    // 체크 표시 (완료 시)
+                    if isAllGatesCompleted() {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.green)
+                    }
+                }
+                .foregroundColor(isAllGatesCompleted() ? .secondary : .primary)
+                .cornerRadius(4)
+                .frame(width: 30, height: 30)
             }
-            .padding(.top, 2)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(isTopRaid && character.isGoldEarner ?
+                        Color.yellow.opacity(0.05) : Color.gray.opacity(0.05))
             
-            // 관문 그리드
-            LazyVGrid(
-                columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: min(gates.count, 4)),
-                spacing: 8
-            ) {
-                ForEach(gates) { gate in
-                    GateStatusCell(gate: gate)
+            // 레이드 관문 그리드
+            let displayGates = getSortedGates()
+            
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: displayGates.count > 0 ? min(4, displayGates.count) : 1), spacing: 0) {
+                ForEach(displayGates) { gate in
+                    FriendGateButton(
+                        gate: gate,
+                        isGoldEarner: character.isGoldEarner,
+                        isTopRaid: isTopRaid
+                    )
                 }
             }
         }
-        .padding(.vertical, 8)
-        
-        if !isLastRaid {
-            Divider()
+        .background(Color.white)
+        .cornerRadius(10)
+        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
+        .padding(.vertical, 4)
+        .opacity(isTopRaid || !character.isGoldEarner ? 1.0 : 0.7)  // 상위 레이드가 아니면 흐리게
+        .onAppear {
+            // 모든 관문이 완료되었는지 확인
+            updateCompletionStatus()
+            
+            // 디버깅 코드 (onAppear 내부로 이동)
+            debugPrint("Character \(character.name) additionalGoldMap: \(character.additionalGoldMap)")
+            debugPrint("Raid \(raidName) additionalGold: \(additionalGold)")
         }
+    }
+    
+    // 정렬된 관문
+    private func getSortedGates() -> [RaidGate] {
+        // 관문 번호로 정렬
+        return gates.sorted { $0.gate < $1.gate }
+    }
+    
+    // 레이드 순서 문자열 가져오기
+    private func getOrderString(for raidName: String) -> String {
+        if raidName.contains("모르둠") { return "3막" }
+        if raidName.starts(with: "2막 아브렐슈드") { return "" }
+        if raidName.contains("에기르") { return "1막" }
+        return ""
+    }
+    
+    // 모든 관문이 완료되었는지 확인
+    private func isAllGatesCompleted() -> Bool {
+        // 모든 관문이 완료되어 있는지 확인
+        return !gates.isEmpty && !gates.contains { !$0.isCompleted }
+    }
+    
+    // 완료 상태 업데이트
+    private func updateCompletionStatus() {
+        isAllCompleted = isAllGatesCompleted()
     }
 }
 
-// 레이드 관문 셀
-struct GateStatusCell: View {
+// 관문 버튼 (보기만 가능한 버전)
+struct FriendGateButton: View {
     var gate: RaidGate
+    var isGoldEarner: Bool
+    var isTopRaid: Bool
     
     var body: some View {
         VStack(spacing: 4) {
-            Text("\(gate.gate + 1)관문")
-                .font(.footnote)
-                .fontWeight(.medium)
-                .foregroundColor(gate.isCompleted ? .secondary : .primary)
-                .strikethrough(gate.isCompleted)
+            // 관문 번호와 난이도 표시
+            HStack(spacing: 4) {
+                Text("\(gate.gate + 1)관문")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .strikethrough(gate.isCompleted)
+                
+                // 난이도 텍스트로 표시
+                Text(gate.difficulty)
+                    .font(.caption2)
+                    .foregroundColor(getDifficultyColor(gate.difficulty))
+                    .strikethrough(gate.isCompleted)
+            }
             
-            Text(gate.difficulty)
-                .font(.caption2)
-                .foregroundColor(getDifficultyColor(gate.difficulty))
+            // 골드 보상
+            Text("\(gate.goldReward)G")
+                .font(.caption)
+                .foregroundColor(isTopRaid && isGoldEarner ? .orange : .gray)
                 .strikethrough(gate.isCompleted)
-            
-            // 완료 상태
-            Image(systemName: gate.isCompleted ? "checkmark.circle.fill" : "circle")
-                .foregroundColor(gate.isCompleted ? .green : .gray)
-                .font(.system(size: 14))
         }
-        .frame(height: 60)
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, 4)
-        .background(gate.isCompleted ? Color.green.opacity(0.1) : Color.gray.opacity(0.05))
-        .cornerRadius(8)
+        .padding(.vertical, 12)
+        .background(getBackgroundColor())
+        .overlay(
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(getBorderColor(), lineWidth: 1)
+        )
+        .foregroundColor(gate.isCompleted ? .secondary : .primary)
+        .cornerRadius(4)
+        .padding(4)
     }
     
-    // 난이도별 색상
+    // 난이도에 따른 색상 반환
     private func getDifficultyColor(_ difficulty: String) -> Color {
         switch difficulty {
         case "하드":
@@ -508,6 +520,26 @@ struct GateStatusCell: View {
             return .green
         default:
             return .gray
+        }
+    }
+    
+    // 배경색 결정
+    private func getBackgroundColor() -> Color {
+        if gate.isCompleted {
+            return Color.gray.opacity(0.1)
+        } else {
+            return Color.white
+        }
+    }
+    
+    // 테두리 색상 결정
+    private func getBorderColor() -> Color {
+        if gate.isCompleted {
+            return Color.gray.opacity(0.3)
+        } else {
+            return gate.difficulty == "하드" ? Color.red.opacity(0.3) :
+            gate.difficulty == "노말" ? Color.blue.opacity(0.3) :
+            Color.green.opacity(0.3)
         }
     }
 }
