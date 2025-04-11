@@ -70,6 +70,14 @@ struct ContentView: View {
                     }
                     .tag(4)
             }
+            .onChange(of: selectedTab) { oldValue, newValue in
+                // 탭이 변경될 때 동기화 수행
+                if authManager.isLoggedIn && DataSyncManager.shared.hasPendingChanges && networkMonitor.isConnected {
+                    Task {
+                        await DataSyncManager.shared.safeBackgroundSync()
+                    }
+                }
+            }
             .onAppear {
                 let appearance = UITabBarAppearance()
                 appearance.configureWithDefaultBackground()
