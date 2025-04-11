@@ -15,13 +15,17 @@ class DataSyncManager: ObservableObject {
     static let shared = DataSyncManager()
     private var syncTimer: Timer?
     private var lastChangeTimestamp: Date?
-    @AppStorage("useAutoSync") private var useAutoSync: Bool = true
+    @Published var useAutoSync: Bool = true
     
     // 동기화 상태
     @Published var isSyncing = false
     @Published var lastSyncTime: Date?
     @Published var syncError: Error?
     @Published var hasPendingChanges = false
+    
+    // 충돌 감지 관련 속성 추가
+    @Published var hasConflicts = false
+    @Published var conflictsResolved = false
     
     // 인증 매니저 구독
     private var cancellables = Set<AnyCancellable>()
@@ -38,7 +42,86 @@ class DataSyncManager: ObservableObject {
     @Published var syncStrategy: SyncStrategy = .merge
     
     private init() {
+        if UserDefaults.standard.object(forKey: "useAutoSync") != nil {
+            self.useAutoSync = UserDefaults.standard.bool(forKey: "useAutoSync")
+        }
         setupAuthSubscriptions()
+    }
+    
+    func setAutoSync(_ value: Bool) {
+        useAutoSync = value
+        UserDefaults.standard.set(value, forKey: "useAutoSync")
+    }
+    
+    // 충돌 감지 메소드 추가
+    func detectConflicts() -> Bool {
+        guard let modelContext = self.modelContext else {
+            return false
+        }
+        
+        do {
+            // 로컬 데이터가 있는지 확인
+            let descriptor = FetchDescriptor<CharacterModel>()
+            let localCharactersCount = try modelContext.fetchCount(descriptor)
+            
+            if localCharactersCount == 0 {
+                // 로컬 데이터가 없으면 충돌 없음
+                return false
+            }
+            
+            // 동기화 전략이 수동이면 항상 충돌로 판단
+            if syncStrategy == .manual {
+                return true
+            }
+            
+            // 네트워크 연결 확인
+            if !NetworkMonitorService.shared.isConnected {
+                return false
+            }
+            return false
+        } catch {
+            Logger.error("충돌 감지 중 오류 발생", error: error)
+            return false
+        }
+    }
+    
+    private func checkForConflicts() async -> Bool {
+        guard let modelContext = self.modelContext else {
+            return false
+        }
+        
+        do {
+            // 로컬 데이터 확인
+            let descriptor = FetchDescriptor<CharacterModel>()
+            let localCharactersCount = try modelContext.fetchCount(descriptor)
+            
+            if localCharactersCount == 0 {
+                // 로컬 데이터가 없으면 충돌 없음
+                return false
+            }
+            
+            // 동기화 전략이 수동이 아니면 충돌 감지 생략
+            if syncStrategy != .manual {
+                return false
+            }
+            
+            // 서버 데이터 확인
+            let cloudCharactersCount = try await countCloudCharacters()
+            
+            // 양쪽 모두 데이터가 있으면 충돌 가능성 있음
+            if localCharactersCount > 0 && cloudCharactersCount > 0 {
+                await MainActor.run {
+                    self.hasConflicts = true
+                    self.conflictsResolved = false
+                }
+                return true
+            }
+            
+            return false
+        } catch {
+            Logger.error("비동기 충돌 감지 중 오류 발생", error: error)
+            return false
+        }
     }
     
     // 인증 상태 변경 구독 설정
@@ -61,6 +144,14 @@ class DataSyncManager: ObservableObject {
     // ModelContext 설정
     func setModelContext(_ context: ModelContext) {
         self.modelContext = context
+    }
+    
+    // 백그라운드에서 안전하게 동기화를 실행하는 메소드
+    func safeBackgroundSync() async {
+        // 로그인 상태 및 변경사항 있는 경우에만 실행
+        if AuthManager.shared.isLoggedIn && hasPendingChanges && NetworkMonitorService.shared.isConnected {
+            _ = await uploadToServer()
+        }
     }
     
     // 초기 동기화 수행 (로그인 직후)
@@ -130,6 +221,17 @@ class DataSyncManager: ObservableObject {
             return false
         }
         
+        // 충돌 감지 검사 추가
+        if await checkForConflicts() {
+            // 충돌이 해결되지 않았으면 동기화 중단
+            if !conflictsResolved {
+                await MainActor.run {
+                    self.syncError = DataSyncError.conflictDetected
+                }
+                return false
+            }
+        }
+        
         do {
             await MainActor.run {
                 self.isSyncing = true
@@ -148,6 +250,7 @@ class DataSyncManager: ObservableObject {
                     self.lastSyncTime = Date()
                     self.isSyncing = false
                     self.hasPendingChanges = false
+                    self.hasConflicts = false  // 동기화 성공 시 충돌 상태 초기화
                     Logger.info("서버 업로드 완료: \(localCharacters.count)개 캐릭터")
                 }
                 return true
