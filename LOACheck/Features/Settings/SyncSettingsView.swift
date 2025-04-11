@@ -87,13 +87,11 @@ struct SyncSettingsView: View {
                     }
                     
                     // 자동 동기화 버튼
-                    Toggle(isOn: $useAutoSync) {
-                        Label("자동 동기화", systemImage: "clock.arrow.2.circlepath")
-                    }
-                    .toggleStyle(SwitchToggleStyle(tint: .blue))
-                    .onChange(of: useAutoSync) { _, newValue in
-                        UserDefaults.standard.set(newValue, forKey: "useAutoSync")
-                    }
+                    Toggle("자동 동기화", isOn: $dataSyncManager.useAutoSync)
+                        .toggleStyle(SwitchToggleStyle(tint: .blue))
+                        .onChange(of: dataSyncManager.useAutoSync) { oldValue, newValue in
+                            dataSyncManager.setAutoSync(newValue)
+                        }
                     
                     // 충돌 감지 시 경고
                     if dataSyncManager.hasConflicts && !dataSyncManager.conflictsResolved {
