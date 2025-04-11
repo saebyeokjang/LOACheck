@@ -41,13 +41,6 @@ struct LOACheckApp: App {
                     // 구글 로그인 URL 처리
                     GIDSignIn.sharedInstance.handle(url)
                 }
-            //                .overlay(
-            //                    // 오류 알림 오버레이 - 동기 함수로 변경
-            //                    AppErrorAlertView {
-            //                        // 공통 재시도 액션
-            //                        Task { await performGlobalRefresh() }
-            //                    }
-            //                )
                 .onAppear {
                     // 여기서 한 번만 실행되는 초기화 코드 실행
                     if !isInitialized {
