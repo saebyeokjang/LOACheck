@@ -21,7 +21,7 @@ struct AdditionalRosterSectionView: View {
     @State private var isFetchingOtherRoster: Bool = false
     
     var body: some View {
-        Section(header: Text("다른 원정대 추가"), footer: Text("다른 캐릭터의 전체 원정대를 추가합니다.")) {
+        Section(header: Text("원정대 추가"), footer: Text("캐릭터의 전체 원정대를 추가합니다.")) {
             TextField("캐릭터 이름 입력", text: $otherCharacterName)
                 .autocorrectionDisabled()
                 .submitLabel(.done)

@@ -144,8 +144,8 @@ class AuthManager: ObservableObject {
         
         // 새 대표 캐릭터 이름 설정
         await MainActor.run {
-                self.representativeCharacter = characterName
-            }
+            self.representativeCharacter = characterName
+        }
         
         // 전역 설정에 저장
         UserDefaults.standard.set(characterName, forKey: "representativeCharacter")
