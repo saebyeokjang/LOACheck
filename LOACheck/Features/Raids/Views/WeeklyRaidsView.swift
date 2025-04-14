@@ -195,15 +195,9 @@ struct RaidCardView: View {
                         HStack {
                             // 골드 비활성화된 경우 표시
                             if isGoldDisabled {
-                                HStack(spacing: 2) {
-                                    Image(systemName: "g.circle.slash")
+                                    Text("클리어 골드 보상 미획득")
                                         .font(.caption)
                                         .foregroundColor(.gray)
-                                    
-                                    Text("골드 비활성화")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                }
                             }
                             // 상위 3개 레이드가 아니면 기본 골드 표시 안 함
                             else if isTopRaid {

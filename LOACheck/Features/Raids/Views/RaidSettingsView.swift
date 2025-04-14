@@ -365,6 +365,7 @@ struct DifficultyRow: View {
                     goldReward: getGoldReward(gateIndex),
                     isSelected: isGateSelected(gateIndex),
                     isGoldDisabled: isGoldDisabled,
+                    selectedDifficulty: difficulty,
                     onSelect: {
                         toggleGate(gateIndex)
                     }
@@ -601,6 +602,7 @@ struct GateCell: View {
     var goldReward: Int
     var isSelected: Bool
     var isGoldDisabled: Bool
+    var selectedDifficulty: String
     var onSelect: () -> Void
     
     var body: some View {
@@ -619,8 +621,22 @@ struct GateCell: View {
             }
             .frame(height: 60)
             .frame(minWidth: 0, maxWidth: .infinity)
-            .background(isSelected ? Color.blue.opacity(0.1) : Color.white)
+            .background(isSelected ? getDifficultyColor().opacity(0.1) : Color.white)
         }
         .buttonStyle(PlainButtonStyle())
+    }
+    
+    // 난이도에 따른 색상 반환
+    private func getDifficultyColor() -> Color {
+        switch selectedDifficulty {
+        case "하드":
+            return .red
+        case "노말":
+            return .blue
+        case "싱글":
+            return .green
+        default:
+            return .gray
+        }
     }
 }

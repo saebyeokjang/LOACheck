@@ -272,11 +272,11 @@ struct RaidInfoRow: View {
                 
                 // 골드 획득 불가 표시
                 if !isTopRaid {
-                    Text("클리어 골드 획득 불가")
+                    Text("클리어 골드 보상 미획득")
                         .font(.caption2)
                         .foregroundColor(.gray)
                 } else if isGoldDisabled {
-                    Text("골드 비활성화됨")
+                    Text("클리어 골드 보상 미획득")
                         .font(.caption2)
                         .foregroundColor(.gray)
                 }
