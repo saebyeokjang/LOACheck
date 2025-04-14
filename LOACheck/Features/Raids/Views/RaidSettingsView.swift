@@ -203,13 +203,9 @@ struct RaidSettingCardView: View {
                             }
                         }
                     )) {
-                        HStack {
-                            Image(systemName: "g.circle")
-                                .foregroundColor(.orange)
-                            Text("골드 활성화")
-                                .font(.caption)
-                                .foregroundColor(.orange)
-                        }
+                        Text("골드")
+                            .font(.caption)
+                            .foregroundColor(.orange)
                     }
                     .toggleStyle(SwitchToggleStyle(tint: .orange))
                 }
@@ -571,12 +567,6 @@ struct DifficultyHeaderCell: View {
                     .foregroundColor(getDifficultyColor())
                 
                 HStack(spacing: 2) {
-                    if isGoldDisabled {
-                        Image(systemName: "g.circle.fill")
-                            .font(.caption2)
-                            .foregroundColor(.gray)
-                    }
-                    
                     Text("\(totalGold)G")
                         .font(.caption)
                         .foregroundColor(isGoldDisabled ? .gray : .orange)
@@ -621,12 +611,6 @@ struct GateCell: View {
                     .fontWeight(isSelected ? .bold : .regular)
                 
                 HStack(spacing: 2) {
-                    if isGoldDisabled {
-                        Image(systemName: "g.circle.slash")
-                            .font(.caption2)
-                            .foregroundColor(.gray)
-                    }
-                    
                     Text("\(goldReward)G")
                         .font(.caption)
                         .foregroundColor(isGoldDisabled ? .gray : .orange)
