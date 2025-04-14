@@ -75,63 +75,24 @@ struct RaidListCardView: View {
         // 레이드별로 그룹화
         let groupedGates = Dictionary(grouping: raidGates) { $0.raid }
         
-        // 레이드 순서를 설정시트 순서대로 유지 (레벨 기준)
+        // 레이드 순서를 RaidData.RaidType.sortOrder 기준으로 정렬
         let sortedRaidNames = groupedGates.keys.sorted { raid1, raid2 in
-            let level1 = RaidData.raidLevelRequirements["\(raid1)-하드"] ??
-            RaidData.raidLevelRequirements["\(raid1)-노말"] ?? 0
-            let level2 = RaidData.raidLevelRequirements["\(raid2)-하드"] ??
-            RaidData.raidLevelRequirements["\(raid2)-노말"] ?? 0
-            
-            // 레벨이 같은 경우 레이드 이름으로 보조 정렬
-            if level1 == level2 {
-                return raid1 < raid2
+            // RaidType 찾기
+            guard let type1 = RaidData.RaidType.allCases.first(where: { $0.rawValue == raid1 }),
+                  let type2 = RaidData.RaidType.allCases.first(where: { $0.rawValue == raid2 }) else {
+                return raid1 < raid2 // 기본 알파벳 순
             }
             
-            return level1 > level2
+            // sortOrder 기준으로 내림차순 정렬 (높은 숫자가 먼저 나오도록)
+            return type1.sortOrder > type2.sortOrder
         }
         
-        // 골드 획득할 수 있는 상위 3개 레이드 선택 (골드 보상 기준)
-        let raidTotalGolds = sortedRaidNames.map { raidName -> (name: String, gold: Int) in
-            let gates = groupedGates[raidName] ?? []
-            let totalGold = gates.reduce(0) { $0 + $1.goldReward }
-            
-            // 추가 골드 반영
-            let additionalGold = character.getAdditionalGold(for: raidName)
-            return (name: raidName, gold: totalGold + additionalGold)
-        }.sorted { $0.gold > $1.gold }
+        // 골드 획득할 수 있는 상위 3개 레이드 가져오기
+        let topRaidNames = character.getTopRaidNames()
         
-        let topRaidNames = character.isGoldEarner ?
-        Array(raidTotalGolds.prefix(3)).map { $0.name } : []
-        
-        // 전체 골드 계산 - 기본 레이드 골드는 상위 3개만, 추가 골드는 모든 레이드
-        let totalGold = character.isGoldEarner ? (
-            // 기본 레이드 골드 (상위 3개)
-            raidTotalGolds
-                .filter { topRaidNames.contains($0.name) }
-                .reduce(0) { $0 + $1.gold } +
-            
-            // 모든 레이드의 추가 골드 - 상위 3개와 중복되지 않는 것만
-            sortedRaidNames
-                .filter { !topRaidNames.contains($0) }
-                .reduce(0) { $0 + character.getAdditionalGold(for: $1) }
-        ) : 0
-        
-        // 획득 골드 계산 (추가 골드 포함)
-        let earnedBaseGold = character.isGoldEarner ? groupedGates
-            .filter { topRaidNames.contains($0.key) }
-            .flatMap { $0.value }
-            .filter { $0.isCompleted }
-            .reduce(0) { $0 + $1.goldReward } : 0
-        
-        // 추가 골드 계산
-        let earnedAdditionalGold = character.isGoldEarner ? sortedRaidNames
-            .filter { raidName in
-                let raidGates = groupedGates[raidName] ?? []
-                return raidGates.contains { $0.isCompleted }
-            }
-            .reduce(0) { $0 + character.getAdditionalGold(for: $1) } : 0
-        
-        let earnedTotalGold = earnedBaseGold + earnedAdditionalGold
+        // 전체 골드 계산 - CharacterModel 메서드 사용
+        let totalGold = character.calculateWeeklyGoldReward()
+        let earnedTotalGold = character.calculateEarnedGoldReward()
         
         VStack(spacing: 16) {
             // 골드 요약 정보
@@ -166,7 +127,7 @@ struct RaidListCardView: View {
                         raidName: raidName,
                         gates: gates,
                         isGoldEarner: character.isGoldEarner,
-                        isTopRaid: character.isGoldEarner && topRaidNames.contains(raidName),
+                        isTopRaid: topRaidNames.contains(raidName),
                         character: character
                     )
                 }
@@ -183,7 +144,7 @@ struct RaidListCardView: View {
             }
             
             // 골드 획득 캐릭터이고 레이드가 3개 이상인 경우 안내 문구 표시
-            if character.isGoldEarner && sortedRaidNames.count > 3 {
+            if character.isGoldEarner && groupedGates.count > 3 {
                 Text("※ 골드 보상이 높은 상위 3개 레이드만 골드를 획득합니다")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -237,11 +198,11 @@ struct RaidCardView: View {
                                 HStack(spacing: 2) {
                                     Image(systemName: "g.circle.slash")
                                         .font(.caption)
-                                        .foregroundColor(.orange)
+                                        .foregroundColor(.gray)
                                     
                                     Text("골드 비활성화")
                                         .font(.caption)
-                                        .foregroundColor(.orange)
+                                        .foregroundColor(.gray)
                                 }
                             }
                             // 상위 3개 레이드가 아니면 기본 골드 표시 안 함
@@ -429,7 +390,7 @@ struct GateButton: View {
                     if isGoldDisabled && isTopRaid && isGoldEarner {
                         Image(systemName: "g.circle.slash")
                             .font(.caption2)
-                            .foregroundColor(.orange)
+                            .foregroundColor(.gray)
                     }
                     
                     Text("\(gate.goldReward)G")

@@ -49,7 +49,7 @@ struct RaidSettingsView: View {
                     if !goldDisabledRaids.isEmpty {
                         Text("골드 비활성화된 레이드: \(goldDisabledRaids.joined(separator: ", "))")
                             .font(.caption)
-                            .foregroundColor(.orange)
+                            .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
                             .padding(.bottom, 10)
@@ -91,6 +91,7 @@ struct RaidSettingsView: View {
         // 기존 설정 초기화
         selectedRaids.removeAll()
         gateSettings.removeAll()
+        goldDisabledRaids.removeAll()
         
         if let gates = character.raidGates {
             // 레이드별로 관문 설정 그룹화
@@ -109,7 +110,7 @@ struct RaidSettingsView: View {
                 gateSettings[raid] = raidGateSettings
                 
                 // 골드 비활성화 설정 로드
-                if gates.first?.isGoldDisabled == true {
+                if let firstGate = gates.first, firstGate.isGoldDisabled {
                     goldDisabledRaids.insert(raid)
                 }
             }
@@ -132,6 +133,8 @@ struct RaidSettingsView: View {
         
         for raidName in selectedRaids {
             if let raidGateSettings = gateSettings[raidName] {
+                let isGoldDisabled = goldDisabledRaids.contains(raidName)
+                
                 for (gateNumber, difficulty) in raidGateSettings {
                     // 골드 보상 가져오기
                     let goldReward = RaidData.getGoldReward(
@@ -146,6 +149,7 @@ struct RaidSettingsView: View {
                     if let existingGate = existingGates[key] {
                         // 기존 관문 업데이트
                         existingGate.goldReward = goldReward
+                        existingGate.isGoldDisabled = isGoldDisabled // 골드 비활성화 상태 업데이트
                         newGates.append(existingGate)
                     } else {
                         // 새 관문 생성
@@ -154,7 +158,9 @@ struct RaidSettingsView: View {
                             gate: gateNumber,
                             difficulty: difficulty,
                             goldReward: goldReward,
-                            isCompleted: false
+                            isCompleted: false,
+                            lastCompletedAt: nil,
+                            isGoldDisabled: isGoldDisabled // 골드 비활성화 상태 설정
                         )
                         newGates.append(newGate)
                     }
@@ -185,6 +191,31 @@ struct RaidSettingCardView: View {
         VStack(spacing: 0) {
             // 레이드 헤더
             HStack {
+                // 골드 활성화 토글 추가 (레이드가 선택된 경우에만 표시)
+                if selectedRaids.contains(raidGroup.name) {
+                    Toggle(isOn: Binding(
+                        get: { !goldDisabledRaids.contains(raidGroup.name) }, // 반전된 값 (골드 활성화)
+                        set: { isEnabled in
+                            if isEnabled {
+                                goldDisabledRaids.remove(raidGroup.name) // 활성화 시 목록에서 제거
+                            } else {
+                                goldDisabledRaids.insert(raidGroup.name) // 비활성화 시 목록에 추가
+                            }
+                        }
+                    )) {
+                        HStack {
+                            Image(systemName: "g.circle")
+                                .foregroundColor(.orange)
+                            Text("골드 활성화")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        }
+                    }
+                    .toggleStyle(SwitchToggleStyle(tint: .orange))
+                }
+                
+                Spacer()
+                
                 // 레이드 선택 토글
                 Toggle(isOn: Binding(
                     get: { selectedRaids.contains(raidGroup.name) },
@@ -208,30 +239,6 @@ struct RaidSettingCardView: View {
                 }
                 .toggleStyle(SwitchToggleStyle(tint: .blue))
                 
-                Spacer()
-                
-                // 골드 획득 비활성화 토글 추가 (레이드가 선택된 경우에만 표시)
-                if selectedRaids.contains(raidGroup.name) {
-                    Toggle(isOn: Binding(
-                        get: { goldDisabledRaids.contains(raidGroup.name) },
-                        set: { isDisabled in
-                            if isDisabled {
-                                goldDisabledRaids.insert(raidGroup.name)
-                            } else {
-                                goldDisabledRaids.remove(raidGroup.name)
-                            }
-                        }
-                    )) {
-                        HStack {
-                            Image(systemName: "g.circle")
-                                .foregroundColor(.orange)
-                            Text("골드 비활성화")
-                                .font(.caption)
-                                .foregroundColor(.orange)
-                        }
-                    }
-                    .toggleStyle(SwitchToggleStyle(tint: .orange))
-                }
                 
                 // 더보기 버튼
                 if selectedRaids.contains(raidGroup.name) {
@@ -615,7 +622,7 @@ struct GateCell: View {
                 
                 HStack(spacing: 2) {
                     if isGoldDisabled {
-                        Image(systemName: "g.circle.fill")
+                        Image(systemName: "g.circle.slash")
                             .font(.caption2)
                             .foregroundColor(.gray)
                     }
