@@ -24,7 +24,142 @@ class FriendsService: ObservableObject {
     
     private var searchedUsers: [User] = []
     
-    private init() {}
+    // Firestore 리스너를 저장할 변수들
+    private var friendsListener: ListenerRegistration?
+    private var friendRequestsListener: ListenerRegistration?
+    
+    private init() {
+        // 앱 시작 시 자동으로 리스너 설정
+        setupListeners()
+    }
+    
+    deinit {
+        // 리스너 해제
+        removeListeners()
+    }
+    
+    // 리스너 설정 - 로그인 상태가 변경될 때 호출
+    func setupListeners() {
+        guard AuthManager.shared.isLoggedIn, let userId = AuthManager.shared.currentUser?.id else {
+            removeListeners()
+            return
+        }
+        
+        // 기존 리스너 해제
+        removeListeners()
+        
+        // 친구 목록 실시간 리스너
+        let friendsRef = Firestore.firestore().collection("users").document(userId).collection("friends")
+        friendsListener = friendsRef.addSnapshotListener { [weak self] snapshot, error in
+            guard let self = self else { return }
+            
+            if let error = error {
+                Logger.error("친구 목록 리스너 오류: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    self.error = error
+                }
+                return
+            }
+            
+            guard let documents = snapshot?.documents else {
+                Logger.debug("친구 목록 문서가 없음")
+                return
+            }
+            
+            let newFriends = documents.compactMap { doc -> Friend? in
+                let data = doc.data()
+                
+                guard let userId = data["userId"] as? String,
+                      let displayName = data["displayName"] as? String else {
+                    return nil
+                }
+                
+                return Friend(
+                    id: doc.documentID,
+                    userId: userId,
+                    displayName: displayName,
+                    timestamp: (data["timestamp"] as? Timestamp)?.dateValue() ?? Date()
+                )
+            }
+            
+            DispatchQueue.main.async {
+                self.friends = newFriends
+                
+                // 친구 목록이 변경되면 친구 캐릭터 정보도 업데이트
+                Task {
+                    await self.loadFriendsWithCharacters()
+                }
+            }
+        }
+        
+        // 친구 요청 실시간 리스너
+        let requestsRef = Firestore.firestore().collection("users").document(userId).collection("friendRequests")
+            .whereField("status", isEqualTo: "pending")
+        
+        friendRequestsListener = requestsRef.addSnapshotListener { [weak self] snapshot, error in
+            guard let self = self else { return }
+            
+            if let error = error {
+                Logger.error("친구 요청 리스너 오류: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    self.error = error
+                }
+                return
+            }
+            
+            guard let documents = snapshot?.documents else {
+                Logger.debug("친구 요청 문서가 없음")
+                return
+            }
+            
+            let newRequests = documents.compactMap { doc -> FriendRequest? in
+                let data = doc.data()
+                
+                guard let fromUserId = data["fromUserId"] as? String,
+                      let fromUserName = data["fromUserName"] as? String else {
+                    return nil
+                }
+                
+                return FriendRequest(
+                    id: doc.documentID,
+                    fromUserId: fromUserId,
+                    fromUserName: fromUserName,
+                    timestamp: (data["timestamp"] as? Timestamp)?.dateValue() ?? Date()
+                )
+            }
+            
+            DispatchQueue.main.async {
+                self.friendRequests = newRequests
+            }
+        }
+        
+        Logger.debug("친구 목록 및 요청 리스너 설정 완료")
+    }
+    
+    // 리스너 해제
+    func removeListeners() {
+        friendsListener?.remove()
+        friendsListener = nil
+        
+        friendRequestsListener?.remove()
+        friendRequestsListener = nil
+        
+        Logger.debug("친구 목록 및 요청 리스너 해제")
+    }
+    
+    // 인증 상태 변경 시 호출
+    func handleAuthStateChanged(isLoggedIn: Bool) {
+        if isLoggedIn {
+            setupListeners()
+        } else {
+            removeListeners()
+            DispatchQueue.main.async {
+                self.friends = []
+                self.friendRequests = []
+                self.friendsWithCharacters = []
+            }
+        }
+    }
     
     // MARK: - 친구 목록 및 요청
     
@@ -52,7 +187,7 @@ class FriendsService: ObservableObject {
         }
     }
     
-    /// 친구 요청 목록 불러오기
+    /// 친구 요청 목록 불러오기 - 필요 시 수동 호출용 (리스너 보완)
     func loadFriendRequests() async {
         guard AuthManager.shared.isLoggedIn else { return }
         
@@ -86,13 +221,13 @@ class FriendsService: ObservableObject {
         }
         
         do {
-            // 친구 목록 가져오기
-            let fetchedFriends = try await FirebaseRepository.shared.fetchFriends()
+            // 캐시된 친구 목록 사용 (이미 리스너에서 갱신됨)
+            let friendsList = self.friends
             
             var friendsData: [FriendWithCharacters] = []
             
             // 각 친구의 캐릭터 정보 가져오기
-            for friend in fetchedFriends {
+            for friend in friendsList {
                 let characters = try await FirebaseRepository.shared.fetchFriendCharacters(friendUserId: friend.userId)
                 
                 let friendWithChars = FriendWithCharacters(
@@ -108,7 +243,6 @@ class FriendsService: ObservableObject {
             
             DispatchQueue.main.async {
                 self.friendsWithCharacters = friendsData
-                self.friends = fetchedFriends
                 self.isLoading = false
             }
         } catch {
@@ -137,8 +271,8 @@ class FriendsService: ObservableObject {
         
         // 대표 캐릭터 이름 또는 기본 표시 이름 사용
         let displayName = AuthManager.shared.representativeCharacter.isEmpty ?
-                          currentUser.displayName :
-                          AuthManager.shared.representativeCharacter
+        currentUser.displayName :
+        AuthManager.shared.representativeCharacter
         
         do {
             // 캐릭터 이름으로 사용자 검색

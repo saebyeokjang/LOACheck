@@ -16,6 +16,7 @@ struct LOACheckApp: App {
     @StateObject private var authManager = AuthManager.shared
     @StateObject private var errorHandlingService = ErrorHandlingService.shared
     @StateObject private var networkMonitor = NetworkMonitorService.shared
+    @StateObject private var friendsService = FriendsService.shared
     
     // 앱 시작 시 초기화 플래그
     @State private var isInitialized = false
@@ -33,6 +34,7 @@ struct LOACheckApp: App {
             ContentView()
                 .environmentObject(authManager)
                 .environmentObject(errorHandlingService)
+                .environmentObject(friendsService)
                 .environment(\.refresh, RefreshAction {
                     // 앱 전체 새로고침 로직 - 동기 함수로 변경
                     Task { await performGlobalRefresh() }
@@ -45,6 +47,12 @@ struct LOACheckApp: App {
                     if !isInitialized {
                         setupAppLifecycleHandlers()
                         setupPeriodicSync()
+                        
+                        // 앱 시작 시 로그인 상태라면 친구 리스너 설정
+                        if authManager.isLoggedIn {
+                            friendsService.setupListeners()
+                        }
+                        
                         isInitialized = true
                     }
                 }
@@ -187,6 +195,17 @@ struct LOACheckApp: App {
             }
         }
         
+        // 앱이 포그라운드로 돌아올 때 친구 리스너가 작동 중인지 확인
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.willEnterForegroundNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            if authManager.isLoggedIn {
+                friendsService.setupListeners()
+            }
+        }
+        
         // 백그라운드로 갈 때 데이터 동기화
         NotificationCenter.default.addObserver(
             forName: UIApplication.didEnterBackgroundNotification,
@@ -198,12 +217,12 @@ struct LOACheckApp: App {
                 let taskID = UIApplication.shared.beginBackgroundTask(expirationHandler: nil)
                 
                 Task {
-
+                    
                     guard let modelContext = DataSyncManager.shared.modelContext else {
                         await UIApplication.shared.endBackgroundTask(taskID)
                         return
                     }
-
+                    
                     await DataSyncManager.shared.safeBackgroundSync()
                     
                     // 백그라운드 작업 완료

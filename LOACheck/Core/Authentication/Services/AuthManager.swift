@@ -65,12 +65,18 @@ class AuthManager: ObservableObject {
                         if UserDefaults.standard.object(forKey: "hasCompletedInitialSync_\(firebaseUser.uid)") == nil {
                             self.isFirstTimeLogin = true
                         }
+                        
+                        // 친구 서비스 리스너 설정
+                        FriendsService.shared.handleAuthStateChanged(isLoggedIn: true)
                     } else {
                         self.currentUser = nil
                         self.isLoggedIn = false
                         
                         // 로그아웃 시 대표 캐릭터는 전역 설정으로 돌아감
                         self.representativeCharacter = UserDefaults.standard.string(forKey: "representativeCharacter") ?? ""
+                        
+                        // 친구 서비스 리스너 해제
+                        FriendsService.shared.handleAuthStateChanged(isLoggedIn: false)
                     }
                 }
             }

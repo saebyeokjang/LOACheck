@@ -104,7 +104,7 @@ class FirebaseRepository {
         if characterName.isEmpty {
             return false
         }
-
+        
         print("캐릭터 이름 사용 여부 확인: \(characterName)")
         
         // characterNames 컬렉션에서 해당 이름의 문서 가져오기
@@ -295,7 +295,7 @@ class FirebaseRepository {
         let result = try await fetchCharacterAndUserData(characterName: characterName)
         return result
     }
-
+    
     // 네트워크 요청
     private func fetchCharacterAndUserData(characterName: String) async throws -> (User?, CharacterModel?) {
         let db = Firestore.firestore()
@@ -396,7 +396,7 @@ class FirebaseRepository {
         
         // 이미 요청한 적 있는지 확인
         let sentRequestDoc = try await sentRequestRef.getDocument()
-
+        
         if sentRequestDoc.exists {
             let data: [String: Any]? = sentRequestDoc.data()
             if let status = data?["status"] as? String, status == "pending" {
@@ -480,11 +480,37 @@ class FirebaseRepository {
             throw FirebaseError.notAuthenticated
         }
         
-        // 내 친구 목록에서 삭제
-        try await db.collection("users").document(currentUserId).collection("friends").document(userId).delete()
+        // 배치 작업으로 변경 (트랜잭션 대신)
+        let batch = db.batch()
         
-        // 상대방 친구 목록에서도 삭제
-        try await db.collection("users").document(userId).collection("friends").document(currentUserId).delete()
+        // 1. 내 친구 목록에서 삭제
+        let myFriendRef = db.collection("users").document(currentUserId).collection("friends").document(userId)
+        batch.deleteDocument(myFriendRef)
+        
+        // 2. 상대방 친구 목록에서도 삭제
+        let theirFriendRef = db.collection("users").document(userId).collection("friends").document(currentUserId)
+        batch.deleteDocument(theirFriendRef)
+        
+        // 3. 내가 보낸 친구 요청에서 삭제 (sentRequests)
+        let mySentRequestRef = db.collection("users").document(currentUserId).collection("sentRequests").document(userId)
+        batch.deleteDocument(mySentRequestRef)
+        
+        // 4. 상대방이 보낸 친구 요청에서 삭제 (sentRequests)
+        let theirSentRequestRef = db.collection("users").document(userId).collection("sentRequests").document(currentUserId)
+        batch.deleteDocument(theirSentRequestRef)
+        
+        // 5. 내가 받은 친구 요청에서 삭제 (friendRequests)
+        let myFriendRequestRef = db.collection("users").document(currentUserId).collection("friendRequests").document(userId)
+        batch.deleteDocument(myFriendRequestRef)
+        
+        // 6. 상대방이 받은 친구 요청에서 삭제 (friendRequests)
+        let theirFriendRequestRef = db.collection("users").document(userId).collection("friendRequests").document(currentUserId)
+        batch.deleteDocument(theirFriendRequestRef)
+        
+        // 배치 커밋 (결과 무시)
+        try await batch.commit()
+        
+        Logger.info("친구 관계 및 관련 요청 기록 모두 삭제 완료: \(userId)")
     }
     
     /// 친구 요청 목록 가져오기
