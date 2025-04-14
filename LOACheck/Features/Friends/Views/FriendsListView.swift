@@ -42,24 +42,25 @@ struct FriendsListView: View {
             }
             .navigationTitle("친구 목록")
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    if authManager.isLoggedIn {
-                        Button(action: {
-                            showFriendRequests = true
-                        }) {
-                            Label("친구 요청", systemImage: "person.crop.circle.badge.plus")
-                                .foregroundColor(friendsService.friendRequests.isEmpty ? .blue : .orange)
-                        }
-                        .badge(friendsService.friendRequests.isEmpty ? 0 : friendsService.friendRequests.count)
-                    }
-                }
-                
                 ToolbarItem(placement: .navigationBarTrailing) {
                     if authManager.isLoggedIn {
-                        Button(action: {
-                            showAddFriendSheet = true
-                        }) {
-                            Label("친구 추가", systemImage: "person.badge.plus")
+                        HStack(spacing: 16) {
+                            // 친구 요청 버튼 (아이콘 제거, 텍스트로 표시)
+                            Button(action: {
+                                showFriendRequests = true
+                            }) {
+                                Text("친구요청")
+                                    .foregroundColor(friendsService.friendRequests.isEmpty ? .blue : .orange)
+                            }
+                            .badge(friendsService.friendRequests.isEmpty ? 0 : friendsService.friendRequests.count)
+                            
+                            // 친구 추가 버튼 (아이콘 제거, 텍스트로 표시)
+                            Button(action: {
+                                showAddFriendSheet = true
+                            }) {
+                                Text("친구추가")
+                                    .foregroundColor(.blue)
+                            }
                         }
                     }
                 }
@@ -193,7 +194,7 @@ struct EmptyFriendsView: View {
             Text("아직 친구가 없습니다")
                 .font(.headline)
             
-            Text("상단의 + 버튼을 눌러 친구를 추가해보세요")
+            Text("상단의 친구추가 버튼을 눌러 친구를 추가해보세요")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)

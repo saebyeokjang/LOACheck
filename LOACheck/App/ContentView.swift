@@ -18,6 +18,7 @@ struct ContentView: View {
     @EnvironmentObject var errorService: ErrorHandlingService
     @ObservedObject private var dataSyncManager = DataSyncManager.shared
     @ObservedObject private var networkMonitor = NetworkMonitorService.shared
+    @ObservedObject private var friendsService = FriendsService.shared
     
     @State private var resetTimer: Timer?
     
@@ -63,6 +64,7 @@ struct ContentView: View {
                         Label("친구", systemImage: "person.2.fill")
                     }
                     .tag(3)
+                    .badge(friendRequestBadge)
                 
                 SettingsView()
                     .tabItem {
@@ -77,6 +79,13 @@ struct ContentView: View {
                         await DataSyncManager.shared.safeBackgroundSync()
                     }
                 }
+                
+                // 친구 탭으로 이동할 때 친구 정보 새로고침
+                if newValue == 3 && authManager.isLoggedIn {
+                    Task {
+                        await friendsService.loadFriendRequests()
+                    }
+                }
             }
             .onAppear {
                 let appearance = UITabBarAppearance()
@@ -85,6 +94,13 @@ struct ContentView: View {
                 
                 if #available(iOS 15.0, *) {
                     UITabBar.appearance().scrollEdgeAppearance = appearance
+                }
+                
+                // 로그인되어 있으면 친구 요청 로드
+                if authManager.isLoggedIn {
+                    Task {
+                        await friendsService.loadFriendRequests()
+                    }
                 }
             }
             .onDisappear {
@@ -161,6 +177,11 @@ struct ContentView: View {
             if isLoggedIn {
                 // 로그인 상태가 되었을 때 동기화 확인
                 checkSyncAfterLogin()
+                
+                // 친구 요청 로드
+                Task {
+                    await friendsService.loadFriendRequests()
+                }
             }
         }
         .onChange(of: networkMonitor.isConnected) { _, isConnected in
@@ -177,6 +198,12 @@ struct ContentView: View {
                 showSyncConflictAlert = true
             }
         }
+    }
+    
+    // 친구 요청 배지 계산
+    private var friendRequestBadge: Int {
+        return authManager.isLoggedIn && !friendsService.friendRequests.isEmpty ?
+            friendsService.friendRequests.count : 0
     }
     
     // 앱 초기 설정
