@@ -42,13 +42,58 @@ class TaskResetManager {
             return
         }
         
-        // 오늘의 리셋 시간을 지났고, 마지막 리셋이 오늘 리셋 시간 이전인 경우 리셋 실행
+        // 오늘의 리셋 시간을 지났고, 마지막 리셋이 오늘 리셋 시간 이전인 경우
         if now >= todayResetTime && lastDailyReset < todayResetTime {
             Logger.info("일일 숙제 리셋 실행: \(todayResetTime.formatted())")
             resetDailyTasks(modelContext: modelContext)
             UserDefaults.standard.set(now, forKey: "lastDailyReset")
+        }
+        // 마지막 리셋 후 여러 날이 지났는지 확인
+        else if lastDailyReset < todayResetTime {
+            // 마지막 리셋 날짜와 오늘 사이의 일수 계산
+            let daysSinceLastReset = calendar.dateComponents([.day], from: lastDailyReset, to: now).day ?? 0
+            
+            if daysSinceLastReset > 1 {
+                Logger.info("장기간 미접속 감지: \(daysSinceLastReset)일간 접속하지 않음")
+                
+                // 지난 날짜만큼 휴식보너스 적립 (단, 최대 휴식보너스를 초과하지 않도록)
+                applyRestingPointsForMissedDays(daysSinceLastReset, modelContext: modelContext)
+                
+                // 마지막 리셋 시간 업데이트
+                UserDefaults.standard.set(now, forKey: "lastDailyReset")
+            }
         } else {
             Logger.debug("일일 숙제 리셋 조건 미충족 - 현재: \(now.formatted()), 리셋시간: \(todayResetTime.formatted()), 마지막리셋: \(lastDailyReset.formatted())")
+        }
+    }
+
+    // 미접속 기간 동안의 휴식보너스 적립 처리
+    private func applyRestingPointsForMissedDays(_ days: Int, modelContext: ModelContext) {
+        let fetchDescriptor = FetchDescriptor<DailyTask>()
+        do {
+            let allDailyTasks = try modelContext.fetch(fetchDescriptor)
+            Logger.info("미접속 기간 휴식보너스 적립 - \(allDailyTasks.count)개 항목, \(days)일 분")
+            
+            for task in allDailyTasks {
+                // 각 미완료 일수에 대해 휴식보너스 적립
+                let incompleteCount = task.type.maxCompletionCount
+                let dailyPointsToAdd = incompleteCount * task.type.pointsPerIncomplete
+                
+                // 최대 적립 가능한 포인트 계산 (각 컨텐츠의 최대치를 넘지 않도록)
+                let maxPoints = task.type.maxRestingPoints
+                let currentPoints = task.restingPoints
+                let possibleAddition = maxPoints - currentPoints
+                
+                // 적립 가능한 만큼만 적립 (최대 휴식보너스 제한)
+                let actualPointsToAdd = min(dailyPointsToAdd * days, possibleAddition)
+                
+                if actualPointsToAdd > 0 {
+                    Logger.debug("\(task.type.rawValue): \(days)일간 미접속, 총 \(actualPointsToAdd) 휴식보너스 적립")
+                    task.addRestingPoints(actualPointsToAdd)
+                }
+            }
+        } catch {
+            Logger.error("미접속 기간 휴식보너스 적립 실패", error: error)
         }
     }
     
