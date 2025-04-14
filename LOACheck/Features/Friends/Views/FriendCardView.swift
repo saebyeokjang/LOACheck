@@ -12,6 +12,7 @@ struct FriendCardView: View {
     var onRemove: (Friend) -> Void
     
     @State private var showRaidSummary = false
+    @State private var showDeleteConfirmation = false
     
     // 대표 캐릭터 (사용자가 지정한 대표 캐릭터 - displayName과 이름이 일치하는 캐릭터)
     private var representativeCharacter: CharacterModel? {
@@ -24,91 +25,90 @@ struct FriendCardView: View {
         return friendWithCharacters.characters.sorted(by: { $0.level > $1.level }).first
     }
     
+    // 원정대 전체 골드 계산
+    private var totalExpectedGold: Int {
+        var total = 0
+        
+        for character in friendWithCharacters.characters {
+            if character.isGoldEarner {
+                total += character.calculateWeeklyGoldReward()
+            }
+        }
+        
+        return total
+    }
+    
+    // 원정대 전체 획득 골드 계산
+    private var totalEarnedGold: Int {
+        var total = 0
+        
+        for character in friendWithCharacters.characters {
+            if character.isGoldEarner {
+                total += character.calculateEarnedGoldReward()
+            }
+        }
+        
+        return total
+    }
+    
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // 친구 정보 헤더
+        Button(action: {
+            showRaidSummary = true
+        }) {
             HStack {
-                VStack(alignment: .leading) {
+                // 대표 캐릭터 이름 (친구의 displayName)
+                VStack(alignment: .leading, spacing: 4) {
                     Text(friendWithCharacters.friend.displayName)
                         .font(.headline)
+                        .foregroundColor(.primary)
                     
-                    Text("친구 추가 날짜: \(friendWithCharacters.friend.timestamp.formatted(date: .abbreviated, time: .omitted))")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    // 서버, 클래스, 레벨 정보
+                    if let character = representativeCharacter {
+                        Text("\(character.server) • \(character.characterClass)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("Lv.\(String(format: "%.2f", character.level))")
+                            .font(.caption)
+                    }
                 }
                 
                 Spacer()
                 
-                // 삭제 버튼
-                Button(action: {
-                    onRemove(friendWithCharacters.friend)
-                }) {
-                    Image(systemName: "person.crop.circle.badge.xmark")
-                        .foregroundColor(.red)
+                // 전체 원정대 골드 정보
+                if totalExpectedGold > 0 {
+                    Text("\(totalEarnedGold) / \(totalExpectedGold) G")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.orange)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .cornerRadius(8)
                 }
-                .buttonStyle(BorderlessButtonStyle())
+                
+                Image(systemName: "chevron.right")
+                    .font(.body)
+                    .foregroundColor(.gray)
             }
-            .padding(.horizontal)
-            .padding(.top, 12)
-            
-            Divider()
-                .padding(.horizontal)
-            
-            // 대표 캐릭터만 표시
-            if let character = representativeCharacter {
-                Button(action: {
-                    showRaidSummary = true
-                }) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(character.name)
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundColor(.primary)
-                            
-                            Text("\(character.server) • \(character.characterClass)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        Spacer()
-                        
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text("Lv. \(String(format: "%.2f", character.level))")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundColor(.blue)
-                            
-                            // 골드 획득 캐릭터인 경우 골드 표시
-                            if character.isGoldEarner, let raidGates = character.raidGates, !raidGates.isEmpty {
-                                let earnedGold = character.calculateEarnedGoldReward()
-                                let totalGold = character.calculateWeeklyGoldReward()
-                                
-                                // 기본 + 추가 골드 합산하여 표시
-                                HStack(spacing: 4) {
-                                    Text("\(earnedGold)/\(totalGold) G")
-                                        .font(.caption)
-                                        .foregroundColor(.orange)
-                                }
-                            }
-                        }
-                    }
-                    .contentShape(Rectangle())
-                    .padding(.horizontal)
-                    .padding(.vertical, 8)
-                }
-                .buttonStyle(PlainButtonStyle())
-            } else {
-                Text("표시할 캐릭터가 없습니다")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding()
+            .contentShape(Rectangle())
+            .padding(.vertical, 18)
+            .padding(.horizontal, 16)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .contextMenu {
+            Button(role: .destructive) {
+                showDeleteConfirmation = true
+            } label: {
+                Label("친구 삭제", systemImage: "person.crop.circle.badge.xmark")
             }
         }
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+        .alert("친구 삭제", isPresented: $showDeleteConfirmation) {
+            Button("취소", role: .cancel) {}
+            Button("삭제", role: .destructive) {
+                onRemove(friendWithCharacters.friend)
+            }
+        } message: {
+            Text("\(friendWithCharacters.friend.displayName)님을 친구 목록에서 삭제하시겠습니까?")
+        }
         .sheet(isPresented: $showRaidSummary) {
             NavigationStack {
                 FriendRaidSummaryView(
@@ -124,6 +124,9 @@ struct FriendCardView: View {
                 }
             }
         }
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
     }
 }
 

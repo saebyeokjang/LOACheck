@@ -215,15 +215,11 @@ struct CharacterRaidSummaryCard: View {
                         .font(.headline)
                     
                     Text("\(character.server) • \(character.characterClass)")
-                        .font(.subheadline)
+                        .font(.caption)
                         .foregroundColor(.secondary)
                     
                     Text("Lv. \(String(format: "%.2f", character.level))")
                         .font(.caption)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(Color.blue.opacity(0.1))
-                        .cornerRadius(4)
                 }
                 
                 Spacer()

@@ -119,17 +119,25 @@ struct FriendsScrollView: View {
     var onRemoveFriend: (Friend) -> Void
     
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 16) {
-                ForEach(friendsWithCharacters) { friendWithChars in
-                    FriendCardView(
-                        friendWithCharacters: friendWithChars,
-                        onRemove: onRemoveFriend
-                    )
+        List {
+            ForEach(friendsWithCharacters) { friendWithChars in
+                FriendCardView(
+                    friendWithCharacters: friendWithChars,
+                    onRemove: onRemoveFriend
+                )
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10))
+                .swipeActions(edge: .trailing) {
+                    Button(role: .destructive) {
+                        onRemoveFriend(friendWithChars.friend)
+                    } label: {
+                        Label("삭제", systemImage: "trash")
+                    }
                 }
             }
-            .padding()
+            .listRowBackground(Color.clear)
         }
+        .listStyle(PlainListStyle())
         .refreshable {
             // 로컬 state를 사용하여 refreshable 작업을 처리할 수 없으므로
             // 여기서는 간단한 딜레이만 추가하고 상위 뷰에서 처리하도록 함

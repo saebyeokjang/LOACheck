@@ -24,7 +24,7 @@ struct CharacterRow: View {
                         .font(.headline)
                     
                     Text("\(character.server) • \(character.characterClass)")
-                        .font(.subheadline)
+                        .font(.caption)
                         .foregroundColor(.secondary)
                     
                     Text("레벨: \(String(format: "%.2f", character.level))")
