@@ -173,6 +173,13 @@ struct RaidSettingsView: View {
         
         // 동기화 표시
         DataSyncManager.shared.markLocalChanges()
+        
+        // 즉시 동기화 실행
+        if AuthManager.shared.isLoggedIn && NetworkMonitorService.shared.isConnected {
+            Task {
+                await DataSyncManager.shared.uploadToServer()
+            }
+        }
     }
 }
 

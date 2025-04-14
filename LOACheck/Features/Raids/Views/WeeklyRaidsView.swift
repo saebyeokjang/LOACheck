@@ -192,31 +192,30 @@ struct RaidCardView: View {
                         let hasCompletedGates = gates.contains { $0.isCompleted }
                         let displayAdditionalGold = hasCompletedGates ? additionalGold : 0
                         
+                        // 골드 표시 (조건에 따라 다르게 표시)
                         HStack {
-                            // 골드 비활성화된 경우 표시
-                            if isGoldDisabled {
-                                    Text("클리어 골드 보상 미획득")
+                            if isGoldDisabled || !isTopRaid {
+                                // 골드 비활성화 또는 상위 레이드가 아님 - 추가 골드만 표시
+                                if additionalGold > 0 {
+                                    Text("\(displayAdditionalGold) / \(additionalGold) G")
                                         .font(.caption)
-                                        .foregroundColor(.gray)
-                            }
-                            // 상위 3개 레이드가 아니면 기본 골드 표시 안 함
-                            else if isTopRaid {
+                                        .foregroundColor(.green)
+                                    
+                                    Text("(+\(additionalGold)G)")
+                                        .font(.caption)
+                                        .foregroundColor(.green)
+                                }
+                            } else {
+                                // 상위 레이드 - 클리어 골드 + 추가 골드
                                 Text("\(earnedGold + displayAdditionalGold) / \(totalGold + additionalGold) G")
                                     .font(.caption)
                                     .foregroundColor(.orange)
-                            } else {
-                                // 상위 3개가 아닌 레이드는 추가 골드만 표시
-                                Text("\(displayAdditionalGold) / \(additionalGold) G")
-                                    .font(.caption)
-                                    .foregroundColor(.green)
-                                    .opacity(additionalGold > 0 ? 1.0 : 0.5)
-                            }
-                            
-                            if additionalGold > 0 {
-                                Text("(+\(additionalGold)G)")
-                                    .font(.caption)
-                                    .foregroundColor(.green)
-                                    .opacity(1.0)
+                                
+                                if additionalGold > 0 {
+                                    Text("(+\(additionalGold)G)")
+                                        .font(.caption)
+                                        .foregroundColor(.green)
+                                }
                             }
                         }
                     }
