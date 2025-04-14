@@ -189,36 +189,41 @@ struct RaidSettingCardView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // 레이드 헤더
+            // 레이드 헤더 - 새로운 레이아웃
             HStack {
-                // 골드 활성화 토글 추가 (레이드가 선택된 경우에만 표시)
-                if selectedRaids.contains(raidGroup.name) {
-                    Toggle(isOn: Binding(
-                        get: { !goldDisabledRaids.contains(raidGroup.name) }, // 반전된 값 (골드 활성화)
-                        set: { isEnabled in
-                            if isEnabled {
-                                goldDisabledRaids.remove(raidGroup.name) // 활성화 시 목록에서 제거
-                            } else {
-                                goldDisabledRaids.insert(raidGroup.name) // 비활성화 시 목록에 추가
-                            }
-                        }
-                    )) {
-                        Text("골드")
-                            .font(.caption)
-                            .foregroundColor(.orange)
-                    }
-                    .toggleStyle(SwitchToggleStyle(tint: .orange))
-                }
+                // 레이드 이름
+                Text("\(getOrderString(for: raidGroup.name)) \(raidGroup.name)")
+                    .font(.headline)
                 
                 Spacer()
                 
+                if selectedRaids.contains(raidGroup.name) {
+                    Text("골드")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                    
+                    // 골드 활성화 토글
+                    Toggle("", isOn: Binding(
+                        get: { !goldDisabledRaids.contains(raidGroup.name) },
+                        set: { isEnabled in
+                            if isEnabled {
+                                goldDisabledRaids.remove(raidGroup.name)
+                            } else {
+                                goldDisabledRaids.insert(raidGroup.name)
+                            }
+                        }
+                    ))
+                    .labelsHidden()
+                    .toggleStyle(SwitchToggleStyle(tint: .orange))
+                    .frame(width: 50)
+                }
+                
                 // 레이드 선택 토글
-                Toggle(isOn: Binding(
+                Toggle("", isOn: Binding(
                     get: { selectedRaids.contains(raidGroup.name) },
                     set: { isSelected in
                         if isSelected {
                             selectedRaids.insert(raidGroup.name)
-                            // 빈 딕셔너리 생성 (난이도 자동 설정하지 않음)
                             if gateSettings[raidGroup.name] == nil {
                                 gateSettings[raidGroup.name] = [:]
                             }
@@ -229,25 +234,22 @@ struct RaidSettingCardView: View {
                         }
                         showGateSettings = isSelected
                     }
-                )) {
-                    Text("\(getOrderString(for: raidGroup.name)) \(raidGroup.name)")
-                        .font(.headline)
-                }
+                ))
+                .labelsHidden()
                 .toggleStyle(SwitchToggleStyle(tint: .blue))
-                
+                .frame(width: 50)
                 
                 // 더보기 버튼
-                if selectedRaids.contains(raidGroup.name) {
-                    Button(action: {
-                        withAnimation {
-                            showGateSettings.toggle()
-                        }
-                    }) {
-                        Image(systemName: showGateSettings ? "chevron.up" : "chevron.down")
-                            .foregroundColor(.gray)
+                Button(action: {
+                    withAnimation {
+                        showGateSettings.toggle()
                     }
-                    .buttonStyle(PlainButtonStyle())
+                }) {
+                    Image(systemName: showGateSettings ? "chevron.up" : "chevron.down")
+                        .foregroundColor(.gray)
                 }
+                .buttonStyle(PlainButtonStyle())
+                .opacity(selectedRaids.contains(raidGroup.name) ? 1.0 : 0.0)
             }
             .padding()
             .background(Color.white)
@@ -279,7 +281,6 @@ struct RaidSettingCardView: View {
         }
     }
     
-    // 레이드 순서 문자열 가져오기
     private func getOrderString(for raidName: String) -> String {
         if raidName.contains("모르둠") { return "3막" }
         if raidName.contains("아브렐슈드") && raidName.contains("2막") { return "" }
@@ -287,7 +288,6 @@ struct RaidSettingCardView: View {
         return ""
     }
     
-    // 난이도별 관문 수 반환
     private func getGateCount(for difficulty: String) -> Int {
         if raidGroup.name == "카멘" && difficulty != "하드" {
             return 3 // 카멘 싱글/노말은 3관문까지
