@@ -84,72 +84,20 @@ final class CharacterModel {
     
     // 캐릭터에 대한 주간 골드 보상 계산 (기본 골드는 상위 3개만, 추가 수익은 모든 레이드 적용)
     func calculateWeeklyGoldReward() -> Int {
-        guard isGoldEarner, let gates = raidGates else { return 0 }
-        
-        // 레이드별로 그룹화
-        let groupedGates = Dictionary(grouping: gates) { $0.raid }
-        let raidNames = groupedGates.keys.sorted()
-        
-        // 각 레이드의 기본 골드 계산
-        let raidBaseGolds = groupedGates.map { raidName, gates -> (name: String, gold: Int) in
-            let baseGold = gates.reduce(0) { result, gate in
-                return result + gate.currentGoldReward
-            }
-            return (name: raidName, gold: baseGold)
-        }.sorted { $0.gold > $1.gold }
-        
-        // 상위 3개 레이드의 기본 골드만 합산
-        _ = raidBaseGolds.prefix(3).map { $0.name }
-        let baseGoldTotal = raidBaseGolds.prefix(3).reduce(0) { result, raid in
-            return result + raid.gold
+        return processRaids(onlyTopRaids: true) { raidName, gates in
+            // 기본 골드 + 추가 골드
+            let baseGold = gates.reduce(0) { $0 + $1.currentGoldReward }
+            return baseGold + getAdditionalGold(for: raidName)
         }
-        
-        // 모든 레이드의 추가 수익 합산
-        let additionalGoldTotal = raidNames.reduce(0) { result, raidName in
-            return result + getAdditionalGold(for: raidName)
-        }
-        
-        return baseGoldTotal + additionalGoldTotal
     }
-
+    
     // 실제 획득한 골드 계산 (기본 골드는 상위 3개만, 추가 수익은 모든 레이드 적용)
     func calculateEarnedGoldReward() -> Int {
-        guard isGoldEarner, let gates = raidGates else { return 0 }
-        
-        // 레이드별로 그룹화
-        let groupedGates = Dictionary(grouping: gates) { $0.raid }
-        
-        // 각 레이드의 골드 계산
-        let raidGolds = groupedGates.map { raidName, gates -> (name: String, baseGold: Int, earnedBaseGold: Int) in
-            // 레이드 기본 골드
-            let totalGold = gates.reduce(0) { result, gate in
-                return result + gate.currentGoldReward
-            }
-            
-            // 획득한 기본 골드 (완료된 관문만)
-            let earnedBaseGold = gates.filter { $0.isCompleted }.reduce(0) { result, gate in
-                return result + gate.currentGoldReward
-            }
-            
-            return (name: raidName, baseGold: totalGold, earnedBaseGold: earnedBaseGold)
-        }.sorted { $0.baseGold > $1.baseGold }
-        
-        // 상위 3개 레이드의 기본 획득 골드만 합산
-        let topRaids = raidGolds.prefix(3)
-        let earnedBaseGold = topRaids.reduce(0) { result, raid in
-            return result + raid.earnedBaseGold
+        return processRaids(onlyTopRaids: true, onlyCompleted: true) { raidName, gates in
+            // 획득한 기본 골드 + 추가 골드
+            let earnedGold = gates.reduce(0) { $0 + $1.currentGoldReward }
+            return earnedGold + getAdditionalGold(for: raidName)
         }
-        
-        // 모든 레이드의 추가 수익 계산 (완료된 관문이 있는 레이드만)
-        let earnedAdditionalGold = groupedGates.filter { raidName, gates in
-            // 완료된 관문이 하나라도 있는 레이드만 필터링
-            return gates.contains { $0.isCompleted }
-        }.reduce(0) { result, raid in
-            // 해당 레이드의 추가 수익 합산
-            return result + getAdditionalGold(for: raid.key)
-        }
-        
-        return earnedBaseGold + earnedAdditionalGold
     }
     
     // 레이드 이름 목록 가져오기 (골드 보상 순)
@@ -169,6 +117,45 @@ final class CharacterModel {
         
         // 상위 3개 레이드 이름 반환
         return raidGolds.prefix(3).map { $0.name }
+    }
+    
+    // 공통 레이드 프로세싱 헬퍼 함수
+    private func processRaids(
+        onlyTopRaids: Bool = false,
+        onlyCompleted: Bool = false,
+        processor: (String, [RaidGate]) -> Int
+    ) -> Int {
+        guard isGoldEarner, let gates = raidGates, !gates.isEmpty else { return 0 }
+        
+        // 레이드별로 그룹화
+        let groupedGates = Dictionary(grouping: gates) { $0.raid }
+        
+        // 상위 3개 레이드 이름 (필요 시)
+        let topRaidNames = onlyTopRaids ? getTopRaidNames() : Array(groupedGates.keys)
+        
+        var totalGold = 0
+        
+        // 각 레이드 처리
+        for (raidName, raidGates) in groupedGates {
+            // 완료된 관문만 필터링 (필요 시)
+            let filteredGates = onlyCompleted ? raidGates.filter { $0.isCompleted } : raidGates
+            
+            // 상위 레이드만 처리 (필요 시)
+            if onlyTopRaids && !topRaidNames.contains(raidName) {
+                // 상위 레이드가 아니면 추가 골드만 계산
+                if onlyCompleted && raidGates.contains(where: { $0.isCompleted }) {
+                    totalGold += getAdditionalGold(for: raidName)
+                } else if !onlyCompleted {
+                    totalGold += getAdditionalGold(for: raidName)
+                }
+                continue
+            }
+            
+            // 커스텀 프로세서 적용
+            totalGold += processor(raidName, filteredGates)
+        }
+        
+        return totalGold
     }
     
     // 레벨에 맞는 참가 가능한 레이드 목록 반환

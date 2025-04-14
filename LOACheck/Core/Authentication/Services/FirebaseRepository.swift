@@ -285,9 +285,16 @@ class FirebaseRepository {
     }
     
     // 캐릭터 이름으로 사용자 및 캐릭터 상세 정보 검색 (새 메소드)
+    @MainActor
     func searchUserAndCharacterDetails(_ characterName: String) async throws -> (User?, CharacterModel?) {
         print("📱 캐릭터 및 상세 정보 검색 시작: \(characterName)")
         
+        let result = try await fetchCharacterAndUserData(characterName: characterName)
+        return result
+    }
+
+    // 네트워크 요청
+    private func fetchCharacterAndUserData(characterName: String) async throws -> (User?, CharacterModel?) {
         let db = Firestore.firestore()
         let characterNamesRef = db.collection("characterNames").document(characterName)
         
