@@ -78,7 +78,8 @@ class FirebaseRepository {
                         "difficulty": gate.difficulty,
                         "goldReward": gate.goldReward,
                         "isCompleted": gate.isCompleted,
-                        "additionalGold": gate.additionalGold
+                        "additionalGold": gate.additionalGold,
+                        "isGoldDisabled": gate.isGoldDisabled
                     ]
                     if let lastCompletedAt = gate.lastCompletedAt {
                         gateData["lastCompletedAt"] = lastCompletedAt
@@ -224,13 +225,15 @@ class FirebaseRepository {
                        let goldReward = gateData["goldReward"] as? Int {
                         
                         let isCompleted = gateData["isCompleted"] as? Bool ?? false
+                        let isGoldDisabled = gateData["isGoldDisabled"] as? Bool ?? false
                         
                         let raidGate = RaidGate(
                             raid: raid,
                             gate: gate,
                             difficulty: difficulty,
                             goldReward: goldReward,
-                            isCompleted: isCompleted
+                            isCompleted: isCompleted,
+                            isGoldDisabled: isGoldDisabled
                         )
                         
                         if let additionalGold = gateData["additionalGold"] as? Int {
@@ -607,13 +610,15 @@ class FirebaseRepository {
                        let goldReward = gateData["goldReward"] as? Int {
                         
                         let isCompleted = gateData["isCompleted"] as? Bool ?? false
+                        let isGoldDisabled = gateData["isGoldDisabled"] as? Bool ?? false
                         
                         let raidGate = RaidGate(
                             raid: raid,
                             gate: gate,
                             difficulty: difficulty,
                             goldReward: goldReward,
-                            isCompleted: isCompleted
+                            isCompleted: isCompleted,
+                            isGoldDisabled: isGoldDisabled
                         )
                         
                         // additionalGold 필드가 있으면 설정

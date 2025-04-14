@@ -206,6 +206,10 @@ struct RaidCardView: View {
     @State private var isAllCompleted: Bool = false
     @State private var showAdditionalGoldSheet = false
     
+    private var isGoldDisabled: Bool {
+        return gates.first?.isGoldDisabled ?? false
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
             // 레이드 헤더
@@ -217,8 +221,8 @@ struct RaidCardView: View {
                     
                     if isGoldEarner {
                         // 레이드 총 골드 계산
-                        let totalGold = gates.reduce(0) { $0 + $1.goldReward }
-                        let earnedGold = gates.filter { $0.isCompleted }.reduce(0) { $0 + $1.goldReward }
+                        let totalGold = gates.reduce(0) { $0 + $1.currentGoldReward }
+                        let earnedGold = gates.filter { $0.isCompleted }.reduce(0) { $0 + $1.currentGoldReward }
                         
                         // 추가 골드
                         let additionalGold = character.getAdditionalGold(for: raidName)
@@ -228,8 +232,20 @@ struct RaidCardView: View {
                         let displayAdditionalGold = hasCompletedGates ? additionalGold : 0
                         
                         HStack {
+                            // 골드 비활성화된 경우 표시
+                            if isGoldDisabled {
+                                HStack(spacing: 2) {
+                                    Image(systemName: "g.circle.slash")
+                                        .font(.caption)
+                                        .foregroundColor(.orange)
+                                    
+                                    Text("골드 비활성화")
+                                        .font(.caption)
+                                        .foregroundColor(.orange)
+                                }
+                            }
                             // 상위 3개 레이드가 아니면 기본 골드 표시 안 함
-                            if isTopRaid {
+                            else if isTopRaid {
                                 Text("\(earnedGold + displayAdditionalGold) / \(totalGold + additionalGold) G")
                                     .font(.caption)
                                     .foregroundColor(.orange)
@@ -238,7 +254,7 @@ struct RaidCardView: View {
                                 Text("\(displayAdditionalGold) / \(additionalGold) G")
                                     .font(.caption)
                                     .foregroundColor(.green)
-                                    .opacity(1.0)
+                                    .opacity(additionalGold > 0 ? 1.0 : 0.5)
                             }
                             
                             if additionalGold > 0 {
@@ -311,6 +327,7 @@ struct RaidCardView: View {
                         gate: gate,
                         isGoldEarner: isGoldEarner,
                         isTopRaid: isTopRaid,
+                        isGoldDisabled: isGoldDisabled,
                         allGates: displayGates
                     )
                 }
@@ -385,6 +402,7 @@ struct GateButton: View {
     @Bindable var gate: RaidGate
     var isGoldEarner: Bool
     var isTopRaid: Bool  // 상위 3개 레이드인지 여부
+    var isGoldDisabled: Bool
     var allGates: [RaidGate]  // 같은 레이드의 모든 관문
     
     var body: some View {
@@ -406,11 +424,19 @@ struct GateButton: View {
                         .strikethrough(gate.isCompleted)
                 }
                 
-                // 골드 보상
-                Text("\(gate.goldReward)G")
-                    .font(.caption)
-                    .foregroundColor(isTopRaid && isGoldEarner ? .orange : .gray)
-                    .strikethrough(gate.isCompleted)
+                // 골드 보상 - 비활성화 상태 표시
+                HStack(spacing: 2) {
+                    if isGoldDisabled && isTopRaid && isGoldEarner {
+                        Image(systemName: "g.circle.slash")
+                            .font(.caption2)
+                            .foregroundColor(.orange)
+                    }
+                    
+                    Text("\(gate.goldReward)G")
+                        .font(.caption)
+                        .foregroundColor(getGoldRewardColor())
+                        .strikethrough(gate.isCompleted || (isGoldDisabled && isTopRaid && isGoldEarner))
+                }
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
@@ -424,6 +450,17 @@ struct GateButton: View {
         }
         .padding(4)
         .disabled(!canToggleGate())  // 이전 관문이 완료되지 않으면 비활성화
+    }
+    
+    // 골드 보상 색상 계산 - 비활성화 상태 고려
+    private func getGoldRewardColor() -> Color {
+        if !isGoldEarner { return .gray } // 골드 획득 캐릭터가 아니면 회색
+        
+        if isGoldDisabled && isTopRaid { return .orange } // 비활성화된 상위 레이드는 주황색
+        
+        if isTopRaid { return .orange } // 상위 레이드는 주황색
+        
+        return .gray // 그 외에는 회색
     }
     
     // 이 관문을 토글할 수 있는지 확인

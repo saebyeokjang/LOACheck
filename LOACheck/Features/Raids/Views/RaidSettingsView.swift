@@ -15,9 +15,10 @@ struct RaidSettingsView: View {
     
     // 각 레이드별 설정을 저장할 상태 변수
     @State private var selectedRaids: Set<String> = []
-    @State private var gateSettings: [String: [Int: String]] = [:]  // [레이드: [관문번호: 난이도]]
+    @State private var gateSettings: [String: [Int: String]] = [:]
     @State private var showAlert = false
     @State private var alertMessage = ""
+    @State private var goldDisabledRaids: Set<String> = []
     
     var body: some View {
         NavigationView {
@@ -32,7 +33,8 @@ struct RaidSettingsView: View {
                             selectedRaids: $selectedRaids,
                             gateSettings: $gateSettings,
                             showAlert: $showAlert,
-                            alertMessage: $alertMessage
+                            alertMessage: $alertMessage,
+                            goldDisabledRaids: $goldDisabledRaids
                         )
                     }
                     
@@ -42,6 +44,16 @@ struct RaidSettingsView: View {
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
                         .padding(.bottom, 30)
+                    
+                    // 골드 비활성화 안내문 추가
+                    if !goldDisabledRaids.isEmpty {
+                        Text("골드 비활성화된 레이드: \(goldDisabledRaids.joined(separator: ", "))")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                            .padding(.bottom, 10)
+                    }
                 }
                 .padding()
             }
@@ -95,6 +107,11 @@ struct RaidSettingsView: View {
                 }
                 
                 gateSettings[raid] = raidGateSettings
+                
+                // 골드 비활성화 설정 로드
+                if gates.first?.isGoldDisabled == true {
+                    goldDisabledRaids.insert(raid)
+                }
             }
         }
     }
@@ -147,6 +164,9 @@ struct RaidSettingsView: View {
         
         // 캐릭터에 새 관문 목록 설정
         character.raidGates = newGates
+        
+        // 동기화 표시
+        DataSyncManager.shared.markLocalChanges()
     }
 }
 
@@ -157,6 +177,7 @@ struct RaidSettingCardView: View {
     @Binding var gateSettings: [String: [Int: String]]
     @Binding var showAlert: Bool
     @Binding var alertMessage: String
+    @Binding var goldDisabledRaids: Set<String>
     
     @State private var showGateSettings: Bool = false
     
@@ -177,6 +198,7 @@ struct RaidSettingCardView: View {
                         } else {
                             selectedRaids.remove(raidGroup.name)
                             gateSettings.removeValue(forKey: raidGroup.name)
+                            goldDisabledRaids.remove(raidGroup.name)
                         }
                         showGateSettings = isSelected
                     }
@@ -187,6 +209,29 @@ struct RaidSettingCardView: View {
                 .toggleStyle(SwitchToggleStyle(tint: .blue))
                 
                 Spacer()
+                
+                // 골드 획득 비활성화 토글 추가 (레이드가 선택된 경우에만 표시)
+                if selectedRaids.contains(raidGroup.name) {
+                    Toggle(isOn: Binding(
+                        get: { goldDisabledRaids.contains(raidGroup.name) },
+                        set: { isDisabled in
+                            if isDisabled {
+                                goldDisabledRaids.insert(raidGroup.name)
+                            } else {
+                                goldDisabledRaids.remove(raidGroup.name)
+                            }
+                        }
+                    )) {
+                        HStack {
+                            Image(systemName: "g.circle")
+                                .foregroundColor(.orange)
+                            Text("골드 비활성화")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        }
+                    }
+                    .toggleStyle(SwitchToggleStyle(tint: .orange))
+                }
                 
                 // 더보기 버튼
                 if selectedRaids.contains(raidGroup.name) {
@@ -219,7 +264,8 @@ struct RaidSettingCardView: View {
                             gateCount: getGateCount(for: difficulty),
                             gateSettings: $gateSettings,
                             showAlert: $showAlert,
-                            alertMessage: $alertMessage
+                            alertMessage: $alertMessage,
+                            isGoldDisabled: goldDisabledRaids.contains(raidGroup.name)
                         )
                     }
                 }
@@ -255,6 +301,7 @@ struct DifficultyRow: View {
     @Binding var gateSettings: [String: [Int: String]]
     @Binding var showAlert: Bool
     @Binding var alertMessage: String
+    var isGoldDisabled: Bool
     
     // 해당 난이도 선택된 관문 수
     private var selectedGatesCount: Int {
@@ -266,6 +313,9 @@ struct DifficultyRow: View {
     
     // 해당 난이도 총 골드 계산
     private var totalGold: Int {
+        if isGoldDisabled {
+            return 0
+        }
         var total = 0
         for i in 0..<gateCount {
             if isGateSelected(i) {
@@ -299,6 +349,7 @@ struct DifficultyRow: View {
                 difficulty: difficulty,
                 totalGold: totalGold,
                 isSelected: selectedGatesCount > 0,
+                isGoldDisabled: isGoldDisabled,
                 onSelect: {
                     selectAllGates()
                 }
@@ -310,6 +361,7 @@ struct DifficultyRow: View {
                     gateIndex: gateIndex,
                     goldReward: getGoldReward(gateIndex),
                     isSelected: isGateSelected(gateIndex),
+                    isGoldDisabled: isGoldDisabled,
                     onSelect: {
                         toggleGate(gateIndex)
                     }
@@ -501,6 +553,7 @@ struct DifficultyHeaderCell: View {
     var difficulty: String
     var totalGold: Int
     var isSelected: Bool
+    var isGoldDisabled: Bool
     var onSelect: () -> Void
     
     var body: some View {
@@ -510,9 +563,18 @@ struct DifficultyHeaderCell: View {
                     .font(.headline)
                     .foregroundColor(getDifficultyColor())
                 
-                Text("\(totalGold)G")
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                HStack(spacing: 2) {
+                    if isGoldDisabled {
+                        Image(systemName: "g.circle.fill")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                    }
+                    
+                    Text("\(totalGold)G")
+                        .font(.caption)
+                        .foregroundColor(isGoldDisabled ? .gray : .orange)
+                        .strikethrough(isGoldDisabled)
+                }
             }
             .frame(height: 60)
             .frame(minWidth: 0, maxWidth: .infinity)
@@ -541,6 +603,7 @@ struct GateCell: View {
     var gateIndex: Int
     var goldReward: Int
     var isSelected: Bool
+    var isGoldDisabled: Bool
     var onSelect: () -> Void
     
     var body: some View {
@@ -550,9 +613,18 @@ struct GateCell: View {
                     .font(.caption)
                     .fontWeight(isSelected ? .bold : .regular)
                 
-                Text("\(goldReward)G")
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                HStack(spacing: 2) {
+                    if isGoldDisabled {
+                        Image(systemName: "g.circle.fill")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                    }
+                    
+                    Text("\(goldReward)G")
+                        .font(.caption)
+                        .foregroundColor(isGoldDisabled ? .gray : .orange)
+                        .strikethrough(isGoldDisabled)
+                }
             }
             .frame(height: 60)
             .frame(minWidth: 0, maxWidth: .infinity)

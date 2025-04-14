@@ -18,6 +18,7 @@ final class RaidGate {
     var isCompleted: Bool   // 완료 여부
     var lastCompletedAt: Date?
     var additionalGold: Int = 0 // 추가 수익
+    var isGoldDisabled: Bool = false
     
     var displayName: String {
         "\(raid) \(gate + 1)관문(\(difficulty))"
@@ -39,7 +40,7 @@ final class RaidGate {
         )
     }
     
-    init(raid: String, gate: Int, difficulty: String, goldReward: Int, isCompleted: Bool = false, lastCompletedAt: Date? = nil) {
+    init(raid: String, gate: Int, difficulty: String, goldReward: Int, isCompleted: Bool = false, lastCompletedAt: Date? = nil, isGoldDisabled: Bool = false) {
         self.raid = raid
         self.gate = gate
         self.difficulty = difficulty
@@ -47,6 +48,7 @@ final class RaidGate {
         self.isCompleted = isCompleted
         self.lastCompletedAt = lastCompletedAt
         self.additionalGold = additionalGold
+        self.isGoldDisabled = isGoldDisabled
     }
     
     func reset() {

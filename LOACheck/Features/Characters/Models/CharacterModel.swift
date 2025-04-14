@@ -107,8 +107,15 @@ final class CharacterModel {
         // 레이드별로 그룹화
         let groupedGates = Dictionary(grouping: gates) { $0.raid }
         
-        // 각 레이드의 총 골드 계산 (currentGoldReward 사용)
-        let raidGolds = groupedGates.map { raidName, gates -> (name: String, gold: Int) in
+        let raidGolds = groupedGates.compactMap { raidName, gates -> (name: String, gold: Int)? in
+            // 첫 번째 게이트가 골드 비활성화 상태인지 확인
+            let isGoldDisabled = gates.first?.isGoldDisabled ?? false
+            
+            // 골드 비활성화된 레이드는 상위 3개에서 제외
+            if isGoldDisabled {
+                return nil
+            }
+            
             let totalGold = gates.reduce(0) { result, gate in
                 return result + gate.currentGoldReward
             }
@@ -140,9 +147,27 @@ final class CharacterModel {
             // 완료된 관문만 필터링 (필요 시)
             let filteredGates = onlyCompleted ? raidGates.filter { $0.isCompleted } : raidGates
             
+            // 빈 게이트 배열은 건너뛰기
+            if filteredGates.isEmpty && onlyCompleted {
+                continue
+            }
+            
+            // 골드 비활성화 상태 확인
+            let isGoldDisabled = raidGates.first?.isGoldDisabled ?? false
+            
             // 상위 레이드만 처리 (필요 시)
             if onlyTopRaids && !topRaidNames.contains(raidName) {
                 // 상위 레이드가 아니면 추가 골드만 계산
+                if onlyCompleted && raidGates.contains(where: { $0.isCompleted }) {
+                    totalGold += getAdditionalGold(for: raidName)
+                } else if !onlyCompleted {
+                    totalGold += getAdditionalGold(for: raidName)
+                }
+                continue
+            }
+            
+            // 골드 비활성화된 레이드는 추가 골드만 적용
+            if isGoldDisabled {
                 if onlyCompleted && raidGates.contains(where: { $0.isCompleted }) {
                     totalGold += getAdditionalGold(for: raidName)
                 } else if !onlyCompleted {
