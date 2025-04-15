@@ -158,6 +158,27 @@ class TaskResetManager {
         }
     }
     
+#if DEBUG
+// 디버그 전용 강제 리셋 메소드
+func forceWeeklyReset(modelContext: ModelContext) {
+    resetRaidGates(modelContext: modelContext)
+    
+    // 마지막 리셋 시간 업데이트
+    UserDefaults.standard.set(Date(), forKey: "lastWeeklyReset")
+    
+    Logger.debug("주간 레이드 강제 리셋 완료")
+}
+
+func forceDailyReset(modelContext: ModelContext) {
+    resetDailyTasks(modelContext: modelContext)
+    
+    // 마지막 리셋 시간 업데이트
+    UserDefaults.standard.set(Date(), forKey: "lastDailyReset")
+    
+    Logger.debug("일일 숙제 강제 리셋 완료")
+}
+#endif
+    
     // 주간 레이드 관문 리셋
     private func resetRaidGates(modelContext: ModelContext) {
         do {

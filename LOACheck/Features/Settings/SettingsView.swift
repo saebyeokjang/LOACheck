@@ -37,6 +37,21 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+#if DEBUG
+Section(header: Text("개발자 도구")) {
+    Button("주간 레이드 리셋 테스트") {
+        if let modelContext = DataSyncManager.shared.modelContext {
+            TaskResetManager.shared.forceWeeklyReset(modelContext: modelContext)
+        }
+    }
+    
+    Button("일일 숙제 리셋 테스트") {
+        if let modelContext = DataSyncManager.shared.modelContext {
+            TaskResetManager.shared.forceDailyReset(modelContext: modelContext)
+        }
+    }
+}
+#endif
                 // 계정 섹션
                 AccountSectionView(
                     showSignIn: $showSignIn,

@@ -84,54 +84,6 @@ struct LOACheckApp: App {
         }
     }
     
-    // LOACheckApp.swift에 추가
-    private func setupBackgroundTasks() {
-        // 백그라운드 작업 등록
-        BGTaskScheduler.shared.register(forTaskWithIdentifier: "com.yourapp.dailyReset", using: nil) { task in
-            self.handleResetTask(task as! BGProcessingTask)
-        }
-    }
-
-    private func handleResetTask(_ task: BGProcessingTask) {
-        // 작업 만료 핸들러 설정
-        task.expirationHandler = {
-            task.setTaskCompleted(success: false)
-        }
-        
-        // 리셋 작업 수행
-        if let modelContext = DataSyncManager.shared.modelContext {
-            TaskResetManager.shared.checkAndResetTasks(modelContext: modelContext)
-            
-            // 변경사항 서버 동기화
-            if AuthManager.shared.isLoggedIn && NetworkMonitorService.shared.isConnected {
-                Task {
-                    let success = await DataSyncManager.shared.uploadToServer()
-                    task.setTaskCompleted(success: success)
-                }
-            } else {
-                task.setTaskCompleted(success: true)
-            }
-        } else {
-            task.setTaskCompleted(success: false)
-        }
-        
-        // 다음 작업 스케줄링
-        scheduleNextReset()
-    }
-
-    private func scheduleNextReset() {
-        let request = BGProcessingTaskRequest(identifier: "com.yourapp.dailyReset")
-        request.earliestBeginDate = Calendar.current.nextDate(after: Date(),
-                                                            matching: DateComponents(hour: 6, minute: 0),
-                                                            matchingPolicy: .nextTime)
-        
-        do {
-            try BGTaskScheduler.shared.submit(request)
-        } catch {
-            Logger.error("백그라운드 리셋 작업 스케줄링 실패", error: error)
-        }
-    }
-    
     // 앱 초기화 시 호출
     private func setupPeriodicSync() {
         // 5분마다 한 번씩 변경사항이 있으면 동기화
