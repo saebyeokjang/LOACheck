@@ -22,50 +22,50 @@ struct SyncSettingsView: View {
     
     var body: some View {
         List {
-            Section(header: Text("동기화 상태")) {
+            Section(header: Text("계정 상태")) {
                 // 인증 상태
                 HStack {
-                    Label("계정 상태", systemImage: "person.circle")
+                    Label("계정", systemImage: "person.circle")
                     Spacer()
                     Text(authManager.isLoggedIn ? "로그인됨" : "로그인 필요")
                         .foregroundColor(authManager.isLoggedIn ? .green : .orange)
                 }
                 
-                // 동기화 상태
+                // 로그인한 경우에만 동기화 정보 표시
                 if authManager.isLoggedIn {
+                    // 마지막 동기화 시간
                     HStack {
                         Label("마지막 동기화", systemImage: "arrow.triangle.2.circlepath")
                         Spacer()
                         if let lastSync = dataSyncManager.lastSyncTime {
-                            Text(lastSync.formatted())
+                            Text(lastSync.formatted(date: .abbreviated, time: .shortened))
                                 .foregroundColor(.secondary)
                         } else {
-                            Text("동기화 없음")
+                            Text("아직 동기화되지 않음")
                                 .foregroundColor(.secondary)
                         }
                     }
                     
+                    // 단순화된 상태 표시
                     HStack {
                         Label("상태", systemImage: "info.circle")
                         Spacer()
                         
                         if dataSyncManager.isSyncing {
                             HStack {
-                                Text("동기화 중...")
+                                Text("동기화 중")
                                 ProgressView()
                                     .controlSize(.small)
                             }
                             .foregroundColor(.blue)
                         } else if let error = dataSyncManager.syncError {
-                            Text("오류: \(error.localizedDescription)")
+                            // 오류 메시지는 간결하게
+                            Text("오류 발생")
                                 .foregroundColor(.red)
-                                .lineLimit(1)
-                        } else if dataSyncManager.hasPendingChanges {
-                            Text("동기화 필요")
-                                .foregroundColor(.orange)
                         } else {
-                            Text("동기화됨")
-                                .foregroundColor(.green)
+                            // 변경 사항이 있고 없음을 색상으로 표시
+                            Text(dataSyncManager.hasPendingChanges ? "변경사항 있음" : "최신 상태")
+                                .foregroundColor(dataSyncManager.hasPendingChanges ? .orange : .green)
                         }
                     }
                 }

@@ -158,7 +158,7 @@ struct SignInView: View {
                     .multilineTextAlignment(.center)
                 
                 HStack(spacing: 5) {
-                    Link("이용약관", destination: URL(string: "https://yourapp.com/terms")!)
+                    Link("이용약관", destination: URL(string: "https://saebyeokjang.github.io/LOACheck/terms")!)
                         .font(.caption)
                         .foregroundColor(.blue)
                     
@@ -166,7 +166,7 @@ struct SignInView: View {
                         .font(.caption)
                         .foregroundColor(.gray)
                     
-                    Link("개인정보 처리방침", destination: URL(string: "https://yourapp.com/privacy")!)
+                    Link("개인정보 처리방침", destination: URL(string: "https://saebyeokjang.github.io/LOACheck/privacy-policy")!)
                         .font(.caption)
                         .foregroundColor(.blue)
                 }
