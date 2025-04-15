@@ -25,7 +25,7 @@ struct RosterManagementSectionView: View {
             if !authManager.representativeCharacter.isEmpty {
                 Button(action: testAndFetchCharacters) {
                     HStack {
-                        Text("원정대 불러오기")
+                        Text("원정대 갱신하기")
                         if isRefreshing {
                             Spacer()
                             ProgressView()

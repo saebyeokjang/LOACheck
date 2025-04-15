@@ -70,47 +70,6 @@ struct DataSyncSectionView: View {
                 }
                 .disabled(isDataSyncing || !networkMonitor.isConnected)
             }
-            
-            // 충돌 해결 전략 선택
-            HStack {
-                Label("충돌 해결 방법", systemImage: "arrow.up.arrow.down")
-                Spacer()
-                Text(syncStrategyName(dataSyncManager.syncStrategy))
-                    .foregroundColor(.blue)
-            }
-            .contentShape(Rectangle())
-            .onTapGesture {
-                showSyncStrategySheet = true
-            }
-            
-            Text("앱은 자동으로 데이터를 동기화합니다. 여러 기기에서 로그인하면 동기화 충돌이 발생할 수 있습니다.")
-                .font(.caption)
-                .foregroundColor(.secondary)
         }
     }
-    
-    // 동기화 전략 이름 반환
-    private func syncStrategyName(_ strategy: DataSyncManager.SyncStrategy) -> String {
-        switch strategy {
-        case .merge:
-            return "병합 (권장)"
-        case .localOverCloud:
-            return "로컬 우선"
-        case .cloudOverLocal:
-            return "클라우드 우선"
-        case .manual:
-            return "수동 선택"
-        }
-    }
-}
-
-#Preview {
-    DataSyncSectionView(
-        dataSyncManager: DataSyncManager.shared,
-        networkMonitor: NetworkMonitorService.shared,
-        isDataSyncing: .constant(false),
-        showSyncStrategySheet: .constant(false),
-        alertMessage: .constant(""),
-        isShowingAlert: .constant(false)
-    )
 }
