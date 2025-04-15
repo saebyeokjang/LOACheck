@@ -215,17 +215,21 @@ struct LOACheckApp: App {
             queue: .main
         ) { _ in
             if authManager.isLoggedIn && DataSyncManager.shared.hasPendingChanges && networkMonitor.isConnected {
-                // 백그라운드 작업 식별자 생성
+                // 백그라운드 작업 식별자 생성 (중요)
                 let taskID = UIApplication.shared.beginBackgroundTask(expirationHandler: nil)
                 
                 Task {
+                    var success = false
+                    var retryCount = 0
                     
-                    guard let modelContext = DataSyncManager.shared.modelContext else {
-                        await UIApplication.shared.endBackgroundTask(taskID)
-                        return
+                    while !success && retryCount < 3 && DataSyncManager.shared.hasPendingChanges {
+                        success = await DataSyncManager.shared.uploadToServer() // 직접 uploadToServer 호출
+                        retryCount += 1
+                        
+                        if !success && retryCount < 3 {
+                            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5초 대기 후 재시도
+                        }
                     }
-                    
-                    await DataSyncManager.shared.safeBackgroundSync()
                     
                     // 백그라운드 작업 완료
                     await UIApplication.shared.endBackgroundTask(taskID)

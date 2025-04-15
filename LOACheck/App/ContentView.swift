@@ -73,10 +73,13 @@ struct ContentView: View {
                     .tag(4)
             }
             .onChange(of: selectedTab) { oldValue, newValue in
-                // 탭이 변경될 때 동기화 수행
+                Logger.debug("탭 변경: \(oldValue) -> \(newValue)")
+                
+                // 즉시 실행되는 동기화 코드 추가
                 if authManager.isLoggedIn && DataSyncManager.shared.hasPendingChanges && networkMonitor.isConnected {
                     Task {
-                        await DataSyncManager.shared.safeBackgroundSync()
+                        let result = await DataSyncManager.shared.uploadToServer()
+                        Logger.debug("탭 변경으로 인한 동기화 결과: \(result ? "성공" : "실패")")
                     }
                 }
                 
@@ -135,7 +138,7 @@ struct ContentView: View {
             }
             
             // 데이터 동기화 충돌 알림
-            if dataSyncManager.hasConflicts && !dataSyncManager.conflictsResolved && authManager.isLoggedIn {
+            if dataSyncManager.hasConflicts && !dataSyncManager.conflictsResolved && authManager.isLoggedIn && dataSyncManager.syncStrategy != .localOverCloud {
                 Color.black.opacity(0.4)
                     .edgesIgnoringSafeArea(.all)
                     .onTapGesture {
@@ -203,7 +206,7 @@ struct ContentView: View {
     // 친구 요청 배지 계산
     private var friendRequestBadge: Int {
         return authManager.isLoggedIn && !friendsService.friendRequests.isEmpty ?
-            friendsService.friendRequests.count : 0
+        friendsService.friendRequests.count : 0
     }
     
     // 앱 초기 설정
