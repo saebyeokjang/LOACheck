@@ -124,24 +124,6 @@ struct SettingsView: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .overlay(OfflineOverlayView())
-            .actionSheet(isPresented: $showSyncStrategySheet) {
-                ActionSheet(
-                    title: Text("동기화 방법 선택"),
-                    message: Text("데이터 충돌 시 어떤 방법으로 해결할지 선택하세요"),
-                    buttons: [
-                        .default(Text("병합 (권장)")) {
-                            dataSyncManager.syncStrategy = .merge
-                        },
-                        .default(Text("로컬 우선")) {
-                            dataSyncManager.syncStrategy = .localOverCloud
-                        },
-                        .default(Text("클라우드 우선")) {
-                            dataSyncManager.syncStrategy = .cloudOverLocal
-                        },
-                        .cancel(Text("취소"))
-                    ]
-                )
-            }
         }
         .alert("데이터 초기화 확인", isPresented: $isShowingResetConfirmation) {
             Button("취소", role: .cancel) { }

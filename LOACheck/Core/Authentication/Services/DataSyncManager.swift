@@ -61,18 +61,18 @@ class DataSyncManager: ObservableObject {
         UserDefaults.standard.set(value, forKey: "useAutoSync")
     }
     
-    // 충돌 감지 메소드
-    func detectConflicts() async -> Bool {
-        // 로컬 우선이므로 충돌 감지 후에도 항상 로컬 데이터를 유지
-        await MainActor.run {
-            self.hasConflicts = false
-            self.conflictsResolved = true
-            self.syncStrategy = .localOverCloud
-        }
-        
-        // 항상 false 반환하여 충돌 처리 로직을 건너뛰고 정상 동기화 진행
-        return false
-    }
+//    // 충돌 감지 메소드
+//    func detectConflicts() async -> Bool {
+//        // 로컬 우선이므로 충돌 감지 후에도 항상 로컬 데이터를 유지
+//        await MainActor.run {
+//            self.hasConflicts = false
+//            self.conflictsResolved = true
+//            self.syncStrategy = .localOverCloud
+//        }
+//        
+//        // 항상 false 반환하여 충돌 처리 로직을 건너뛰고 정상 동기화 진행
+//        return false
+//    }
     
     // 실제 데이터 충돌 감지 (데이터 비교)
     private func detectRealConflicts(localCharacters: [CharacterModel], cloudCharacters: [CharacterModel]) -> Bool {

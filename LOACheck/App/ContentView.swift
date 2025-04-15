@@ -33,7 +33,7 @@ struct ContentView: View {
     @State private var showSignIn = false
     
     // 동기화 충돌 알림 표시 여부
-    @State private var showSyncConflictAlert = false
+    //@State private var showSyncConflictAlert = false
     
     var body: some View {
         ZStack {
@@ -138,34 +138,34 @@ struct ContentView: View {
             }
             
             // 데이터 동기화 충돌 알림
-            if dataSyncManager.hasConflicts && !dataSyncManager.conflictsResolved && authManager.isLoggedIn && dataSyncManager.syncStrategy != .localOverCloud {
-                Color.black.opacity(0.4)
-                    .edgesIgnoringSafeArea(.all)
-                    .onTapGesture {
-                        // 외부 탭 무시
-                    }
-                
-                SyncConflictAlertView(
-                    isPresented: $showSyncConflictAlert,
-                    onLocalOverCloud: {
-                        dataSyncManager.syncStrategy = .localOverCloud
-                        performSyncAfterConflict()
-                    },
-                    onCloudOverLocal: {
-                        dataSyncManager.syncStrategy = .cloudOverLocal
-                        performSyncAfterConflict()
-                    },
-                    onMerge: {
-                        dataSyncManager.syncStrategy = .merge
-                        performSyncAfterConflict()
-                    },
-                    onDismiss: {
-                        showSyncConflictAlert = false
-                    }
-                )
-                .transition(.scale)
-                .zIndex(1)
-            }
+//            if dataSyncManager.hasConflicts && !dataSyncManager.conflictsResolved && authManager.isLoggedIn && dataSyncManager.syncStrategy != .localOverCloud {
+//                Color.black.opacity(0.4)
+//                    .edgesIgnoringSafeArea(.all)
+//                    .onTapGesture {
+//                        // 외부 탭 무시
+//                    }
+//                
+//                SyncConflictAlertView(
+//                    isPresented: $showSyncConflictAlert,
+//                    onLocalOverCloud: {
+//                        dataSyncManager.syncStrategy = .localOverCloud
+//                        performSyncAfterConflict()
+//                    },
+//                    onCloudOverLocal: {
+//                        dataSyncManager.syncStrategy = .cloudOverLocal
+//                        performSyncAfterConflict()
+//                    },
+//                    onMerge: {
+//                        dataSyncManager.syncStrategy = .merge
+//                        performSyncAfterConflict()
+//                    },
+//                    onDismiss: {
+//                        showSyncConflictAlert = false
+//                    }
+//                )
+//                .transition(.scale)
+//                .zIndex(1)
+//            }
         }
         .sheet(isPresented: $showSignIn) {
             SignInView(isPresented: $showSignIn)
@@ -195,12 +195,12 @@ struct ContentView: View {
                 }
             }
         }
-        .onChange(of: dataSyncManager.hasConflicts) { _, hasConflicts in
-            if hasConflicts && !dataSyncManager.conflictsResolved && authManager.isLoggedIn {
-                // 충돌 발생 시 알림 표시
-                showSyncConflictAlert = true
-            }
-        }
+//        .onChange(of: dataSyncManager.hasConflicts) { _, hasConflicts in
+//            if hasConflicts && !dataSyncManager.conflictsResolved && authManager.isLoggedIn {
+//                // 충돌 발생 시 알림 표시
+//                showSyncConflictAlert = true
+//            }
+//        }
     }
     
     // 친구 요청 배지 계산
@@ -336,18 +336,7 @@ struct ContentView: View {
         // 네트워크 연결 확인 후 동기화
         if networkMonitor.isConnected {
             Task {
-                // 동기화 전략 명시적 설정
-                dataSyncManager.syncStrategy = .localOverCloud
-                
-                // 로컬 데이터 우선으로 동기화
-                let descriptor = FetchDescriptor<CharacterModel>()
-                if let count = try? modelContext.fetchCount(descriptor), count > 0 {
-                    // 로컬 데이터가 있으면 서버로 업로드
-                    await dataSyncManager.uploadToServer()
-                } else {
-                    // 로컬 데이터가 없는 경우에만 서버 데이터 다운로드
-                    await dataSyncManager.pullFromCloud()
-                }
+                await dataSyncManager.uploadToServer()
             }
         } else {
             // 오프라인 상태면 변경 사항 표시
@@ -364,96 +353,96 @@ struct ContentView: View {
         }
     }
     
-    // 충돌 해결 후 동기화 수행
-    private func performSyncAfterConflict() {
-        showSyncConflictAlert = false
-        
-        Task {
-            await dataSyncManager.performManualSync()
-        }
-    }
+//    // 충돌 해결 후 동기화 수행
+//    private func performSyncAfterConflict() {
+//        showSyncConflictAlert = false
+//        
+//        Task {
+//            await dataSyncManager.performManualSync()
+//        }
+//    }
 }
 
 // 동기화 충돌 알림 뷰
-struct SyncConflictAlertView: View {
-    @Binding var isPresented: Bool
-    var onLocalOverCloud: () -> Void
-    var onCloudOverLocal: () -> Void
-    var onMerge: () -> Void
-    var onDismiss: () -> Void
-    
-    var body: some View {
-        VStack(spacing: 20) {
-            // 알림 제목
-            VStack(spacing: 8) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 40))
-                    .foregroundColor(.orange)
-                
-                Text("데이터 충돌 감지")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                
-                Text("로컬 데이터와 클라우드 데이터가 모두 있습니다.\n어떻게 처리하시겠습니까?")
-                    .font(.body)
-                    .multilineTextAlignment(.center)
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal)
-            }
-            
-            // 선택 버튼
-            VStack(spacing: 12) {
-                Button(action: onMerge) {
-                    HStack {
-                        Image(systemName: "arrow.triangle.merge")
-                        Text("데이터 병합 (권장)")
-                            .fontWeight(.medium)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-                }
-                
-                Button(action: onLocalOverCloud) {
-                    HStack {
-                        Image(systemName: "arrow.up.to.line")
-                        Text("로컬 데이터 우선")
-                            .fontWeight(.medium)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.gray.opacity(0.2))
-                    .foregroundColor(.primary)
-                    .cornerRadius(10)
-                }
-                
-                Button(action: onCloudOverLocal) {
-                    HStack {
-                        Image(systemName: "arrow.down.to.line")
-                        Text("클라우드 데이터 우선")
-                            .fontWeight(.medium)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.gray.opacity(0.2))
-                    .foregroundColor(.primary)
-                    .cornerRadius(10)
-                }
-                
-                Button(action: onDismiss) {
-                    Text("나중에 결정")
-                        .foregroundColor(.secondary)
-                }
-                .padding(.top, 8)
-            }
-            .padding(.horizontal)
-        }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(radius: 20)
-        .padding(.horizontal, 32)
-    }
-}
+//struct SyncConflictAlertView: View {
+//    @Binding var isPresented: Bool
+//    var onLocalOverCloud: () -> Void
+//    var onCloudOverLocal: () -> Void
+//    var onMerge: () -> Void
+//    var onDismiss: () -> Void
+//    
+//    var body: some View {
+//        VStack(spacing: 20) {
+//            // 알림 제목
+//            VStack(spacing: 8) {
+//                Image(systemName: "exclamationmark.triangle.fill")
+//                    .font(.system(size: 40))
+//                    .foregroundColor(.orange)
+//                
+//                Text("데이터 충돌 감지")
+//                    .font(.title2)
+//                    .fontWeight(.bold)
+//                
+//                Text("로컬 데이터와 클라우드 데이터가 모두 있습니다.\n어떻게 처리하시겠습니까?")
+//                    .font(.body)
+//                    .multilineTextAlignment(.center)
+//                    .foregroundColor(.secondary)
+//                    .padding(.horizontal)
+//            }
+//            
+//            // 선택 버튼
+//            VStack(spacing: 12) {
+//                Button(action: onMerge) {
+//                    HStack {
+//                        Image(systemName: "arrow.triangle.merge")
+//                        Text("데이터 병합 (권장)")
+//                            .fontWeight(.medium)
+//                    }
+//                    .frame(maxWidth: .infinity)
+//                    .padding()
+//                    .background(Color.blue)
+//                    .foregroundColor(.white)
+//                    .cornerRadius(10)
+//                }
+//                
+//                Button(action: onLocalOverCloud) {
+//                    HStack {
+//                        Image(systemName: "arrow.up.to.line")
+//                        Text("로컬 데이터 우선")
+//                            .fontWeight(.medium)
+//                    }
+//                    .frame(maxWidth: .infinity)
+//                    .padding()
+//                    .background(Color.gray.opacity(0.2))
+//                    .foregroundColor(.primary)
+//                    .cornerRadius(10)
+//                }
+//                
+//                Button(action: onCloudOverLocal) {
+//                    HStack {
+//                        Image(systemName: "arrow.down.to.line")
+//                        Text("클라우드 데이터 우선")
+//                            .fontWeight(.medium)
+//                    }
+//                    .frame(maxWidth: .infinity)
+//                    .padding()
+//                    .background(Color.gray.opacity(0.2))
+//                    .foregroundColor(.primary)
+//                    .cornerRadius(10)
+//                }
+//                
+//                Button(action: onDismiss) {
+//                    Text("나중에 결정")
+//                        .foregroundColor(.secondary)
+//                }
+//                .padding(.top, 8)
+//            }
+//            .padding(.horizontal)
+//        }
+//        .padding()
+//        .background(Color(.systemBackground))
+//        .cornerRadius(16)
+//        .shadow(radius: 20)
+//        .padding(.horizontal, 32)
+//    }
+//}
