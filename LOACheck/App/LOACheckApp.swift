@@ -51,6 +51,9 @@ struct LOACheckApp: App {
                         // 앱 시작 시 로그인 상태라면 친구 리스너 설정
                         if authManager.isLoggedIn {
                             friendsService.setupListeners()
+                            Task {
+                                await performLocalPrioritySync()
+                            }
                         }
                         
                         isInitialized = true
@@ -68,20 +71,51 @@ struct LOACheckApp: App {
                 // Model Context 설정
                 DataSyncManager.shared.setModelContext(container.mainContext)
                 
-                // 초기 데이터 마이그레이션 수행
+                // 필요한 마이그레이션 수행
                 DataMigrationService.shared.performMigrationIfNeeded(modelContext: container.mainContext)
-                
-                // 레이드 데이터 마이그레이션
                 RaidDataMigrationService.shared.checkAndPerformMigrations(modelContext: container.mainContext)
                 
-                // 네트워크 연결 복구 시 동기화 콜백 등록
+                // 네트워크 콜백 설정
                 setupNetworkCallbacks(modelContext: container.mainContext)
+                
+                // 로그인 상태라면 로컬 우선 동기화 시작
+                if AuthManager.shared.isLoggedIn && NetworkMonitorService.shared.isConnected {
+                    Task {
+                        // 동기화 전략 명시적 설정
+                        DataSyncManager.shared.syncStrategy = .localOverCloud
+                        
+                        // 항상 로컬->서버 방향으로 동기화
+                        await DataSyncManager.shared.uploadToServer()
+                    }
+                }
             case .failure(let error):
                 Logger.error("ModelContainer 생성 실패: \(error)")
                 errorHandlingService.handleError(error, source: .database)
-                print("ModelContainer 초기화 상태: \(result)")
             }
         }
+    }
+    
+    // 로컬 우선 동기화 메서드 추가
+    private func performLocalPrioritySync() async {
+        guard let modelContext = DataSyncManager.shared.modelContext,
+              NetworkMonitorService.shared.isConnected,
+              AuthManager.shared.isLoggedIn else {
+            return
+        }
+        
+        // 사용자에게 알림 없이 항상 로컬 우선으로 동기화
+        DataSyncManager.shared.syncStrategy = .localOverCloud
+        
+        // 동기화 전에 충돌 해결 상태 미리 설정
+        await MainActor.run {
+            DataSyncManager.shared.hasConflicts = false
+            DataSyncManager.shared.conflictsResolved = true
+        }
+        
+        // 직접 uploadToServer 호출하여 로컬->서버 동기화 실행
+        let success = await DataSyncManager.shared.uploadToServer()
+        
+        Logger.info("앱 시작 시 로컬 우선 동기화 완료: \(success ? "성공" : "실패")")
     }
     
     // 앱 초기화 시 호출

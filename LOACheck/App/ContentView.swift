@@ -336,7 +336,18 @@ struct ContentView: View {
         // 네트워크 연결 확인 후 동기화
         if networkMonitor.isConnected {
             Task {
-                await performSyncIfNeeded()
+                // 동기화 전략 명시적 설정
+                dataSyncManager.syncStrategy = .localOverCloud
+                
+                // 로컬 데이터 우선으로 동기화
+                let descriptor = FetchDescriptor<CharacterModel>()
+                if let count = try? modelContext.fetchCount(descriptor), count > 0 {
+                    // 로컬 데이터가 있으면 서버로 업로드
+                    await dataSyncManager.uploadToServer()
+                } else {
+                    // 로컬 데이터가 없는 경우에만 서버 데이터 다운로드
+                    await dataSyncManager.pullFromCloud()
+                }
             }
         } else {
             // 오프라인 상태면 변경 사항 표시

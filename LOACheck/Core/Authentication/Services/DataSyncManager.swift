@@ -61,43 +61,17 @@ class DataSyncManager: ObservableObject {
         UserDefaults.standard.set(value, forKey: "useAutoSync")
     }
     
-    // 충돌 감지 메소드 개선
+    // 충돌 감지 메소드
     func detectConflicts() async -> Bool {
-        guard let modelContext = self.modelContext else {
-            return false
+        // 로컬 우선이므로 충돌 감지 후에도 항상 로컬 데이터를 유지
+        await MainActor.run {
+            self.hasConflicts = false
+            self.conflictsResolved = true
+            self.syncStrategy = .localOverCloud
         }
         
-        // 네트워크 연결 확인
-        if !NetworkMonitorService.shared.isConnected {
-            return false
-        }
-        
-        do {
-            // 로컬 데이터 확인
-            let descriptor = FetchDescriptor<CharacterModel>()
-            let localCharacters = try modelContext.fetch(descriptor)
-            
-            // 클라우드 데이터 확인
-            let cloudCharacters = try await fetchCloudCharacters()
-            
-            // 데이터가 모두 없으면 충돌 없음
-            if localCharacters.isEmpty || cloudCharacters.isEmpty {
-                return false
-            }
-            
-            // 충돌이 감지되어도 자동으로 충돌 해결됨으로 표시
-            // 로컬 데이터 우선 전략 자동 적용
-            await MainActor.run {
-                self.hasConflicts = false  // 충돌 없음으로 처리
-                self.conflictsResolved = true  // 이미 해결됨으로 처리
-                self.syncStrategy = .localOverCloud  // 항상 로컬 우선으로 설정
-            }
-            
-            return false  // 충돌 없음으로 처리하여 정상 동기화 진행
-        } catch {
-            Logger.error("충돌 감지 중 오류 발생", error: error)
-            return false
-        }
+        // 항상 false 반환하여 충돌 처리 로직을 건너뛰고 정상 동기화 진행
+        return false
     }
     
     // 실제 데이터 충돌 감지 (데이터 비교)
@@ -206,67 +180,58 @@ class DataSyncManager: ObservableObject {
             return false
         }
         
-        // 이미 동기화 중이면 무시
-        if syncLock.try() == false {
-            return false
-        }
-        
-        defer {
-            syncLock.unlock()
-        }
-        
-        isSyncInProgress = true
-        
-        // 충돌 감지 추가
-        if await detectConflicts() {
-            // 항상 로컬 우선으로 진행 (강제)
-            // 이 코드는 실행되지 않지만 혹시 모를 상황을 대비
-            await MainActor.run {
-                self.syncStrategy = .localOverCloud
-                self.conflictsResolved = true
-            }
-        }
-        
-        do {
-            await MainActor.run {
-                self.isSyncing = true
-                self.syncError = nil
+        // 이미 동기화 중이면 중복 실행 방지
+            if !syncLock.try() {
+                return false
             }
             
-            // 로컬 캐릭터 가져오기
-            let descriptor = FetchDescriptor<CharacterModel>()
-            let localCharacters = try modelContext.fetch(descriptor)
+            // 락 관리를 위한 플래그 설정
+            isSyncInProgress = true
             
-            if !localCharacters.isEmpty {
-                // 서버에 업로드 - 기존 캐릭터 삭제 없이 업데이트만 수행
-                try await FirebaseRepository.shared.saveCharacters(localCharacters)
+            // 함수 종료 시 상태 정리를 위한 defer 블록
+            defer {
+                isSyncInProgress = false
+                syncLock.unlock()
+            }
+            
+            // 로컬 데이터를 서버에 업로드하는 로직 (로컬 우선 방식)
+            do {
+                await MainActor.run {
+                    self.isSyncing = true
+                    self.syncError = nil
+                }
                 
-                await MainActor.run {
-                    self.lastSyncTime = Date()
-                    self.isSyncing = false
-                    self.hasPendingChanges = false
-                    self.hasConflicts = false  // 동기화 성공 시 충돌 상태 초기화
-                    self.isSyncInProgress = false
-                    Logger.info("서버 업로드 완료: \(localCharacters.count)개 캐릭터")
+                // 로컬 캐릭터 가져오기
+                let descriptor = FetchDescriptor<CharacterModel>()
+                let localCharacters = try modelContext.fetch(descriptor)
+                
+                if !localCharacters.isEmpty {
+                    // 서버에 업로드
+                    try await FirebaseRepository.shared.saveCharacters(localCharacters)
+                    
+                    await MainActor.run {
+                        self.lastSyncTime = Date()
+                        self.isSyncing = false
+                        self.hasPendingChanges = false
+                        self.hasConflicts = false
+                        Logger.info("서버 업로드 완료: \(localCharacters.count)개 캐릭터")
+                    }
+                    return true
+                } else {
+                    await MainActor.run {
+                        self.isSyncing = false
+                        Logger.info("업로드할 캐릭터가 없음")
+                    }
+                    return true
                 }
-                return true
-            } else {
+            } catch {
                 await MainActor.run {
+                    self.syncError = error
                     self.isSyncing = false
-                    self.isSyncInProgress = false
-                    Logger.info("업로드할 캐릭터가 없음")
+                    Logger.error("서버 업로드 실패", error: error)
                 }
-                return true
+                return false
             }
-        } catch {
-            await MainActor.run {
-                self.syncError = error
-                self.isSyncing = false
-                self.isSyncInProgress = false
-                Logger.error("서버 업로드 실패", error: error)
-            }
-            return false
-        }
     }
     
     // 데이터 병합 처리
@@ -540,10 +505,8 @@ class DataSyncManager: ObservableObject {
     
     // 자동 동기화 타이머 (개선)
     private func startSyncTimer() {
-        // 이미 타이머가 실행 중이면 무시
-        if syncTimer != nil {
-            return
-        }
+        syncTimer?.invalidate()
+        syncTimer = nil
         
         // 변경 후 15초 후에 동기화 시도
         syncTimer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: false) { [weak self] _ in
@@ -591,11 +554,16 @@ class DataSyncManager: ObservableObject {
                 isSyncing = true
                 syncError = nil
                 
+                // 동기화 전략 명시적 설정
+                syncStrategy = .localOverCloud
+                hasConflicts = false
+                conflictsResolved = true
+                
                 // 로컬 데이터 존재 여부 확인
                 let localCharacterCount = try countLocalCharacters(modelContext: modelContext)
                 
                 if localCharacterCount > 0 {
-                    // 로컬 데이터가 있는 경우, 서버에 업로드
+                    // 로컬 데이터가 있는 경우, 항상 서버에 업로드
                     let _ = await uploadToServer()
                 } else {
                     // 로컬 데이터가 없는 경우에만 서버에서 다운로드
