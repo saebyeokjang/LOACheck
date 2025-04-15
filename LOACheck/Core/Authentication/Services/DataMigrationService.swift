@@ -90,7 +90,7 @@ class DataMigrationService {
         }
     }
     
-    /// 캐릭터 이름을 파이어베이스에 등록
+    /// 캐릭터 이름을 파이어베이스에 등록 (대표 캐릭터만 등록하도록 수정)
     private func registerCharacterNamesToFirebase(modelContext: ModelContext) {
         guard AuthManager.shared.isLoggedIn else {
             Logger.debug("로그인되어 있지 않아서 캐릭터 이름 등록을 건너뜁니다.")
@@ -103,29 +103,19 @@ class DataMigrationService {
                 let representativeCharacter = UserDefaults.standard.string(forKey: "representativeCharacter")
                 
                 if let repCharName = representativeCharacter, !repCharName.isEmpty {
-                    // 대표 캐릭터 이름 먼저 등록 시도
+                    // 대표 캐릭터 이름만 등록
                     await registerCharacterNameToFirebase(repCharName)
+                    Logger.info("대표 캐릭터 이름 등록 시도 완료: \(repCharName)")
                 }
                 
-                // 나머지 캐릭터 이름도 등록
-                let descriptor = FetchDescriptor<CharacterModel>()
-                let characters = try modelContext.fetch(descriptor)
-                
-                for character in characters {
-                    // 이미 등록한 대표 캐릭터와 다른 경우에만 등록
-                    if character.name != representativeCharacter {
-                        await registerCharacterNameToFirebase(character.name)
-                    }
-                }
-                
-                Logger.info("캐릭터 이름 등록 시도 완료")
+                // 나머지 캐릭터들은 등록하지 않음
             } catch {
                 Logger.error("캐릭터 이름 등록 실패", error: error)
             }
         }
     }
-    
-    /// 단일 캐릭터 이름 파이어베이스 등록
+
+    /// 단일 캐릭터 이름 파이어베이스 등록 - 대표 캐릭터를 위한 로직
     private func registerCharacterNameToFirebase(_ characterName: String) async {
         guard !characterName.isEmpty, AuthManager.shared.isLoggedIn, let userId = AuthManager.shared.currentUser?.id else {
             return
@@ -133,6 +123,23 @@ class DataMigrationService {
         
         do {
             let db = Firestore.firestore()
+            
+            // 1. 현재 사용자의 기존 characterNames 문서 모두 삭제
+            let snapshot = try await db.collection("characterNames")
+                .whereField("userId", isEqualTo: userId)
+                .getDocuments()
+                
+            // 기존 문서 삭제 (대표 캐릭터만 남기기 위함)
+            if !snapshot.documents.isEmpty {
+                let batch = db.batch()
+                for doc in snapshot.documents {
+                    batch.deleteDocument(doc.reference)
+                }
+                try await batch.commit()
+                Logger.debug("기존 characterNames 문서 \(snapshot.documents.count)개 삭제 완료")
+            }
+            
+            // 2. 대표 캐릭터만 등록
             let docRef = db.collection("characterNames").document(characterName)
             
             // 이미 등록된 캐릭터인지 확인
@@ -145,19 +152,15 @@ class DataMigrationService {
                     Logger.debug("캐릭터 '\(characterName)'은 다른 사용자가 이미 등록했습니다.")
                     return
                 } else if let existingUserId = document.data()?["userId"] as? String, existingUserId == userId {
-                    // 이미 이 사용자가 등록했음
-                    Logger.debug("캐릭터 '\(characterName)'은 이미 등록되어 있습니다.")
-                    return
+                    // 이미 이 사용자가 등록했음 - 정보 업데이트 필요
+                    Logger.debug("캐릭터 '\(characterName)'은 이미 등록되어 있습니다. 정보 업데이트 시도.")
                 }
             }
             
-            // 등록되어 있지 않으면 새로 등록
-            try await docRef.setData([
-                "userId": userId,
-                "timestamp": FieldValue.serverTimestamp()
-            ])
+            // 캐릭터 정보 등록
+            try await FirebaseRepository.shared.storeCharacterDetails(characterName: characterName)
             
-            Logger.debug("캐릭터 '\(characterName)' 등록 성공")
+            Logger.debug("캐릭터 '\(characterName)' 등록 성공 (대표 캐릭터)")
         } catch {
             Logger.error("캐릭터 '\(characterName)' 등록 실패", error: error)
         }

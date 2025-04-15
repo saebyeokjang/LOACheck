@@ -95,7 +95,8 @@ struct RepCharacterEditorView: View {
         
         Task {
             do {
-                let success = try await authManager.setRepresentativeCharacter(name)
+                // 올바른 비동기 메서드 호출로 변경
+                let success = try await authManager.setRepresentativeCharacterAsync(characterName: name)
                 
                 await MainActor.run {
                     isProcessing = false
