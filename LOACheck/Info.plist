@@ -2,30 +2,30 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- Google 로그인 클라이언트 ID -->
-    <key>GIDClientID</key>
-    <string>832979775342-ar6agamk35ibtbn611et1e4aqmcnovo6.apps.googleusercontent.com</string>
-    
-    <!-- URL 스키마 설정 -->
-    <key>CFBundleURLTypes</key>
-    <array>
-        <dict>
-            <key>CFBundleTypeRole</key>
-            <string>Editor</string>
-            <key>CFBundleURLSchemes</key>
-            <array>
-                <string>LOACheck.jangsaebyeok.com</string>
-            </array>
-        </dict>
-        <dict>
-            <key>CFBundleTypeRole</key>
-            <string>Editor</string>
-            <key>CFBundleURLSchemes</key>
-            <array>
-                <string>com.googleusercontent.apps.832979775342-ar6agamk35ibtbn611et1e4aqmcnovo6</string>
-            </array>
-        </dict>
-    </array>
-    
+	<key>GIDClientID</key>
+	<string>832979775342-ar6agamk35ibtbn611et1e4aqmcnovo6.apps.googleusercontent.com</string>
+</array>
+	<array>
+		<string></string>
+	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>LOACheck.jangsaebyeok.com</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.832979775342-ar6agamk35ibtbn611et1e4aqmcnovo6</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

@@ -525,6 +525,12 @@ class DataSyncManager: ObservableObject {
     
     // 호환성을 위한 기존 메소드
     func performManualSync() async -> Bool {
+        // 네트워크 연결과 로그인 상태 확인
+        if !NetworkMonitorService.shared.isConnected || !AuthManager.shared.isLoggedIn {
+            return false
+        }
+        
+        // 로컬 데이터 → 클라우드 방향으로만 동기화
         return await uploadToServer()
     }
     
@@ -592,14 +598,13 @@ class DataSyncManager: ObservableObject {
             .store(in: &cancellables)
     }
     
-    // 초기 동기화 수행 (로그인 직후)
+    func setModelContext(_ context: ModelContext) {
+        self.modelContext = context
+    }
+    
+    // 처음 로그인 시에만 데이터 다운로드
     func performInitialSync() {
-        guard let modelContext = modelContext else {
-            DispatchQueue.main.async {
-                self.syncError = DataSyncError.contextNotSet
-            }
-            return
-        }
+        guard let modelContext = modelContext else { return }
         
         Task { @MainActor in
             do {
@@ -611,28 +616,20 @@ class DataSyncManager: ObservableObject {
                 
                 if localCharacterCount > 0 {
                     // 로컬 데이터가 있는 경우, 서버에 업로드
-                    try await uploadToServer()
+                    let _ = await uploadToServer()
                 } else {
-                    // 로컬 데이터가 없는 경우, 서버에서 데이터 확인
+                    // 로컬 데이터가 없는 경우에만 서버에서 다운로드
                     let cloudCharacterCount = try await countCloudCharacters()
                     
                     if cloudCharacterCount > 0 {
-                        // 서버에 데이터가 있으면 다운로드
-                        try await pullFromCloud()
-                    } else {
-                        // 양쪽 모두 데이터가 없는 경우
-                        Logger.info("초기 데이터가 없습니다. 동기화 완료.")
+                        let _ = await pullFromCloud()
                     }
                 }
                 
-                // 초기 동기화 완료 표시
                 AuthManager.shared.markInitialSyncComplete()
-                
                 lastSyncTime = Date()
                 isSyncing = false
                 hasPendingChanges = false
-                conflictsResolved = true
-                hasConflicts = false
             } catch {
                 syncError = error
                 isSyncing = false

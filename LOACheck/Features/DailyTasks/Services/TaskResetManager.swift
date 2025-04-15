@@ -66,7 +66,7 @@ class TaskResetManager {
             Logger.debug("일일 숙제 리셋 조건 미충족 - 현재: \(now.formatted()), 리셋시간: \(todayResetTime.formatted()), 마지막리셋: \(lastDailyReset.formatted())")
         }
     }
-
+    
     // 미접속 기간 동안의 휴식보너스 적립 처리
     private func applyRestingPointsForMissedDays(_ days: Int, modelContext: ModelContext) {
         let fetchDescriptor = FetchDescriptor<DailyTask>()
@@ -149,6 +149,10 @@ class TaskResetManager {
                 // 완료 상태 초기화
                 task.completionCount = 0
             }
+            // 변경사항 저장
+            try modelContext.save()
+            DataSyncManager.shared.markLocalChanges()
+            Logger.info("일일 숙제 리셋 저장 완료")
         } catch {
             Logger.error("일일 숙제 리셋 실패", error: error)
         }
@@ -156,20 +160,18 @@ class TaskResetManager {
     
     // 주간 레이드 관문 리셋
     private func resetRaidGates(modelContext: ModelContext) {
-        let gateDescriptor = FetchDescriptor<RaidGate>()
         do {
+            // 레이드 게이트 초기화
+            let gateDescriptor = FetchDescriptor<RaidGate>()
             let allRaidGates = try modelContext.fetch(gateDescriptor)
             Logger.info("주간 레이드 리셋 - \(allRaidGates.count)개 관문 리셋")
             
             for gate in allRaidGates {
                 gate.reset()
             }
-        } catch {
-            Logger.error("주간 레이드 리셋 실패", error: error)
-        }
-        
-        let characterDescriptor = FetchDescriptor<CharacterModel>()
-        do {
+            
+            // 캐릭터 추가 골드 초기화
+            let characterDescriptor = FetchDescriptor<CharacterModel>()
             let allCharacters = try modelContext.fetch(characterDescriptor)
             Logger.info("주간 추가 수익 리셋 - \(allCharacters.count)개 캐릭터")
             
@@ -188,8 +190,37 @@ class TaskResetManager {
                     Logger.debug("캐릭터 '\(character.name)'의 \(raidNames.count)개 레이드 추가 수익 초기화")
                 }
             }
+            
+            // 변경사항 저장
+            try modelContext.save()
+            
+            // 서버에 변경사항 반영
+            if AuthManager.shared.isLoggedIn && NetworkMonitorService.shared.isConnected {
+                Task {
+                    // 로컬 우선 전략에 따라 변경된 데이터를 서버에 업로드
+                    let success = await DataSyncManager.shared.uploadToServer()
+                    
+                    if success {
+                        // 변경사항 동기화 완료 표시
+                        await MainActor.run {
+                            DataSyncManager.shared.hasPendingChanges = false
+                            DataSyncManager.shared.lastSyncTime = Date()
+                        }
+                        
+                        Logger.info("주간 레이드 리셋 데이터 서버 동기화 완료")
+                    } else {
+                        Logger.error("주간 레이드 리셋 데이터 서버 동기화 실패")
+                        // 실패한 경우 변경사항 표시 유지
+                        DataSyncManager.shared.markLocalChanges()
+                    }
+                }
+            } else {
+                // 오프라인 상태인 경우 변경사항 표시
+                DataSyncManager.shared.markLocalChanges()
+                Logger.info("오프라인 상태 - 주간 레이드 리셋 데이터 변경사항 표시")
+            }
         } catch {
-            Logger.error("주간 추가 수익 리셋 실패", error: error)
+            Logger.error("주간 레이드 리셋 실패", error: error)
         }
     }
     

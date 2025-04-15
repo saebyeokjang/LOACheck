@@ -84,6 +84,54 @@ struct LOACheckApp: App {
         }
     }
     
+    // LOACheckApp.swift에 추가
+    private func setupBackgroundTasks() {
+        // 백그라운드 작업 등록
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: "com.yourapp.dailyReset", using: nil) { task in
+            self.handleResetTask(task as! BGProcessingTask)
+        }
+    }
+
+    private func handleResetTask(_ task: BGProcessingTask) {
+        // 작업 만료 핸들러 설정
+        task.expirationHandler = {
+            task.setTaskCompleted(success: false)
+        }
+        
+        // 리셋 작업 수행
+        if let modelContext = DataSyncManager.shared.modelContext {
+            TaskResetManager.shared.checkAndResetTasks(modelContext: modelContext)
+            
+            // 변경사항 서버 동기화
+            if AuthManager.shared.isLoggedIn && NetworkMonitorService.shared.isConnected {
+                Task {
+                    let success = await DataSyncManager.shared.uploadToServer()
+                    task.setTaskCompleted(success: success)
+                }
+            } else {
+                task.setTaskCompleted(success: true)
+            }
+        } else {
+            task.setTaskCompleted(success: false)
+        }
+        
+        // 다음 작업 스케줄링
+        scheduleNextReset()
+    }
+
+    private func scheduleNextReset() {
+        let request = BGProcessingTaskRequest(identifier: "com.yourapp.dailyReset")
+        request.earliestBeginDate = Calendar.current.nextDate(after: Date(),
+                                                            matching: DateComponents(hour: 6, minute: 0),
+                                                            matchingPolicy: .nextTime)
+        
+        do {
+            try BGTaskScheduler.shared.submit(request)
+        } catch {
+            Logger.error("백그라운드 리셋 작업 스케줄링 실패", error: error)
+        }
+    }
+    
     // 앱 초기화 시 호출
     private func setupPeriodicSync() {
         // 5분마다 한 번씩 변경사항이 있으면 동기화
@@ -146,25 +194,27 @@ struct LOACheckApp: App {
     
     // 네트워크 콜백 설정
     private func setupNetworkCallbacks(modelContext: ModelContext) {
-        // 네트워크 연결 복구 시 자동 동기화
         _ = networkMonitor.onConnectionRestored {
             Logger.info("네트워크 연결 복구됨 - 자동 동기화 시작")
             
             // 로그인 상태이고 변경 사항이 있는 경우에만 자동 동기화
             if authManager.isLoggedIn && DataSyncManager.shared.hasPendingChanges {
                 Task {
-                    await DataSyncManager.shared.performManualSync()
+                    // 최대 3번 재시도
+                    var retryCount = 0
+                    var success = false
+                    
+                    while !success && retryCount < 3 {
+                        success = await DataSyncManager.shared.uploadToServer()
+                        
+                        if !success {
+                            // 재시도 간격 점진적 증가
+                            try? await Task.sleep(nanoseconds: UInt64(pow(2.0, Double(retryCount)) * 1_000_000_000))
+                            retryCount += 1
+                        }
+                    }
                 }
             }
-            
-            // 일일/주간 리셋 체크
-            TaskResetManager.shared.checkAndResetTasks(modelContext: modelContext)
-        }
-        
-        // 네트워크 연결 끊김 시 오프라인 모드 표시
-        _ = networkMonitor.onConnectionLost {
-            Logger.info("네트워크 연결 끊김 - 오프라인 모드로 전환")
-            // 여기서는 경고만 표시하도록 하고, 실제 작업은 네트워크 상태에 따라 UI에서 처리
         }
     }
     
