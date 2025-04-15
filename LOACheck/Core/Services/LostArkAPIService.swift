@@ -22,9 +22,14 @@ struct CharacterResponse: Decodable {
     var characterName: String { CharacterName }
     var characterClassName: String { CharacterClassName }
     var itemLevel: Double {
-        // 아이템 레벨은 "1,540.00", "1,302.50" 형태로 올 수 있으므로 변환 처리
+        // 원본 값 로깅
+        Logger.debug("원본 아이템 레벨 데이터: \(ItemMaxLevel)")
+        
         let cleanLevel = ItemMaxLevel.replacingOccurrences(of: ",", with: "")
-        return Double(cleanLevel) ?? 0.0
+        let parsedLevel = Double(cleanLevel) ?? 0.0
+        
+        Logger.debug("변환된 아이템 레벨: \(parsedLevel)")
+        return parsedLevel
     }
     var characterImage: String? { nil } // API에서 제공하지 않음
 }

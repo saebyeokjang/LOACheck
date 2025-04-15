@@ -62,18 +62,17 @@ class DataMigrationService {
             for character in characters {
                 let originalLevel = character.level
                 
-                // 잘못된 레벨 값 수정 (예: 음수 또는 비정상적으로 큰 값)
+                // 잘못된 레벨 값 수정
                 if character.level < 0 {
                     character.level = 0
                     updatedCount += 1
                 } else if character.level > 10000 {
-                    // 비정상적으로 큰 값은 1600으로 제한
-                    character.level = 1600
+                    // 큰 값(예: 61670)은 실제 레벨(61.67)로 변환
+                    character.level = character.level / 1000
                     updatedCount += 1
-                } else if character.level < 100 && character.level > 0 {
-                    // 매우 작은 양수는 아마도 잘못된 값 (1000 단위가 누락된 것으로 가정)
-                    character.level = character.level * 1000
-                    updatedCount += 1
+                } else if character.level < 10 && character.level > 0 {
+                    // 매우 작은 값은 직접 검토 필요
+                    Logger.warning("의심스러운 레벨 값 발견: \(character.name)의 레벨 \(character.level)")
                 }
                 
                 if character.level != originalLevel {

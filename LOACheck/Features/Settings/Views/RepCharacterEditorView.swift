@@ -93,9 +93,13 @@ struct RepCharacterEditorView: View {
         isProcessing = true
         errorMessage = nil
         
+        // 즉시 UI 업데이트를 위해 로컬 상태 먼저 변경
+        let oldCharacterName = authManager.representativeCharacter
+        authManager.representativeCharacter = name
+        
         Task {
             do {
-                // 올바른 비동기 메서드 호출로 변경
+                // 서버에 저장 시도
                 let success = try await authManager.setRepresentativeCharacterAsync(characterName: name)
                 
                 await MainActor.run {
@@ -106,11 +110,15 @@ struct RepCharacterEditorView: View {
                         isShowingAlert = true
                         showRepCharacterEditor = false
                     } else {
+                        // 실패 시 이전 값으로 되돌림
+                        authManager.representativeCharacter = oldCharacterName
                         errorMessage = "'\(name)'은(는) 이미 다른 사용자가 사용 중인 이름입니다."
                     }
                 }
             } catch {
                 await MainActor.run {
+                    // 실패 시 이전 값으로 되돌림
+                    authManager.representativeCharacter = oldCharacterName
                     isProcessing = false
                     errorMessage = "오류가 발생했습니다: \(error.localizedDescription)"
                 }
