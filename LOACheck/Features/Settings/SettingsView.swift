@@ -108,6 +108,9 @@ struct SettingsView: View {
             
             // 개발자 정보 섹션
             DeveloperInfoSectionView()
+            
+            // 법적 고지 섹션
+            LegalSectionView()
         }
     }
     
@@ -131,7 +134,7 @@ struct SettingsView: View {
                 resetAllData()
             }
         } message: {
-            Text("모든 캐릭터 데이터가 영구적으로 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.\n계속하시겠습니까?")
+            Text("모든 캐릭터 데이터가 영구적으로 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.")
         }
         .alert("로그아웃", isPresented: $showSignOut) {
             Button("취소", role: .cancel) { }
@@ -202,12 +205,6 @@ struct SettingsView: View {
                     _ = await dataSyncManager.pushToCloud()
                     await MainActor.run {
                         isDataSyncing = false
-//                        if success {
-//                            alertMessage = "로컬 데이터를 서버에 업로드했습니다."
-//                        } else {
-//                            alertMessage = "데이터 업로드에 실패했습니다."
-//                        }
-//                        isShowingAlert = true
                     }
                 } else if hasCloudData {
                     // 로컬 데이터가 없고 클라우드 데이터만 있으면 다운로드
