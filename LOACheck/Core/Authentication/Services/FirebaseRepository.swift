@@ -466,12 +466,21 @@ class FirebaseRepository {
             throw FirebaseError.notAuthenticated
         }
         
-        // 내 수신 요청에서 제거
-        try await db.collection("users").document(currentUserId).collection("friendRequests").document(userId).delete()
+        // 배치 작업으로 변경 (여러 작업을 함께 수행)
+        let batch = db.batch()
         
-        // 상대방의 발신 요청 상태 업데이트
+        // 1. 내 수신 요청에서 제거
+        let receivedRequestRef = db.collection("users").document(currentUserId).collection("friendRequests").document(userId)
+        batch.deleteDocument(receivedRequestRef)
+        
+        // 2. 상대방의 발신 요청에서 제거 (업데이트가 아닌 삭제로 변경)
         let sentRequestRef = db.collection("users").document(userId).collection("sentRequests").document(currentUserId)
-        try await sentRequestRef.updateData(["status": "rejected"])
+        batch.deleteDocument(sentRequestRef)
+        
+        // 배치 커밋
+        try await batch.commit()
+        
+        Logger.info("친구 요청 거절 및 관련 문서 모두 삭제 완료: 요청자 \(userId)")
     }
     
     /// 친구 삭제
