@@ -77,7 +77,7 @@ struct SettingsView: View {
             buildAdditionalSettingsContent() // 추가 섹션을 위한 함수 호출
         }
     }
-
+    
     // 나머지 섹션을 위한 추가 함수
     private func buildAdditionalSettingsContent() -> some View {
         Group {
@@ -189,7 +189,6 @@ struct SettingsView: View {
             do {
                 isDataSyncing = true
                 
-                // DataSyncManager.swift에서 사용 가능한 메서드 확인
                 // 로컬 데이터 확인을 위해 ModelContext의 fetchCount 사용
                 let localDescriptor = FetchDescriptor<CharacterModel>()
                 let hasLocalData = try modelContext.fetchCount(localDescriptor) > 0
@@ -198,12 +197,20 @@ struct SettingsView: View {
                 let cloudData = try await FirebaseRepository.shared.fetchCharacters()
                 let hasCloudData = !cloudData.isEmpty
                 
-                if hasLocalData && hasCloudData {
+                if hasLocalData {
+                    // 로컬 데이터가 있으면 무조건 서버로 업로드 (충돌 검사 없이)
+                    _ = await dataSyncManager.pushToCloud()
                     await MainActor.run {
                         isDataSyncing = false
-                        showDataSyncChoiceAlert = true
+//                        if success {
+//                            alertMessage = "로컬 데이터를 서버에 업로드했습니다."
+//                        } else {
+//                            alertMessage = "데이터 업로드에 실패했습니다."
+//                        }
+//                        isShowingAlert = true
                     }
                 } else if hasCloudData {
+                    // 로컬 데이터가 없고 클라우드 데이터만 있으면 다운로드
                     let success = await dataSyncManager.pullFromCloud()
                     await MainActor.run {
                         isDataSyncing = false
@@ -211,17 +218,6 @@ struct SettingsView: View {
                             alertMessage = "서버에서 데이터를 가져왔습니다."
                         } else {
                             alertMessage = "서버 데이터 가져오기에 실패했습니다."
-                        }
-                        isShowingAlert = true
-                    }
-                } else if hasLocalData {
-                    let success = await dataSyncManager.pushToCloud()
-                    await MainActor.run {
-                        isDataSyncing = false
-                        if success {
-                            alertMessage = "로컬 데이터를 서버에 업로드했습니다."
-                        } else {
-                            alertMessage = "데이터 업로드에 실패했습니다."
                         }
                         isShowingAlert = true
                     }

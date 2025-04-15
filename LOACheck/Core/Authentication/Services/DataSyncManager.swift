@@ -61,19 +61,6 @@ class DataSyncManager: ObservableObject {
         UserDefaults.standard.set(value, forKey: "useAutoSync")
     }
     
-//    // 충돌 감지 메소드
-//    func detectConflicts() async -> Bool {
-//        // 로컬 우선이므로 충돌 감지 후에도 항상 로컬 데이터를 유지
-//        await MainActor.run {
-//            self.hasConflicts = false
-//            self.conflictsResolved = true
-//            self.syncStrategy = .localOverCloud
-//        }
-//        
-//        // 항상 false 반환하여 충돌 처리 로직을 건너뛰고 정상 동기화 진행
-//        return false
-//    }
-    
     // 실제 데이터 충돌 감지 (데이터 비교)
     private func detectRealConflicts(localCharacters: [CharacterModel], cloudCharacters: [CharacterModel]) -> Bool {
         // 캐릭터 이름 기준으로 비교할 수 있는 딕셔너리 생성
@@ -181,57 +168,57 @@ class DataSyncManager: ObservableObject {
         }
         
         // 이미 동기화 중이면 중복 실행 방지
-            if !syncLock.try() {
-                return false
+        if !syncLock.try() {
+            return false
+        }
+        
+        // 락 관리를 위한 플래그 설정
+        isSyncInProgress = true
+        
+        // 함수 종료 시 상태 정리를 위한 defer 블록
+        defer {
+            isSyncInProgress = false
+            syncLock.unlock()
+        }
+        
+        // 로컬 데이터를 서버에 업로드하는 로직 (로컬 우선 방식)
+        do {
+            await MainActor.run {
+                self.isSyncing = true
+                self.syncError = nil
             }
             
-            // 락 관리를 위한 플래그 설정
-            isSyncInProgress = true
+            // 로컬 캐릭터 가져오기
+            let descriptor = FetchDescriptor<CharacterModel>()
+            let localCharacters = try modelContext.fetch(descriptor)
             
-            // 함수 종료 시 상태 정리를 위한 defer 블록
-            defer {
-                isSyncInProgress = false
-                syncLock.unlock()
-            }
-            
-            // 로컬 데이터를 서버에 업로드하는 로직 (로컬 우선 방식)
-            do {
-                await MainActor.run {
-                    self.isSyncing = true
-                    self.syncError = nil
-                }
+            if !localCharacters.isEmpty {
+                // 서버에 업로드
+                try await FirebaseRepository.shared.saveCharacters(localCharacters)
                 
-                // 로컬 캐릭터 가져오기
-                let descriptor = FetchDescriptor<CharacterModel>()
-                let localCharacters = try modelContext.fetch(descriptor)
-                
-                if !localCharacters.isEmpty {
-                    // 서버에 업로드
-                    try await FirebaseRepository.shared.saveCharacters(localCharacters)
-                    
-                    await MainActor.run {
-                        self.lastSyncTime = Date()
-                        self.isSyncing = false
-                        self.hasPendingChanges = false
-                        self.hasConflicts = false
-                        Logger.info("서버 업로드 완료: \(localCharacters.count)개 캐릭터")
-                    }
-                    return true
-                } else {
-                    await MainActor.run {
-                        self.isSyncing = false
-                        Logger.info("업로드할 캐릭터가 없음")
-                    }
-                    return true
-                }
-            } catch {
                 await MainActor.run {
-                    self.syncError = error
+                    self.lastSyncTime = Date()
                     self.isSyncing = false
-                    Logger.error("서버 업로드 실패", error: error)
+                    self.hasPendingChanges = false
+                    self.hasConflicts = false
+                    Logger.info("서버 업로드 완료: \(localCharacters.count)개 캐릭터")
                 }
-                return false
+                return true
+            } else {
+                await MainActor.run {
+                    self.isSyncing = false
+                    Logger.info("업로드할 캐릭터가 없음")
+                }
+                return true
             }
+        } catch {
+            await MainActor.run {
+                self.syncError = error
+                self.isSyncing = false
+                Logger.error("서버 업로드 실패", error: error)
+            }
+            return false
+        }
     }
     
     // 데이터 병합 처리
@@ -419,20 +406,36 @@ class DataSyncManager: ObservableObject {
             let serverCharacters = try await FirebaseRepository.shared.fetchCharacters()
             
             if !serverCharacters.isEmpty {
-                // 기존 로컬 데이터 삭제
-                let descriptor = FetchDescriptor<CharacterModel>()
-                let localCharacters = try modelContext.fetch(descriptor)
-                
-                for character in localCharacters {
-                    modelContext.delete(character)
+                // 안전한 데이터 교체를 위해 먼저 관련 객체부터 삭제
+                try await MainActor.run {
+                    // 1. 하위 객체(DailyTask, RaidGate)부터 삭제
+                    let taskDescriptor = FetchDescriptor<DailyTask>()
+                    let tasks = try modelContext.fetch(taskDescriptor)
+                    for task in tasks { modelContext.delete(task) }
+                    
+                    let gateDescriptor = FetchDescriptor<RaidGate>()
+                    let gates = try modelContext.fetch(gateDescriptor)
+                    for gate in gates { modelContext.delete(gate) }
+                    
+                    // 2. 먼저 중간 저장
+                    try modelContext.save()
+                    
+                    // 3. 캐릭터 객체 삭제
+                    let charDescriptor = FetchDescriptor<CharacterModel>()
+                    let characters = try modelContext.fetch(charDescriptor)
+                    for character in characters { modelContext.delete(character) }
+                    
+                    // 4. 다시 저장
+                    try modelContext.save()
+                    
+                    // 5. 서버 데이터 삽입
+                    for character in serverCharacters {
+                        modelContext.insert(character)
+                    }
+                    
+                    // 6. 최종 저장
+                    try modelContext.save()
                 }
-                
-                // 서버 데이터 저장
-                for character in serverCharacters {
-                    modelContext.insert(character)
-                }
-                
-                try modelContext.save()
                 
                 await MainActor.run {
                     self.lastSyncTime = Date()
