@@ -35,6 +35,13 @@ struct CharacterPagingView: View {
                 HStack {
                     // 바로가기 버튼
                     Button(action: {
+                        // 동기화
+                        if AuthManager.shared.isLoggedIn && DataSyncManager.shared.hasPendingChanges && NetworkMonitorService.shared.isConnected {
+                            Task {
+                                let result = await DataSyncManager.shared.uploadToServer()
+                                Logger.debug("캐릭터 바로가기로 인한 동기화 결과: \(result ? "성공" : "실패")")
+                            }
+                        }
                         showCharacterSelector = true
                     }) {
                         HStack(spacing: 4) {
@@ -227,6 +234,14 @@ struct CharacterPagingView: View {
             animationDirection = 0
             isAnimating = false
             isPageChanging = false
+            
+            // 데이터 동기화 추가
+            if AuthManager.shared.isLoggedIn && DataSyncManager.shared.hasPendingChanges && NetworkMonitorService.shared.isConnected {
+                Task {
+                    let result = await DataSyncManager.shared.uploadToServer()
+                    Logger.debug("페이지 이동으로 인한 동기화 결과: \(result ? "성공" : "실패")")
+                }
+            }
         }
     }
 }

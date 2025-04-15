@@ -153,6 +153,17 @@ struct RestingPointsEditorView: View {
                     Button("저장") {
                         // 수정된 포인트 저장
                         task.restingPoints = editedPoints
+                        
+                        // 동기화 표시 및 실행
+                        DataSyncManager.shared.markLocalChanges()
+                        
+                        // 동기화 즉시 수행 (네트워크 연결 및 로그인 상태 확인)
+                        if AuthManager.shared.isLoggedIn && NetworkMonitorService.shared.isConnected {
+                            Task {
+                                let result = await DataSyncManager.shared.uploadToServer()
+                                Logger.debug("휴게포인트 수정으로 인한 동기화 결과: \(result ? "성공" : "실패")")
+                            }
+                        }
                         dismiss()
                     }
                 }
