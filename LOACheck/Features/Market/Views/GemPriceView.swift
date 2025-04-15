@@ -260,14 +260,6 @@ struct GemPriceView: View {
                 return .failure(.invalidResponse)
             }
             
-            // 응답 내용 로깅 (디버깅용)
-#if DEBUG
-            if let responseText = String(data: data, encoding: .utf8) {
-                let preview = String(responseText.prefix(200)) // 응답의 앞부분만 로깅
-                Logger.debug("API 응답 미리보기: \(preview)")
-            }
-#endif
-            
             switch httpResponse.statusCode {
             case 200:
                 // 서비스가 점검 중일 때도 200 상태 코드를 반환하는 경우 점검 메시지 확인

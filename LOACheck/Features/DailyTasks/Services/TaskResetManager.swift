@@ -158,27 +158,6 @@ class TaskResetManager {
         }
     }
     
-#if DEBUG
-// 디버그 전용 강제 리셋 메소드
-func forceWeeklyReset(modelContext: ModelContext) {
-    resetRaidGates(modelContext: modelContext)
-    
-    // 마지막 리셋 시간 업데이트
-    UserDefaults.standard.set(Date(), forKey: "lastWeeklyReset")
-    
-    Logger.debug("주간 레이드 강제 리셋 완료")
-}
-
-func forceDailyReset(modelContext: ModelContext) {
-    resetDailyTasks(modelContext: modelContext)
-    
-    // 마지막 리셋 시간 업데이트
-    UserDefaults.standard.set(Date(), forKey: "lastDailyReset")
-    
-    Logger.debug("일일 숙제 강제 리셋 완료")
-}
-#endif
-    
     // 주간 레이드 관문 리셋
     private func resetRaidGates(modelContext: ModelContext) {
         do {
@@ -198,7 +177,10 @@ func forceDailyReset(modelContext: ModelContext) {
             
             // 모든 캐릭터와 해당 레이드의 추가 수익 초기화
             for character in allCharacters {
-                // 모든 레이드에 대한 추가 수익을 0으로 초기화
+                // additionalGoldMap 완전 초기화 - 빈 딕셔너리로 설정
+                character.additionalGoldMap = "{}"
+                
+                // 기존 추가 수익 개별 초기화 코드는 그대로 유지 (안전성을 위해)
                 if let raidGates = character.raidGates, !raidGates.isEmpty {
                     // 레이드별로 그룹화하여 유니크한 레이드 이름 목록 생성
                     let raidNames = Set(raidGates.map { $0.raid })

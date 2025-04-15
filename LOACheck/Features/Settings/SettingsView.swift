@@ -34,89 +34,87 @@ struct SettingsView: View {
     // 캐릭터 목록 쿼리
     @Query(sort: \CharacterModel.level, order: .reverse) var characters: [CharacterModel]
     
-    var body: some View {
-        NavigationStack {
-            Form {
-#if DEBUG
-Section(header: Text("개발자 도구")) {
-    Button("주간 레이드 리셋 테스트") {
-        if let modelContext = DataSyncManager.shared.modelContext {
-            TaskResetManager.shared.forceWeeklyReset(modelContext: modelContext)
+    private func buildSettingsContent() -> some View {
+        Group {
+            // 계정 섹션
+            AccountSectionView(
+                showSignIn: $showSignIn,
+                showSignOut: $showSignOut,
+                showRepCharacterEditor: $showRepCharacterEditor
+            )
+            
+            // 로그인 시에만 동기화 관련 섹션 표시
+            if authManager.isLoggedIn {
+                DataSyncSectionView(
+                    dataSyncManager: dataSyncManager,
+                    networkMonitor: networkMonitor,
+                    isDataSyncing: $isDataSyncing,
+                    showSyncStrategySheet: $showSyncStrategySheet,
+                    alertMessage: $alertMessage,
+                    isShowingAlert: $isShowingAlert
+                )
+            }
+            
+            // API 설정 섹션
+            APIKeySectionView(
+                apiKey: $apiKey,
+                alertMessage: $alertMessage,
+                isShowingAlert: $isShowingAlert
+            )
+            
+            // 원정대 관리 섹션
+            RosterManagementSectionView(
+                apiKey: apiKey,
+                authManager: authManager,
+                networkMonitor: networkMonitor,
+                modelContext: modelContext,
+                dataSyncManager: dataSyncManager,
+                errorService: errorService,
+                alertMessage: $alertMessage,
+                isShowingAlert: $isShowingAlert
+            )
+            
+            buildAdditionalSettingsContent() // 추가 섹션을 위한 함수 호출
+        }
+    }
+
+    // 나머지 섹션을 위한 추가 함수
+    private func buildAdditionalSettingsContent() -> some View {
+        Group {
+            // 다른 원정대 추가 섹션
+            AdditionalRosterSectionView(
+                apiKey: apiKey,
+                authManager: authManager,
+                networkMonitor: networkMonitor,
+                modelContext: modelContext,
+                dataSyncManager: dataSyncManager,
+                errorService: errorService,
+                alertMessage: $alertMessage,
+                isShowingAlert: $isShowingAlert
+            )
+            
+            // 앱 정보 섹션
+            AppInfoSectionView(
+                networkMonitor: networkMonitor,
+                errorService: errorService,
+                alertMessage: $alertMessage,
+                isShowingAlert: $isShowingAlert
+            )
+            
+            // 데이터 관리 섹션
+            DataManagementSectionView(
+                isShowingResetConfirmation: $isShowingResetConfirmation
+            )
+            
+            // 개발자 정보 섹션
+            DeveloperInfoSectionView()
         }
     }
     
-    Button("일일 숙제 리셋 테스트") {
-        if let modelContext = DataSyncManager.shared.modelContext {
-            TaskResetManager.shared.forceDailyReset(modelContext: modelContext)
-        }
-    }
-}
-#endif
-                // 계정 섹션
-                AccountSectionView(
-                    showSignIn: $showSignIn,
-                    showSignOut: $showSignOut,
-                    showRepCharacterEditor: $showRepCharacterEditor
-                )
-                
-                // 로그인 시에만 동기화 관련 섹션 표시
-                if authManager.isLoggedIn {
-                    DataSyncSectionView(
-                        dataSyncManager: dataSyncManager,
-                        networkMonitor: networkMonitor,
-                        isDataSyncing: $isDataSyncing,
-                        showSyncStrategySheet: $showSyncStrategySheet,
-                        alertMessage: $alertMessage,
-                        isShowingAlert: $isShowingAlert
-                    )
-                }
-                
-                // API 설정 섹션
-                APIKeySectionView(
-                    apiKey: $apiKey,
-                    alertMessage: $alertMessage,
-                    isShowingAlert: $isShowingAlert
-                )
-                
-                // 원정대 관리 섹션
-                RosterManagementSectionView(
-                    apiKey: apiKey,
-                    authManager: authManager,
-                    networkMonitor: networkMonitor,
-                    modelContext: modelContext,
-                    dataSyncManager: dataSyncManager,
-                    errorService: errorService,
-                    alertMessage: $alertMessage,
-                    isShowingAlert: $isShowingAlert
-                )
-                
-                // 다른 원정대 추가 섹션
-                AdditionalRosterSectionView(
-                    apiKey: apiKey,
-                    authManager: authManager,
-                    networkMonitor: networkMonitor,
-                    modelContext: modelContext,
-                    dataSyncManager: dataSyncManager,
-                    errorService: errorService,
-                    alertMessage: $alertMessage,
-                    isShowingAlert: $isShowingAlert
-                )
-                
-                // 앱 정보 섹션
-                AppInfoSectionView(
-                    networkMonitor: networkMonitor,
-                    errorService: errorService,
-                    alertMessage: $alertMessage,
-                    isShowingAlert: $isShowingAlert
-                )
-                
-                // 데이터 관리 섹션
-                DataManagementSectionView(
-                    isShowingResetConfirmation: $isShowingResetConfirmation
-                )
-                
-                // 개발자 정보 섹션
-                DeveloperInfoSectionView()
+    var body: some View {
+        NavigationStack {
+            Form {
+                buildSettingsContent()
             }
             .navigationTitle("설정")
             .alert("알림", isPresented: $isShowingAlert) {

@@ -30,6 +30,7 @@ struct RaidSettingsView: View {
                     ForEach(availableRaidGroups) { raidGroup in
                         RaidSettingCardView(
                             raidGroup: raidGroup,
+                            character: character, // 캐릭터 전달
                             selectedRaids: $selectedRaids,
                             gateSettings: $gateSettings,
                             showAlert: $showAlert,
@@ -183,9 +184,10 @@ struct RaidSettingsView: View {
     }
 }
 
-// 레이드 설정 카드 뷰
+// 레이드 설정 카드 뷰 - 수정된 버전
 struct RaidSettingCardView: View {
     var raidGroup: RaidGroup
+    var character: CharacterModel // 캐릭터 추가
     @Binding var selectedRaids: Set<String>
     @Binding var gateSettings: [String: [Int: String]]
     @Binding var showAlert: Bool
@@ -238,6 +240,9 @@ struct RaidSettingCardView: View {
                             selectedRaids.remove(raidGroup.name)
                             gateSettings.removeValue(forKey: raidGroup.name)
                             goldDisabledRaids.remove(raidGroup.name)
+                            
+                            // 레이드가 토글 해제될 때 추가 수익도 초기화
+                            character.setAdditionalGold(0, for: raidGroup.name)
                         }
                         showGateSettings = isSelected
                     }

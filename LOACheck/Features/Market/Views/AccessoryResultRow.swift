@@ -166,17 +166,6 @@ struct AccessoryResultRow: View {
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 6)
-        .onAppear {
-            // 디버깅용 로그
-            #if DEBUG
-            for effect in item.options.filter({ $0.type == "ACCESSORY_UPGRADE" }) {
-                let tier = EngraveEffectManager.shared.getEffectTier(name: effect.optionName, value: effect.value)
-                let tierName = tier == .low ? "하옵(파랑)" :
-                              tier == .medium ? "중옵(보라)" : "상옵(오렌지)"
-                Logger.debug("효과: \(effect.optionName), 값: \(effect.value), 등급: \(tierName)")
-            }
-            #endif
-        }
     }
     
     // 품질에 따른 색상 반환

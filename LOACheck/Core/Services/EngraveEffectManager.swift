@@ -146,12 +146,6 @@ class EngraveEffectManager {
             EngraveEffectValue(displayValue: "4.50%", value: 450, isPercentage: true),
             EngraveEffectValue(displayValue: "7.50%", value: 750, isPercentage: true)
         ]
-        
-        // 초기화시 등록된 효과 로깅
-        #if DEBUG
-        logAllEffectValues()
-        checkEffectValueRegistration()
-        #endif
     }
     
     // 연마효과 등급 판별 (하, 중, 상)
@@ -184,10 +178,6 @@ class EngraveEffectManager {
         
         // 추가 피해 특수 케이스 - API값과 기대값 차이 수정
         if normalizedName.contains("추가 피해") {
-            #if DEBUG
-            Logger.debug("추가 피해 값 확인: \(value)")
-            #endif
-            
             // 소수점 첫째자리까지 반올림하여 정확도 향상
             let roundedValue = round(value * 10) / 10
             
@@ -226,14 +216,6 @@ class EngraveEffectManager {
         
         // 값 비교를 위한 정수값으로 변환
         let compareValue = isPercentage ? Int(value * 100) : Int(value)
-        
-        #if DEBUG
-        // 디버깅 로그
-        Logger.debug("효과 등급 판정 - 원본값: \(value), 변환값: \(compareValue), isPercentage: \(isPercentage)")
-        if values.count >= 3 {
-            Logger.debug("  비교범위: 하옵(~\(values[0].value)), 중옵(~\(values[1].value)), 상옵(그 이상)")
-        }
-        #endif
         
         if values.count >= 3 {
             if compareValue <= values[0].value {
