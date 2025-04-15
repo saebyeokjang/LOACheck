@@ -184,10 +184,10 @@ struct RaidSettingsView: View {
     }
 }
 
-// 레이드 설정 카드 뷰 - 수정된 버전
+// 레이드 설정 카드 뷰
 struct RaidSettingCardView: View {
     var raidGroup: RaidGroup
-    var character: CharacterModel // 캐릭터 추가
+    var character: CharacterModel
     @Binding var selectedRaids: Set<String>
     @Binding var gateSettings: [String: [Int: String]]
     @Binding var showAlert: Bool
@@ -198,7 +198,7 @@ struct RaidSettingCardView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // 레이드 헤더 - 새로운 레이아웃
+            // 레이드 헤더
             HStack {
                 // 레이드 이름
                 Text("\(getOrderString(for: raidGroup.name)) \(raidGroup.name)")
@@ -220,6 +220,7 @@ struct RaidSettingCardView: View {
                             } else {
                                 goldDisabledRaids.insert(raidGroup.name)
                             }
+                            DataSyncManager.shared.markLocalChanges()
                         }
                     ))
                     .labelsHidden()
@@ -244,6 +245,7 @@ struct RaidSettingCardView: View {
                             // 레이드가 토글 해제될 때 추가 수익도 초기화
                             character.setAdditionalGold(0, for: raidGroup.name)
                         }
+                        DataSyncManager.shared.markLocalChanges()
                         showGateSettings = isSelected
                     }
                 ))

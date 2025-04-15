@@ -75,11 +75,62 @@ final class CharacterModel {
         return additionalGoldForRaids[raid] ?? 0
     }
     
+    private func updateRaidGatesAdditionalGold(raid: String, amount: Int) {
+        guard let raidGates = self.raidGates else { return }
+        
+        // 해당 레이드의 모든 게이트 찾기
+        let matchingGates = raidGates.filter { $0.raid == raid }
+        
+        // 각 게이트의 additionalGold 필드 업데이트
+        for gate in matchingGates {
+            gate.additionalGold = amount
+            Logger.debug("레이드 게이트 additionalGold 업데이트: \(raid) - 관문 \(gate.gate + 1) - \(amount)G")
+        }
+    }
+    
+    func synchronizeAdditionalGold() {
+        guard let raidGates = self.raidGates else { return }
+        
+        // 레이드별로 그룹화
+        let groupedGates = Dictionary(grouping: raidGates) { $0.raid }
+        
+        for (raid, gates) in groupedGates {
+            // 첫 번째 게이트의 additionalGold 값을 사용
+            if let firstGate = gates.first, firstGate.additionalGold > 0 {
+                // additionalGoldMap 업데이트
+                setAdditionalGold(firstGate.additionalGold, for: raid)
+            } else {
+                // additionalGoldMap에서 값 가져와서 설정
+                let amount = getAdditionalGold(for: raid)
+                if amount > 0 {
+                    for gate in gates {
+                        gate.additionalGold = amount
+                    }
+                }
+            }
+        }
+    }
+    
     // 특정 레이드의 추가 수익 설정
     func setAdditionalGold(_ amount: Int, for raid: String) {
         var currentMap = additionalGoldForRaids
-        currentMap[raid] = amount
-        additionalGoldForRaids = currentMap
+        let oldAmount = currentMap[raid] ?? 0
+        
+        // 값이 실제로 변경되었을 때만 처리
+        if amount != oldAmount {
+            currentMap[raid] = amount
+            additionalGoldForRaids = currentMap
+            
+            // 로그 추가
+            Logger.debug("레이드 '\(raid)'의 추가 골드 설정: \(oldAmount) -> \(amount)")
+            Logger.debug("additionalGoldMap 업데이트: \(additionalGoldMap)")
+            
+            // 해당 레이드의 모든 RaidGate 객체의 additionalGold도 함께 업데이트
+            updateRaidGatesAdditionalGold(raid: raid, amount: amount)
+            
+            // 동기화 표시
+            DataSyncManager.shared.markLocalChanges()
+        }
     }
     
     // 캐릭터에 대한 주간 골드 보상 계산 (기본 골드는 상위 3개만, 추가 수익은 모든 레이드 적용)

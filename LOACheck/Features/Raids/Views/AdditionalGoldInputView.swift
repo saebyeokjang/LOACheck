@@ -93,13 +93,32 @@ struct AdditionalGoldInputView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("저장") {
                         saveAdditionalGold()
+                        
+                        // 서버에 즉시 동기화 시도 추가
+                        if AuthManager.shared.isLoggedIn && NetworkMonitorService.shared.isConnected {
+                            Task {
+                                await DataSyncManager.shared.uploadToServer()
+                            }
+                        }
+                        
                         dismiss()
                     }
                 }
             }
             .onAppear {
-                // 초기 값 설정
+                // 현재 additionalGoldMap에서 값을 가져오는 것으로 변경
                 additionalGold = "\(character.getAdditionalGold(for: raidName))"
+                
+                // 로그로 현재 상태 확인
+                Logger.debug("레이드 \(raidName)의 additionalGoldMap: \(character.getAdditionalGold(for: raidName))G")
+                
+                // 해당 레이드의 관문 additionalGold 출력
+                if let gates = character.raidGates {
+                    let matchingGates = gates.filter { $0.raid == raidName }
+                    for gate in matchingGates {
+                        Logger.debug("레이드 게이트 \(raidName) 관문 \(gate.gate + 1)의 additionalGold: \(gate.additionalGold)G")
+                    }
+                }
             }
         }
     }
@@ -122,7 +141,21 @@ struct AdditionalGoldInputView: View {
     // 입력된 추가 골드 저장
     private func saveAdditionalGold() {
         if let gold = Int(additionalGold) {
+            // CharacterModel의 setAdditionalGold 메서드 호출
+            // (이제 이 메서드가 RaidGate.additionalGold도 함께 업데이트함)
             character.setAdditionalGold(gold, for: raidName)
+            
+            // 로그로 설정 후 상태 확인
+            Logger.debug("추가 골드 저장 후 additionalGoldMap: \(character.additionalGoldMap)")
+            
+            if let gates = character.raidGates {
+                let matchingGates = gates.filter { $0.raid == raidName }
+                for gate in matchingGates {
+                    Logger.debug("저장 후 레이드 게이트 \(raidName) 관문 \(gate.gate + 1)의 additionalGold: \(gate.additionalGold)G")
+                }
+            }
+            
+            // 동기화 표시
             DataSyncManager.shared.markLocalChanges()
         }
     }

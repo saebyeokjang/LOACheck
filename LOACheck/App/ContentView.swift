@@ -165,12 +165,12 @@ struct ContentView: View {
                 }
             }
         }
-//        .onChange(of: dataSyncManager.hasConflicts) { _, hasConflicts in
-//            if hasConflicts && !dataSyncManager.conflictsResolved && authManager.isLoggedIn {
-//                // 충돌 발생 시 알림 표시
-//                showSyncConflictAlert = true
-//            }
-//        }
+        //        .onChange(of: dataSyncManager.hasConflicts) { _, hasConflicts in
+        //            if hasConflicts && !dataSyncManager.conflictsResolved && authManager.isLoggedIn {
+        //                // 충돌 발생 시 알림 표시
+        //                showSyncConflictAlert = true
+        //            }
+        //        }
     }
     
     // 친구 요청 배지 계산
@@ -183,6 +183,9 @@ struct ContentView: View {
     private func performInitialSetup() {
         // 레이드 데이터 마이그레이션
         RaidDataMigrationService.shared.checkAndPerformMigrations(modelContext: modelContext)
+        
+        // additionalGold 동기화
+        syncAdditionalGoldForAllCharacters()
         
         // 일일 리셋 체크
         setupTaskResetTimer()
@@ -211,6 +214,21 @@ struct ContentView: View {
            networkMonitor.isConnected {
             Task {
                 _ = await LostArkAPIService.shared.fetchCharacters(apiKey: apiKey, modelContext: modelContext)
+            }
+        }
+    }
+    
+    // 모든 캐릭터의 additionalGold 동기화하는 함수
+    private func syncAdditionalGoldForAllCharacters() {
+        Task {
+            do {
+                let descriptor = FetchDescriptor<CharacterModel>()
+                if let characters = try? modelContext.fetch(descriptor) {
+                    for character in characters {
+                        character.synchronizeAdditionalGold()
+                    }
+                    Logger.info("모든 캐릭터의 additionalGold 동기화 완료: \(characters.count)개 캐릭터")
+                }
             }
         }
     }

@@ -82,7 +82,7 @@ class LostArkAPIService {
     
     private init() {}
     
-    private let baseURL = "https://developer-lostark.game.onstove.com"
+    let baseURL = "https://developer-lostark.game.onstove.com"
     
     // 캐릭터 정보 가져오기
     @MainActor

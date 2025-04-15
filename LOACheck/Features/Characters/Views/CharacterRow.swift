@@ -46,6 +46,8 @@ struct CharacterRow: View {
                             get: { !character.isHidden },  // 반전: 토글 on -> 보기 (isHidden = false)
                             set: { newValue in
                                 character.isHidden = !newValue  // 반전: 토글 off -> 숨김 (isHidden = true)
+                                // 동기화 표시 - 토글 변경 시 추가
+                                DataSyncManager.shared.markLocalChanges()
                             }
                         )) {
                             Text("")
@@ -69,6 +71,8 @@ struct CharacterRow: View {
                                     return
                                 }
                                 character.isGoldEarner = newValue
+                                // 동기화 표시 - 토글 변경 시 추가
+                                DataSyncManager.shared.markLocalChanges()
                             }
                         )) {
                             Text("")

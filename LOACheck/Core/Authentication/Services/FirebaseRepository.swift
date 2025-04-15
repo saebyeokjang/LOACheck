@@ -155,7 +155,6 @@ class FirebaseRepository {
         guard let userId = AuthManager.shared.currentUser?.id else {
             throw FirebaseError.notAuthenticated
         }
-        
         let charactersRef = db.collection("users").document(userId).collection("characters")
         let snapshot = try await charactersRef.getDocuments()
         
@@ -214,6 +213,12 @@ class FirebaseRepository {
                 character.dailyTasks = dailyTasks
             }
             
+            // additionalGoldMap 처리
+            if let additionalGoldMap = data["additionalGoldMap"] as? String {
+                character.additionalGoldMap = additionalGoldMap
+                Logger.debug("Firebase에서 로드한 additionalGoldMap: \(additionalGoldMap)")
+            }
+            
             // 레이드 관문 데이터 설정
             if let raidGatesData = data["raidGates"] as? [[String: Any]] {
                 var raidGates: [RaidGate] = []
@@ -246,6 +251,9 @@ class FirebaseRepository {
                 
                 character.raidGates = raidGates
             }
+            
+            // 모든 데이터를 로드한 후 additionalGold 동기화
+            character.synchronizeAdditionalGold()
             
             characters.append(character)
         }
