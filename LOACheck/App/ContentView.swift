@@ -91,6 +91,7 @@ struct ContentView: View {
                 }
             }
             .onAppear {
+                performInitialSetup()
                 let appearance = UITabBarAppearance()
                 appearance.configureWithDefaultBackground()
                 UITabBar.appearance().standardAppearance = appearance
