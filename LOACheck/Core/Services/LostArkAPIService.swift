@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftData
+import FirebaseAnalytics
 
 // MARK: - API 응답 모델
 struct CharacterResponse: Decodable {
@@ -84,6 +85,7 @@ enum APIError: Error, LocalizedError {
 // MARK: - API 서비스
 class LostArkAPIService {
     static let shared = LostArkAPIService()
+    private var hasLoggedCharactersThisSession = false
     
     private init() {}
     
@@ -149,6 +151,13 @@ class LostArkAPIService {
                 
                 // 안전하게 캐릭터 모델 업데이트
                 await updateCharacterModels(charactersData: allCharactersData, modelContext: modelContext, clearExisting: clearExisting)
+                
+                if !self.hasLoggedCharactersThisSession {
+                    Analytics.logEvent("characters_loaded", parameters: [
+                        "count": allCharactersData.count
+                    ])
+                    self.hasLoggedCharactersThisSession = true
+                }
                 
                 return .success(allCharactersData.count)
                 

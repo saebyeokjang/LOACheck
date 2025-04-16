@@ -9,6 +9,7 @@ import SwiftUI
 import SwiftData
 import FirebaseCore
 import GoogleSignIn
+import FirebaseAnalytics
 
 @main
 struct LOACheckApp: App {
@@ -24,6 +25,9 @@ struct LOACheckApp: App {
     init() {
         // Firebase 초기화
         FirebaseApp.configure()
+        
+        // Analytics 활성화
+        Analytics.setAnalyticsCollectionEnabled(true)
         
         // 로그 시스템 초기화
         setupLoggingSystem()
