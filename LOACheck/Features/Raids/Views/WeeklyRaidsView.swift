@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import FirebaseAnalytics
 
 struct WeeklyRaidsView: View {
     var character: CharacterModel
@@ -463,6 +464,14 @@ struct GateButton: View {
         
         // 동기화 플래그 설정
         DataSyncManager.shared.markLocalChanges()
+        
+        // 이벤트 로깅
+        Analytics.logEvent("raid_gate_toggled", parameters: [
+            "raid_name": gate.raid,
+            "gate_number": gate.gate + 1,
+            "difficulty": gate.difficulty,
+            "is_completed": gate.isCompleted
+        ])
     }
     
     // 난이도에 따른 색상 반환

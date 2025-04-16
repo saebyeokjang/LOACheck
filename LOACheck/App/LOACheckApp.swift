@@ -61,6 +61,36 @@ struct LOACheckApp: App {
                         }
                         
                         isInitialized = true
+                        
+                        let sessionStartTime = Date()
+                        Analytics.logEvent("app_session_start", parameters: [
+                            "user_logged_in": authManager.isLoggedIn,
+                            "device_model": UIDevice.current.model,
+                            "os_version": UIDevice.current.systemVersion,
+                            "app_version": AppUpdateService.shared.getCurrentAppVersion(),
+                            "network_connected": NetworkMonitorService.shared.isConnected,
+                            "connection_type": NetworkMonitorService.shared.connectionType.displayName
+                        ])
+                        // 세션 시간 추적을 위해 UserDefaults에 시작 시간 저장
+                        UserDefaults.standard.set(sessionStartTime.timeIntervalSince1970, forKey: "session_start_time")
+                    }
+                    
+                    // 앱 종료 시 세션 추적 (NotificationCenter를 통해)
+                    NotificationCenter.default.addObserver(
+                        forName: UIApplication.willResignActiveNotification,
+                        object: nil,
+                        queue: .main
+                    ) { _ in
+                        // 세션 종료 시간 계산
+                        if let startTimeInterval = UserDefaults.standard.object(forKey: "session_start_time") as? Double {
+                            let startTime = Date(timeIntervalSince1970: startTimeInterval)
+                            let sessionDuration = Date().timeIntervalSince(startTime)
+                            
+                            Analytics.logEvent("app_session_end", parameters: [
+                                "session_duration_seconds": sessionDuration,
+                                "user_logged_in": AuthManager.shared.isLoggedIn
+                            ])
+                        }
                     }
                 }
         }

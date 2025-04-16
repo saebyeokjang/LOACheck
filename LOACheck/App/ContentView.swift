@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import FirebaseAnalytics
 
 struct ContentView: View {
     @State private var selectedTab = 0
@@ -89,6 +90,14 @@ struct ContentView: View {
                         await friendsService.loadFriendRequests()
                     }
                 }
+                
+                // 탭 전환 이벤트 기록
+                    let tabNames = ["캐릭터", "관리", "시세", "친구", "설정"]
+                    Analytics.logEvent("tab_switch", parameters: [
+                        "from_tab": tabNames[oldValue],
+                        "to_tab": tabNames[newValue]
+                    ])
+                
             }
             .onAppear {
                 performInitialSetup()

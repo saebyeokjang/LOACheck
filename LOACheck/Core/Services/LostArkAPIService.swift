@@ -104,6 +104,8 @@ class LostArkAPIService {
             
             Logger.debug("API Request: Fetching siblings for \(characterName)")
             
+            let startTime = CFAbsoluteTimeGetCurrent()
+            
             // 기존 데이터를 초기화해야 하는 경우
             if clearExisting {
                 try safeClearExistingData(modelContext: modelContext)
@@ -123,6 +125,9 @@ class LostArkAPIService {
             guard let httpResponse = response as? HTTPURLResponse else {
                 return .failure(.invalidResponse)
             }
+            
+            let endTime = CFAbsoluteTimeGetCurrent()
+            let responseTimeMs = (endTime - startTime) * 1000 // 밀리초 단위
             
             // API 응답 처리
             switch httpResponse.statusCode {
@@ -154,7 +159,12 @@ class LostArkAPIService {
                 
                 if !self.hasLoggedCharactersThisSession {
                     Analytics.logEvent("characters_loaded", parameters: [
-                        "count": allCharactersData.count
+                        "count": allCharactersData.count,
+                        "average_level": allCharactersData.isEmpty ? 0 : allCharactersData.reduce(0.0) { $0 + $1.itemLevel } / Double(allCharactersData.count),
+                        "max_level": allCharactersData.max(by: { $0.itemLevel < $1.itemLevel })?.itemLevel ?? 0,
+                        "load_method": clearExisting ? "full_refresh" : "update_existing",
+                        "api_response_time_ms": responseTimeMs,
+                        "load_success": true
                     ])
                     self.hasLoggedCharactersThisSession = true
                 }
@@ -182,6 +192,12 @@ class LostArkAPIService {
                 return .failure(.unknown(httpResponse.statusCode))
             }
         } catch {
+            // 오류 발생 시 이벤트 로깅
+            Analytics.logEvent("characters_load_failed", parameters: [
+                "error_message": error.localizedDescription,
+                "api_key_provided": !apiKey.isEmpty,
+                "network_connected": NetworkMonitorService.shared.isConnected
+            ])
             Logger.error("API Error", error: error)
             return .failure(.networkError(error))
         }
@@ -241,7 +257,7 @@ class LostArkAPIService {
                 Logger.error("Authorization failed: Invalid API key or format")
                 return .failure(.unauthorized)
                 
-            // 다른 상태 코드 처리는 위와 동일
+                // 다른 상태 코드 처리는 위와 동일
             default:
                 Logger.error("Unexpected error occurred with status code: \(httpResponse.statusCode)")
                 return .failure(.unknown(httpResponse.statusCode))

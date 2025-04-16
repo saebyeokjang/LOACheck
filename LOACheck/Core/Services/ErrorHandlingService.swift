@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import FirebaseAnalytics
 
 /// 앱 전체에서 사용할 수 있는 오류 처리 서비스
 class ErrorHandlingService: ObservableObject {
@@ -26,6 +27,21 @@ class ErrorHandlingService: ObservableObject {
     func handleError(_ error: Error, source: ErrorSource, retryAction: (() -> Void)? = nil) {
         let appError = convertToAppError(error, source: source)
         
+        // 오류 발생 이벤트 기록
+        Analytics.logEvent("app_error_occurred", parameters: [
+            "error_source": source.rawValue,
+            "error_code": appError.code,
+            "error_message": appError.message,
+            "is_auto_recoverable": appError.isAutoRecoverable,
+            "network_status": NetworkMonitorService.shared.isConnected,
+            "connection_type": NetworkMonitorService.shared.connectionType.displayName,
+            "app_version": AppUpdateService.shared.getCurrentAppVersion(),
+            "device_model": UIDevice.current.model,
+            "os_version": UIDevice.current.systemVersion,
+            "memory_usage": getMemoryUsage(),
+            "user_logged_in": AuthManager.shared.isLoggedIn
+        ])
+        
         DispatchQueue.main.async {
             self.currentError = appError
             self.showErrorAlert = true
@@ -38,6 +54,24 @@ class ErrorHandlingService: ObservableObject {
             // 로그에 오류 기록
             self.logError(appError)
         }
+    }
+    
+    // 메모리 사용량 가져오는 헬퍼 함수
+    private func getMemoryUsage() -> Double {
+        var info = mach_task_basic_info()
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size)/4
+        
+        let kerr: kern_return_t = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
+                task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
+            }
+        }
+        
+        if kerr == KERN_SUCCESS {
+            return Double(info.resident_size) / (1024 * 1024) // MB 단위
+        }
+        
+        return 0
     }
     
     /// 일반 오류를 앱 오류로 변환

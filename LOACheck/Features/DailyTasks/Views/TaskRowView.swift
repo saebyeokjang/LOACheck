@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import FirebaseAnalytics
 
 struct TaskRowView: View {
     @Bindable var task: DailyTask
@@ -228,6 +229,14 @@ struct TaskRowView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             isProcessing = false
         }
+        
+        // 일일 숙제 상태 변경 추적
+            Analytics.logEvent("daily_task_toggled", parameters: [
+                "task_type": task.type.rawValue,
+                "is_completed": task.completionCount == task.type.maxCompletionCount,
+                "character_level": character.level,
+                "character_class": character.characterClass
+            ])
     }
     
     // 채워진 너비 계산
