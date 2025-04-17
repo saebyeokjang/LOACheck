@@ -214,12 +214,12 @@ struct RaidInfoRow: View {
                         .foregroundColor(allCompleted ? .gray : .primary)
                         .strikethrough(allCompleted)
                     
-                    // 골드 비활성화된 경우 표시
-                    if isGoldDisabled {
-                        Image(systemName: "g.circle.slash")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                    }
+//                    // 골드 비활성화된 경우 표시
+//                    if isGoldDisabled {
+//                        Image(systemName: "g.circle.slash")
+//                            .font(.caption)
+//                            .foregroundColor(.gray)
+//                    }
                     
                     // 완료 시 체크마크 추가
                     if allCompleted {

@@ -381,11 +381,11 @@ struct GateButton: View {
                 
                 // 골드 보상 - 비활성화 상태 표시
                 HStack(spacing: 2) {
-                    if isGoldDisabled && isTopRaid && isGoldEarner {
-                        Image(systemName: "g.circle.slash")
-                            .font(.caption2)
-                            .foregroundColor(.gray)
-                    }
+//                    if isGoldDisabled && isTopRaid && isGoldEarner {
+//                        Image(systemName: "g.circle.slash")
+//                            .font(.caption2)
+//                            .foregroundColor(.gray)
+//                    }
                     
                     Text("\(gate.goldReward)G")
                         .font(.caption)

@@ -31,15 +31,21 @@ final class CharacterModel {
             return dict
         }
         set {
-            if let data = try? JSONSerialization.data(withJSONObject: newValue),
-               let jsonStr = String(data: data, encoding: .utf8) {
-                additionalGoldMap = jsonStr
+                do {
+                    let data = try JSONSerialization.data(withJSONObject: newValue)
+                    if let jsonStr = String(data: data, encoding: .utf8) {
+                        additionalGoldMap = jsonStr
+                    }
+                } catch {
+                    Logger.error("additionalGoldMap 직렬화 실패", error: error)
+                    // 실패 시 기본값 설정
+                    additionalGoldMap = "{}"
+                }
             }
-        }
     }
     
-    @Relationship(deleteRule: .cascade) var dailyTasks: [DailyTask]?
-    @Relationship(deleteRule: .cascade) var raidGates: [RaidGate]?  // 관문별 레이드로 변경
+    @Relationship(deleteRule: .cascade, inverse: \DailyTask.character) var dailyTasks: [DailyTask]?
+    @Relationship(deleteRule: .cascade, inverse: \RaidGate.character) var raidGates: [RaidGate]?
     
     init(
         name: String,
@@ -116,17 +122,17 @@ final class CharacterModel {
         var currentMap = additionalGoldForRaids
         let oldAmount = currentMap[raid] ?? 0
         
-        // 값이 실제로 변경되었을 때만 처리
         if amount != oldAmount {
             currentMap[raid] = amount
             additionalGoldForRaids = currentMap
             
-            // 로그 추가
-            Logger.debug("레이드 '\(raid)'의 추가 골드 설정: \(oldAmount) -> \(amount)")
-            Logger.debug("additionalGoldMap 업데이트: \(additionalGoldMap)")
-            
             // 해당 레이드의 모든 RaidGate 객체의 additionalGold도 함께 업데이트
-            updateRaidGatesAdditionalGold(raid: raid, amount: amount)
+            guard let gates = self.raidGates else { return }
+            
+            let matchingGates = gates.filter { $0.raid == raid }
+            for gate in matchingGates {
+                gate.additionalGold = amount
+            }
             
             // 동기화 표시
             DataSyncManager.shared.markLocalChanges()

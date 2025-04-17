@@ -68,6 +68,8 @@ final class DailyTask {
     var lastCompletedAt: Date?
     var restingPoints: Int = 0 // 휴게 포인트
     
+    @Relationship var character: CharacterModel?
+    
     // 각 단계별 사용된 휴게 포인트 저장 (배열 대신 개별 속성으로)
     var usedRestingPoint1: Int = 0
     var usedRestingPoint2: Int = 0
