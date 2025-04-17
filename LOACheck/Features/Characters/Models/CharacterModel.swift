@@ -63,8 +63,8 @@ final class CharacterModel {
         }
     }
     
-    @Relationship(deleteRule: .cascade, inverse: \DailyTask.character) var dailyTasks: [DailyTask]?
-    @Relationship(deleteRule: .cascade, inverse: \RaidGate.character) var raidGates: [RaidGate]?
+    @Relationship(deleteRule: .cascade) var dailyTasks: [DailyTask]?
+    @Relationship(deleteRule: .cascade) var raidGates: [RaidGate]?
     
     init(
         name: String,
