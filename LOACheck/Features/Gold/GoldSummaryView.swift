@@ -71,23 +71,36 @@ struct GoldSummaryHeader: View {
     
     var body: some View {
         Section(header: Text("주간 예상 골드 수익")) {
-            HStack {
-                Text("총 예상 골드")
-                    .font(.headline)
-                Spacer()
-                Text("\(totalGold) G")
-                    .font(.headline)
-                    .foregroundColor(.orange)
+            VStack(spacing: 0) {
+                HStack {
+                    Text("현재 획득 골드")
+                        .font(.headline)
+                    Spacer()
+                    Text("\(earnedGold) G")
+                        .font(.headline)
+                        .foregroundColor(.green)
+                }
+                .padding(.vertical, 10)
+                
+                Rectangle()
+                    .fill(Color(.systemGray5))
+                    .frame(height: 0.5)
+                    .padding(.leading, -16)
+                    .padding(.trailing, -16)
+                
+                HStack {
+                    Text("총 예상 골드")
+                        .font(.headline)
+                    Spacer()
+                    Text("\(totalGold) G")
+                        .font(.headline)
+                        .foregroundColor(.orange)
+                }
+                .padding(.vertical, 10)
             }
-            
-            HStack {
-                Text("현재 획득 골드")
-                    .font(.headline)
-                Spacer()
-                Text("\(earnedGold) G")
-                    .font(.headline)
-                    .foregroundColor(.green)
-            }
+            .padding(.top, 0)
+            .padding(.bottom, 0)
+            .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
         }
     }
 }

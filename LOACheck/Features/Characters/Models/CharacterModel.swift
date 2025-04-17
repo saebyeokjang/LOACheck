@@ -24,24 +24,43 @@ final class CharacterModel {
     @Transient
     var additionalGoldForRaids: [String: Int] {
         get {
-            guard let data = additionalGoldMap.data(using: .utf8),
-                  let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Int] else {
+            // 안전한 구현으로 변경
+            guard !additionalGoldMap.isEmpty, additionalGoldMap != "{}" else {
                 return [:]
             }
-            return dict
+            
+            do {
+                guard let data = additionalGoldMap.data(using: .utf8) else {
+                    return [:]
+                }
+                
+                if let dict = try JSONSerialization.jsonObject(with: data) as? [String: Int] {
+                    return dict
+                } else {
+                    // 파싱 실패 시 빈 딕셔너리 반환
+                    return [:]
+                }
+            } catch {
+                Logger.error("additionalGoldMap 파싱 실패", error: error)
+                // 오류 발생 시 빈 딕셔너리 반환
+                return [:]
+            }
         }
         set {
-                do {
-                    let data = try JSONSerialization.data(withJSONObject: newValue)
-                    if let jsonStr = String(data: data, encoding: .utf8) {
-                        additionalGoldMap = jsonStr
-                    }
-                } catch {
-                    Logger.error("additionalGoldMap 직렬화 실패", error: error)
-                    // 실패 시 기본값 설정
+            do {
+                let data = try JSONSerialization.data(withJSONObject: newValue)
+                if let jsonStr = String(data: data, encoding: .utf8) {
+                    additionalGoldMap = jsonStr
+                } else {
+                    // 인코딩 실패 시 기본값 설정
                     additionalGoldMap = "{}"
                 }
+            } catch {
+                Logger.error("additionalGoldMap 직렬화 실패", error: error)
+                // 실패 시 기본값 설정
+                additionalGoldMap = "{}"
             }
+        }
     }
     
     @Relationship(deleteRule: .cascade, inverse: \DailyTask.character) var dailyTasks: [DailyTask]?

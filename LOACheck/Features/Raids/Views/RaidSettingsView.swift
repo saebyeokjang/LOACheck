@@ -224,7 +224,7 @@ struct RaidSettingCardView: View {
                         }
                     ))
                     .labelsHidden()
-                    .toggleStyle(SwitchToggleStyle(tint: .orange))
+                    .toggleStyle(SwitchToggleStyle(tint: .yellow))
                     .frame(width: 50)
                 }
                 
