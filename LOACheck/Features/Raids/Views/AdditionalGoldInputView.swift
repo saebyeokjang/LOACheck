@@ -48,7 +48,14 @@ struct AdditionalGoldInputView: View {
                                 .foregroundColor(.green)
                             
                             TextField("0", text: $additionalGold)
-                                .keyboardType(.numberPad)
+                                .keyboardType(.numberPad)  // 숫자 키패드만 표시
+                                .onChange(of: additionalGold) { _, newValue in
+                                    // 숫자만 허용하는 정규식 필터 적용
+                                    let filtered = newValue.filter { "0123456789".contains($0) }
+                                    if filtered != newValue {
+                                        additionalGold = filtered
+                                    }
+                                }
                                 .multilineTextAlignment(.trailing)
                                 .frame(width: 80)
                             
@@ -140,23 +147,23 @@ struct AdditionalGoldInputView: View {
     
     // 입력된 추가 골드 저장
     private func saveAdditionalGold() {
-        if let gold = Int(additionalGold) {
-            // CharacterModel의 setAdditionalGold 메서드 호출
-            // (이제 이 메서드가 RaidGate.additionalGold도 함께 업데이트함)
-            character.setAdditionalGold(gold, for: raidName)
-            
-            // 로그로 설정 후 상태 확인
-            Logger.debug("추가 골드 저장 후 additionalGoldMap: \(character.additionalGoldMap)")
-            
-            if let gates = character.raidGates {
-                let matchingGates = gates.filter { $0.raid == raidName }
-                for gate in matchingGates {
-                    Logger.debug("저장 후 레이드 게이트 \(raidName) 관문 \(gate.gate + 1)의 additionalGold: \(gate.additionalGold)G")
-                }
+        // 숫자가 아닌 문자를 안전하게 처리
+        let safeGold = Int(additionalGold) ?? 0
+        
+        // CharacterModel의 setAdditionalGold 메서드 호출
+        character.setAdditionalGold(safeGold, for: raidName)
+        
+        // 로그로 설정 후 상태 확인
+        Logger.debug("추가 골드 저장 후 additionalGoldMap: \(character.additionalGoldMap)")
+        
+        if let gates = character.raidGates {
+            let matchingGates = gates.filter { $0.raid == raidName }
+            for gate in matchingGates {
+                Logger.debug("저장 후 레이드 게이트 \(raidName) 관문 \(gate.gate + 1)의 additionalGold: \(gate.additionalGold)G")
             }
-            
-            // 동기화 표시
-            DataSyncManager.shared.markLocalChanges()
         }
+        
+        // 동기화 표시
+        DataSyncManager.shared.markLocalChanges()
     }
 }
