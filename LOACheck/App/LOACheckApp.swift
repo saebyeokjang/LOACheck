@@ -283,24 +283,36 @@ struct LOACheckApp: App {
             queue: .main
         ) { _ in
             if authManager.isLoggedIn && DataSyncManager.shared.hasPendingChanges && networkMonitor.isConnected {
-                // 백그라운드 작업 식별자 생성 (중요)
-                let taskID = UIApplication.shared.beginBackgroundTask(expirationHandler: nil)
+                // 먼저 변수 선언
+                var taskID = UIBackgroundTaskIdentifier.invalid
+                
+                // 그 다음 beginBackgroundTask 호출
+                taskID = UIApplication.shared.beginBackgroundTask {
+                    // 시간 제한에 도달했을 때 실행되는 핸들러
+                    UIApplication.shared.endBackgroundTask(taskID)
+                }
                 
                 Task {
-                    var success = false
-                    var retryCount = 0
-                    
-                    while !success && retryCount < 3 && DataSyncManager.shared.hasPendingChanges {
-                        success = await DataSyncManager.shared.uploadToServer() // 직접 uploadToServer 호출
-                        retryCount += 1
+                    do {
+                        var success = false
+                        var retryCount = 0
                         
-                        if !success && retryCount < 3 {
-                            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5초 대기 후 재시도
+                        while !success && retryCount < 3 && DataSyncManager.shared.hasPendingChanges {
+                            success = await DataSyncManager.shared.uploadToServer()
+                            retryCount += 1
+                            
+                            if !success && retryCount < 3 {
+                                try await Task.sleep(nanoseconds: 500_000_000) // 0.5초 대기
+                            }
                         }
+                    } catch {
+                        Logger.error("백그라운드 동기화 실패", error: error)
                     }
                     
-                    // 백그라운드 작업 완료
-                    await UIApplication.shared.endBackgroundTask(taskID)
+                    // 항상 백그라운드 작업 완료 처리
+                    await MainActor.run {
+                        UIApplication.shared.endBackgroundTask(taskID)
+                    }
                 }
             }
         }

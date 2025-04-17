@@ -86,7 +86,8 @@ class FriendsService: ObservableObject {
                 self.friends = newFriends
                 
                 // 친구 목록이 변경되면 친구 캐릭터 정보도 업데이트
-                Task {
+                Task { [weak self] in
+                    guard let self = self else { return }
                     await self.loadFriendsWithCharacters()
                 }
             }

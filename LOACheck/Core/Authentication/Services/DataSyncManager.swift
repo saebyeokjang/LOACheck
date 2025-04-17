@@ -515,14 +515,18 @@ class DataSyncManager: ObservableObject {
         syncTimer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: false) { [weak self] _ in
             guard let self = self else { return }
             
-            Task {
+            Task { [weak self] in
+                guard let self = self else { return }
+                
                 // 네트워크 연결 확인
                 if self.hasPendingChanges && NetworkMonitorService.shared.isConnected && AuthManager.shared.isLoggedIn {
                     _ = await self.safeBackgroundSync()
                 }
                 
-                // 타이머 정리
-                self.syncTimer = nil
+                // 작업 완료 후 메인 스레드에서 타이머 정리
+                await MainActor.run {
+                    self.syncTimer = nil
+                }
             }
         }
     }

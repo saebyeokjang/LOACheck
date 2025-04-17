@@ -29,9 +29,9 @@ struct CharacterPagingView: View {
     
     var body: some View {
         VStack {
-            // 데이터 로딩 중 화면 추가
+            // 캐릭터 로딩 중 화면 추가
             if isCharacterLoading {
-                ProgressView("데이터 불러오는 중...")
+                ProgressView("캐릭터 불러오는 중...")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if characters.isEmpty {
                 EmptyCharactersView(goToSettingsAction: goToSettingsAction)
