@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="23504" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="23727" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
     <device id="retina6_12" orientation="portrait" appearance="light"/>
     <dependencies>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="23506"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="23721"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
@@ -23,7 +23,7 @@
                                 </constraints>
                             </imageView>
                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="LOA Check" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Lco-Hd-dk9">
-                                <rect key="frame" x="90.333333333333329" y="501" width="212.66666666666669" height="53"/>
+                                <rect key="frame" x="90.333333333333329" y="511" width="212.66666666666669" height="53"/>
                                 <fontDescription key="fontDescription" name="AppleSDGothicNeo-Bold" family="Apple SD Gothic Neo" pointSize="44"/>
                                 <color key="textColor" red="0.2400812507" green="0.69642776250000005" blue="0.39265599849999999" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                                 <nil key="highlightedColor"/>
@@ -33,7 +33,7 @@
                         <color key="backgroundColor" red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
                             <constraint firstItem="xw2-yl-5HS" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="3BZ-dk-O7z"/>
-                            <constraint firstItem="Lco-Hd-dk9" firstAttribute="top" secondItem="xw2-yl-5HS" secondAttribute="bottom" id="4Il-B6-kG5"/>
+                            <constraint firstItem="Lco-Hd-dk9" firstAttribute="top" secondItem="xw2-yl-5HS" secondAttribute="bottom" constant="10" id="4Il-B6-kG5"/>
                             <constraint firstItem="xw2-yl-5HS" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="Wg2-6b-jcf"/>
                             <constraint firstItem="Lco-Hd-dk9" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="cGC-90-YA0"/>
                             <constraint firstItem="xw2-yl-5HS" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="iFk-8b-dts"/>
@@ -47,6 +47,6 @@
         </scene>
     </scenes>
     <resources>
-        <image name="Logo" width="336" height="336"/>
+        <image name="Logo" width="170.66667175292969" height="170.66667175292969"/>
     </resources>
 </document>

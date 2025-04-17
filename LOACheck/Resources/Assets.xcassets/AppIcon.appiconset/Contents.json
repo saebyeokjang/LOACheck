@@ -115,7 +115,7 @@
           "value" : "dark"
         }
       ],
-      "filename" : "AppIcon-20@2x 2.png",
+      "filename" : "AppIcon-20@2x 1.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "2x",
@@ -167,7 +167,7 @@
           "value" : "dark"
         }
       ],
-      "filename" : "AppIcon~ipad 2.png",
+      "filename" : "AppIcon~ipad 1.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "2x",
@@ -192,7 +192,7 @@
           "value" : "dark"
         }
       ],
-      "filename" : "AppIcon-40@2x 2.png",
+      "filename" : "AppIcon-40@2x 1.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "2x",
@@ -205,7 +205,7 @@
           "value" : "dark"
         }
       ],
-      "filename" : "AppIcon@2x 3.png",
+      "filename" : "AppIcon-40@3x 2.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "3x",
@@ -218,7 +218,7 @@
           "value" : "dark"
         }
       ],
-      "filename" : "AppIcon@2x 1.png",
+      "filename" : "AppIcon-40@3x 4.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "2x",
@@ -231,7 +231,7 @@
           "value" : "dark"
         }
       ],
-      "filename" : "apple-touch-icon.png",
+      "filename" : "AppIcon-60@3x~car 2.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "3x",
@@ -256,7 +256,7 @@
           "value" : "dark"
         }
       ],
-      "filename" : "icon-192-maskable 2.png",
+      "filename" : "icon-192-maskable 1.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "3x",
@@ -319,7 +319,7 @@
           "value" : "tinted"
         }
       ],
-      "filename" : "AppIcon-20@2x 1.png",
+      "filename" : "AppIcon-20@2x 2.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "2x",
@@ -371,7 +371,7 @@
           "value" : "tinted"
         }
       ],
-      "filename" : "AppIcon~ipad 1.png",
+      "filename" : "AppIcon~ipad 2.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "2x",
@@ -396,7 +396,7 @@
           "value" : "tinted"
         }
       ],
-      "filename" : "AppIcon-40@2x 1.png",
+      "filename" : "AppIcon-40@2x 2.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "2x",
@@ -409,7 +409,7 @@
           "value" : "tinted"
         }
       ],
-      "filename" : "AppIcon@2x 2.png",
+      "filename" : "AppIcon-40@3x 3.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "3x",
@@ -422,7 +422,7 @@
           "value" : "tinted"
         }
       ],
-      "filename" : "AppIcon@2x.png",
+      "filename" : "AppIcon-40@3x 5.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "2x",
@@ -435,7 +435,7 @@
           "value" : "tinted"
         }
       ],
-      "filename" : "apple-touch-icon 1.png",
+      "filename" : "AppIcon-60@3x~car 1.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "3x",
@@ -460,7 +460,7 @@
           "value" : "tinted"
         }
       ],
-      "filename" : "icon-192-maskable 1.png",
+      "filename" : "icon-192-maskable 2.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "3x",

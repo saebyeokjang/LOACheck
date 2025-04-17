@@ -10,6 +10,7 @@ import SwiftData
 
 struct CharacterPagingView: View {
     @State private var characters: [CharacterModel] = []
+    @State private var isCharacterLoading = true
     var goToSettingsAction: (() -> Void)?
     @State private var currentPage = 0
     @State private var isPageChanging = false // 페이지 전환 중 상태
@@ -28,7 +29,11 @@ struct CharacterPagingView: View {
     
     var body: some View {
         VStack {
-            if characters.isEmpty {
+            // 데이터 로딩 중 화면 추가
+            if isCharacterLoading {
+                ProgressView("데이터 불러오는 중...")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if characters.isEmpty {
                 EmptyCharactersView(goToSettingsAction: goToSettingsAction)
             } else {
                 // 상단 네비게이션 바
@@ -176,39 +181,50 @@ struct CharacterPagingView: View {
     
     // SwiftData 수동 로드 기능 추가
     func loadCharacters() {
-        // 데이터 로딩 중 오류 로깅
-        print("캐릭터 데이터 로딩 시작")
-        Task {
-            await MainActor.run {
-                do {
-                    var descriptor = FetchDescriptor<CharacterModel>()
-                    descriptor.predicate = #Predicate<CharacterModel> { !$0.isHidden }
-                    descriptor.sortBy = [SortDescriptor(\CharacterModel.level, order: .reverse)]
-                    
-                    // 데이터 가져오기
-                    let newCharacters = try modelContext.fetch(descriptor)
-                    print("캐릭터 \(newCharacters.count)개 로드 완료")
-                    
-                    // 기존 캐릭터 수와 현재 페이지 확인
-                    let oldCount = characters.count
-                    
-                    // 캐릭터 목록 업데이트
-                    characters = newCharacters
-                    
-                    // 현재 페이지가 유효한지 확인하고 필요시 조정
-                    if characters.isEmpty {
-                        currentPage = 0
-                    } else if currentPage >= characters.count {
-                        // 현재 페이지가 유효하지 않은 경우 마지막 페이지로 조정
-                        currentPage = max(0, characters.count - 1)
-                        Logger.debug("캐릭터 목록 변경으로 현재 페이지 조정: \(currentPage)")
+            // 로딩 상태 활성화
+            isCharacterLoading = true
+            
+            print("캐릭터 데이터 로딩 시작")
+            Task {
+                await MainActor.run {
+                    do {
+                        var descriptor = FetchDescriptor<CharacterModel>()
+                        descriptor.predicate = #Predicate<CharacterModel> { !$0.isHidden }
+                        descriptor.sortBy = [SortDescriptor(\CharacterModel.level, order: .reverse)]
+                        
+                        // 데이터 가져오기
+                        let newCharacters = try modelContext.fetch(descriptor)
+                        print("캐릭터 \(newCharacters.count)개 로드 완료")
+                        
+                        // 기존 캐릭터 수와 현재 페이지 확인
+                        let oldCount = characters.count
+                        
+                        // 캐릭터 목록 업데이트
+                        characters = newCharacters
+                        
+                        // 현재 페이지가 유효한지 확인하고 필요시 조정
+                        if characters.isEmpty {
+                            currentPage = 0
+                        } else if currentPage >= characters.count {
+                            // 현재 페이지가 유효하지 않은 경우 마지막 페이지로 조정
+                            currentPage = max(0, characters.count - 1)
+                            Logger.debug("캐릭터 목록 변경으로 현재 페이지 조정: \(currentPage)")
+                        }
+                        
+                        // 짧은 지연 후 로딩 완료 처리
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            isCharacterLoading = false
+                        }
+                    } catch {
+                        print("캐릭터 로드 오류: \(error.localizedDescription)")
+                        // 에러 발생해도 로딩 완료 처리
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            isCharacterLoading = false
+                        }
                     }
-                } catch {
-                    print("캐릭터 로드 오류: \(error.localizedDescription)")
                 }
             }
         }
-    }
     
     // 특정 페이지가 보여져야 하는지 결정 (성능 최적화)
     private func shouldShowPage(_ index: Int) -> Bool {
