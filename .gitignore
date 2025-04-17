@@ -3,7 +3,7 @@ xcuserdata
 xcuserdata/*
 *.xcuserstate
 *.xcodeproj/xcshareddata/
-
+secrets.txt
 
 ### Xcode ###
 ## User settings
