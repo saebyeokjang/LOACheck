@@ -147,6 +147,10 @@ struct CharacterPagingView: View {
         .onChange(of: currentPage) { oldValue, newValue in
             Logger.debug("Page changed from \(oldValue) to \(newValue)")
         }
+        // 주기적으로 캐릭터 목록 새로고침 - 데이터 변경 감지용
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshCharacterList"))) { _ in
+            loadCharacters()
+        }
         .sheet(isPresented: $showCharacterSelector) {
             CharacterSelectorView(
                 characters: characters,
@@ -181,8 +185,23 @@ struct CharacterPagingView: View {
             descriptor.sortBy = [SortDescriptor(\CharacterModel.level, order: .reverse)]
             
             // 데이터 가져오기
-            characters = try modelContext.fetch(descriptor)
-            print("캐릭터 \(characters.count)개 로드 완료")
+            let newCharacters = try modelContext.fetch(descriptor)
+            print("캐릭터 \(newCharacters.count)개 로드 완료")
+            
+            // 기존 캐릭터 수와 현재 페이지 확인
+            let oldCount = characters.count
+            
+            // 캐릭터 목록 업데이트
+            characters = newCharacters
+            
+            // 현재 페이지가 유효한지 확인하고 필요시 조정
+            if characters.isEmpty {
+                currentPage = 0
+            } else if currentPage >= characters.count {
+                // 현재 페이지가 유효하지 않은 경우 마지막 페이지로 조정
+                currentPage = max(0, characters.count - 1)
+                Logger.debug("캐릭터 목록 변경으로 현재 페이지 조정: \(currentPage)")
+            }
         } catch {
             print("캐릭터 로드 오류: \(error.localizedDescription)")
         }

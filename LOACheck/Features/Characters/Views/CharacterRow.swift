@@ -33,9 +33,7 @@ struct CharacterRow: View {
                 
                 Spacer()
                 
-                // 설정 버튼들 - 토글 레이블을 왼쪽에 배치
                 VStack(spacing: 8) {
-                    // 숨김 설정 -> "보기" 기능으로 변경 (토글 off면 숨김 처리)
                     HStack(spacing: 8) {
                         Text("보기")
                             .font(.caption)
@@ -43,11 +41,16 @@ struct CharacterRow: View {
                             .frame(width: 40, alignment: .trailing)
                         
                         Toggle(isOn: Binding(
-                            get: { !character.isHidden },  // 반전: 토글 on -> 보기 (isHidden = false)
+                            get: { !character.isHidden },
                             set: { newValue in
-                                character.isHidden = !newValue  // 반전: 토글 off -> 숨김 (isHidden = true)
+                                character.isHidden = !newValue
                                 // 동기화 표시 - 토글 변경 시 추가
                                 DataSyncManager.shared.markLocalChanges()
+                                
+                                // 변경 알림 발송
+                                DispatchQueue.main.async {
+                                    NotificationCenter.default.post(name: NSNotification.Name("RefreshCharacterList"), object: nil)
+                                }
                             }
                         )) {
                             Text("")
