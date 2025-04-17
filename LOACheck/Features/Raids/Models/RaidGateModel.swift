@@ -74,3 +74,5 @@ struct RaidGateInfo: Identifiable, Equatable {
         return lhs.id == rhs.id
     }
 }
+
+extension RaidGate: @unchecked Sendable {}

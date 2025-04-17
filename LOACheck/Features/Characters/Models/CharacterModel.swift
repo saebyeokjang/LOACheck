@@ -280,3 +280,5 @@ final class CharacterModel {
         return taskType.displayName(for: self.level)
     }
 }
+
+extension CharacterModel: @unchecked Sendable {}

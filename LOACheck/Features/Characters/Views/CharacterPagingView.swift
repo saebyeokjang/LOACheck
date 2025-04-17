@@ -175,35 +175,38 @@ struct CharacterPagingView: View {
     }
     
     // SwiftData 수동 로드 기능 추가
-    private func loadCharacters() {
+    func loadCharacters() {
         // 데이터 로딩 중 오류 로깅
         print("캐릭터 데이터 로딩 시작")
-        
-        do {
-            var descriptor = FetchDescriptor<CharacterModel>()
-            descriptor.predicate = #Predicate<CharacterModel> { !$0.isHidden }
-            descriptor.sortBy = [SortDescriptor(\CharacterModel.level, order: .reverse)]
-            
-            // 데이터 가져오기
-            let newCharacters = try modelContext.fetch(descriptor)
-            print("캐릭터 \(newCharacters.count)개 로드 완료")
-            
-            // 기존 캐릭터 수와 현재 페이지 확인
-            let oldCount = characters.count
-            
-            // 캐릭터 목록 업데이트
-            characters = newCharacters
-            
-            // 현재 페이지가 유효한지 확인하고 필요시 조정
-            if characters.isEmpty {
-                currentPage = 0
-            } else if currentPage >= characters.count {
-                // 현재 페이지가 유효하지 않은 경우 마지막 페이지로 조정
-                currentPage = max(0, characters.count - 1)
-                Logger.debug("캐릭터 목록 변경으로 현재 페이지 조정: \(currentPage)")
+        Task {
+            await MainActor.run {
+                do {
+                    var descriptor = FetchDescriptor<CharacterModel>()
+                    descriptor.predicate = #Predicate<CharacterModel> { !$0.isHidden }
+                    descriptor.sortBy = [SortDescriptor(\CharacterModel.level, order: .reverse)]
+                    
+                    // 데이터 가져오기
+                    let newCharacters = try modelContext.fetch(descriptor)
+                    print("캐릭터 \(newCharacters.count)개 로드 완료")
+                    
+                    // 기존 캐릭터 수와 현재 페이지 확인
+                    let oldCount = characters.count
+                    
+                    // 캐릭터 목록 업데이트
+                    characters = newCharacters
+                    
+                    // 현재 페이지가 유효한지 확인하고 필요시 조정
+                    if characters.isEmpty {
+                        currentPage = 0
+                    } else if currentPage >= characters.count {
+                        // 현재 페이지가 유효하지 않은 경우 마지막 페이지로 조정
+                        currentPage = max(0, characters.count - 1)
+                        Logger.debug("캐릭터 목록 변경으로 현재 페이지 조정: \(currentPage)")
+                    }
+                } catch {
+                    print("캐릭터 로드 오류: \(error.localizedDescription)")
+                }
             }
-        } catch {
-            print("캐릭터 로드 오류: \(error.localizedDescription)")
         }
     }
     

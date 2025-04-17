@@ -34,28 +34,48 @@ class LocalDataRepository: DataRepository {
     
     // 캐릭터 저장
     func saveCharacter(_ character: CharacterModel) async throws {
-        // 이미 존재하는 캐릭터인지 확인
-        if let existingCharacter = try await fetchCharacter(name: character.name) {
-            // 기존 캐릭터 업데이트
-            existingCharacter.server = character.server
-            existingCharacter.characterClass = character.characterClass
-            existingCharacter.level = character.level
-            existingCharacter.imageURL = character.imageURL
-            existingCharacter.isHidden = character.isHidden
-            existingCharacter.isGoldEarner = character.isGoldEarner
-            existingCharacter.lastUpdated = Date()
-            
-            // 추가 골드 맵 복사
-            existingCharacter.additionalGoldMap = character.additionalGoldMap
-            
-            // 일일 숙제 및 레이드 업데이트는 선택적으로 진행 (이미 진행 중인 작업 유지)
-        } else {
-            // 새 캐릭터 추가
-            modelContext.insert(character)
-        }
+        // character의 필요한 속성들을 로컬 변수로 복사
+        let name = character.name
+        let server = character.server
+        let characterClass = character.characterClass
+        let level = character.level
+        let imageURL = character.imageURL
+        let isHidden = character.isHidden
+        let isGoldEarner = character.isGoldEarner
+        let additionalGoldMap = character.additionalGoldMap
         
-        // 변경사항 저장
-        try modelContext.save()
+        await MainActor.run {
+            let descriptor = FetchDescriptor<CharacterModel>()
+            let allCharacters = try? modelContext.fetch(descriptor)
+            let existingCharacter = allCharacters?.first(where: { $0.name == name })
+            
+            if let existingCharacter = existingCharacter {
+                // 기존 캐릭터 업데이트
+                existingCharacter.server = server
+                existingCharacter.characterClass = characterClass
+                existingCharacter.level = level
+                existingCharacter.imageURL = imageURL
+                existingCharacter.isHidden = isHidden
+                existingCharacter.isGoldEarner = isGoldEarner
+                existingCharacter.lastUpdated = Date()
+                existingCharacter.additionalGoldMap = additionalGoldMap
+            } else {
+                // 새 캐릭터 생성
+                let newCharacter = CharacterModel(
+                    name: name,
+                    server: server,
+                    characterClass: characterClass,
+                    level: level,
+                    imageURL: imageURL,
+                    isHidden: isHidden,
+                    isGoldEarner: isGoldEarner
+                )
+                newCharacter.additionalGoldMap = additionalGoldMap
+                modelContext.insert(newCharacter)
+            }
+            
+            try? modelContext.save()
+        }
     }
     
     // 모든 캐릭터 저장
@@ -67,36 +87,43 @@ class LocalDataRepository: DataRepository {
     
     // 모든 캐릭터 가져오기
     func fetchAllCharacters() async throws -> [CharacterModel] {
-        let descriptor = FetchDescriptor<CharacterModel>()
-        return try modelContext.fetch(descriptor)
+        return await MainActor.run {
+            let descriptor = FetchDescriptor<CharacterModel>()
+            return (try? modelContext.fetch(descriptor)) ?? []
+        }
     }
     
     // 특정 이름의 캐릭터 가져오기
     func fetchCharacter(name: String) async throws -> CharacterModel? {
-        let descriptor = FetchDescriptor<CharacterModel>(
-            predicate: #Predicate<CharacterModel> { $0.name == name }
-        )
-        
-        let characters = try modelContext.fetch(descriptor)
-        return characters.first
+        return await MainActor.run {
+            let descriptor = FetchDescriptor<CharacterModel>(
+                predicate: #Predicate<CharacterModel> { $0.name == name }
+            )
+            
+            return try? modelContext.fetch(descriptor).first
+        }
     }
     
     // 캐릭터 삭제
     func deleteCharacter(_ character: CharacterModel) async throws {
-        modelContext.delete(character)
-        try modelContext.save()
+        await MainActor.run {
+            modelContext.delete(character)
+            try? modelContext.save()
+        }
     }
     
     // 모든 캐릭터 삭제
     func deleteAllCharacters() async throws {
-        let descriptor = FetchDescriptor<CharacterModel>()
-        let characters = try modelContext.fetch(descriptor)
-        
-        for character in characters {
-            modelContext.delete(character)
+        await MainActor.run {
+            let descriptor = FetchDescriptor<CharacterModel>()
+            if let characters = try? modelContext.fetch(descriptor) {
+                for character in characters {
+                    modelContext.delete(character)
+                }
+                
+                try? modelContext.save()
+            }
         }
-        
-        try modelContext.save()
     }
     
     // 클라우드로 캐릭터 데이터 동기화 (로컬 -> 클라우드)

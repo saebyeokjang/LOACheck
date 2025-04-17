@@ -191,3 +191,5 @@ final class DailyTask {
         return Double(restingPoints) / Double(type.maxRestingPoints)
     }
 }
+
+extension DailyTask: @unchecked Sendable {}
