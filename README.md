@@ -61,7 +61,7 @@ LOA Check는 로스트아크 플레이어를 위한 필수 컨텐츠 관리 도�
 
 ## 법적 정보
 - [개인정보 처리방침](https://saebyeokjang.github.io/LOACheck/privacy-policy)
-- [이용약관](https://saebyeokjang.github.io/LOACheck/terms-of-service)
+- [이용약관](https://saebyeokjang.github.io/LOACheck/terms)
 
 ## 연락처
 - 개발자: dev.saebyeok@gmail.com
