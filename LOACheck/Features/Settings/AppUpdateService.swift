@@ -31,8 +31,6 @@ class AppUpdateService {
                 return .failure(NSError(domain: "AppUpdateService", code: 0, userInfo: [NSLocalizedDescriptionKey: "유효하지 않은 URL 형식"]))
             }
             
-            Logger.debug("앱 업데이트 확인 URL: \(url.absoluteString)")
-            
             // API 요청 (캐시 사용하지 않는 설정)
             var request = URLRequest(url: url)
             request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
@@ -44,33 +42,10 @@ class AppUpdateService {
                 return .failure(NSError(domain: "AppUpdateService", code: 1, userInfo: [NSLocalizedDescriptionKey: "앱스토어 정보를 가져오는데 실패했습니다"]))
             }
             
-            Logger.debug("앱스토어 API 응답 상태 코드: \(httpResponse.statusCode)")
-            
+            // 성공적인 응답인지 확인
             if httpResponse.statusCode != 200 {
                 Logger.error("앱스토어 API 오류 응답: \(httpResponse.statusCode)")
                 return .failure(NSError(domain: "AppUpdateService", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "앱스토어에서 응답을 받을 수 없습니다 (코드: \(httpResponse.statusCode))"]))
-            }
-            
-            // 응답 디버깅
-            if let responseString = String(data: data, encoding: .utf8) {
-                Logger.debug("앱스토어 API 응답: \(responseString)")
-                
-                // API 응답 분석을 위한 추가 디버깅
-                do {
-                    if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let results = json["results"] as? [[String: Any]],
-                       let firstApp = results.first {
-                        Logger.debug("응답 상세 분석: \(firstApp["version"] as? String ?? "버전 없음")")
-                        Logger.debug("응답에 포함된 키: \(firstApp.keys.joined(separator: ", "))")
-                        
-                        // 현재 날짜/시간 로깅 - 캐싱 시간 체크용
-                        let formatter = DateFormatter()
-                        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-                        Logger.debug("현재 시간: \(formatter.string(from: Date()))")
-                    }
-                } catch {
-                    Logger.debug("응답 추가 파싱 에러: \(error.localizedDescription)")
-                }
             }
             
             // 응답 파싱
@@ -79,11 +54,10 @@ class AppUpdateService {
             
             // 앱 정보가 있는지 확인
             guard let appInfo = result.results.first else {
-                Logger.error("앱스토어 응답에서 앱 정보를 찾을 수 없음 (결과 수: \(result.results.count))")
+                Logger.error("앱스토어 응답에서 앱 정보를 찾을 수 없음")
                 return .failure(NSError(domain: "AppUpdateService", code: 2, userInfo: [NSLocalizedDescriptionKey: "앱 정보를 찾을 수 없습니다"]))
             }
             
-            Logger.debug("앱스토어 버전: \(appInfo.version)")
             return .success((latestVersion: appInfo.version, releaseNotes: appInfo.releaseNotes))
             
         } catch {
