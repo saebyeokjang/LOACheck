@@ -92,11 +92,11 @@ struct ContentView: View {
                 }
                 
                 // 탭 전환 이벤트 기록
-                    let tabNames = ["캐릭터", "관리", "시세", "친구", "설정"]
-                    Analytics.logEvent("tab_switch", parameters: [
-                        "from_tab": tabNames[oldValue],
-                        "to_tab": tabNames[newValue]
-                    ])
+                let tabNames = ["캐릭터", "관리", "시세", "친구", "설정"]
+                Analytics.logEvent("tab_switch", parameters: [
+                    "from_tab": tabNames[oldValue],
+                    "to_tab": tabNames[newValue]
+                ])
                 
             }
             .onAppear {
@@ -260,23 +260,33 @@ struct ContentView: View {
     
     // 앱 업데이트 확인
     private func checkForAppUpdate() {
-        // 네트워크 연결 확인
-        guard networkMonitor.isConnected else {
-            return
-        }
-        
-        // 최근 체크 시간 확인
-        let lastCheck = Date(timeIntervalSince1970: lastUpdateCheckDate)
-        let hoursSinceLastCheck = Date().timeIntervalSince(lastCheck) / 3600
-        
-        // 마지막 체크로부터 24시간 이상 지났는지 확인
-        if hoursSinceLastCheck < 24 {
-            return
-        }
-        
         // 현재 버전 로깅
         let currentVersion = AppUpdateService.shared.getCurrentAppVersion()
         Logger.debug("현재 앱 버전: \(currentVersion)")
+        
+        // 네트워크 연결 확인 (로그 추가)
+        if !networkMonitor.isConnected {
+            Logger.debug("네트워크 연결 없음, 업데이트 체크 건너뜀")
+            return
+        }
+        
+        // 최근 체크 시간 확인 (더 자세한 로그)
+        let lastCheck = Date(timeIntervalSince1970: lastUpdateCheckDate)
+        let hoursSinceLastCheck = Date().timeIntervalSince(lastCheck) / 3600
+        Logger.debug("마지막 업데이트 체크 이후 경과 시간: \(hoursSinceLastCheck)시간")
+        
+        // 앱 처음 설치 시나 업데이트 후 첫 실행 시에는 무조건 체크
+        let lastKnownVersion = UserDefaults.standard.string(forKey: "lastKnownVersion") ?? ""
+        let isFirstRunAfterUpdate = lastKnownVersion != currentVersion
+        
+        // 마지막 체크로부터 24시간 이상 지났는지 또는 앱 업데이트 후 첫 실행인지 확인
+        if hoursSinceLastCheck < 24 && !isFirstRunAfterUpdate {
+            Logger.debug("24시간 이내에 이미 체크함, 업데이트 체크 건너뜀")
+            return
+        }
+        
+        // 현재 버전 저장
+        UserDefaults.standard.set(currentVersion, forKey: "lastKnownVersion")
         
         Task {
             // 최신 버전 정보 가져오기
