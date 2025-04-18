@@ -17,6 +17,7 @@ class TaskResetManager {
     private let weeklyResetTimeKey = "lastWeeklyResetTime"
     
     // 일일/주간 리셋 시간 체크
+    @MainActor
     func checkAndResetTasks(modelContext: ModelContext) {
         checkDailyReset(modelContext: modelContext)
         checkWeeklyReset(modelContext: modelContext)
@@ -228,6 +229,7 @@ class TaskResetManager {
     }
     
     // 앱이 백그라운드에서 돌아왔을 때 호출할 수 있는 메서드
+    @MainActor
     func checkResetOnForeground(modelContext: ModelContext) {
         Logger.info("앱이 포그라운드로 돌아와 리셋 체크 시작")
         checkAndResetTasks(modelContext: modelContext)

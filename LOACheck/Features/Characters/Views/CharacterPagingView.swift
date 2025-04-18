@@ -208,7 +208,6 @@ struct CharacterPagingView: View {
                         } else if currentPage >= characters.count {
                             // 현재 페이지가 유효하지 않은 경우 마지막 페이지로 조정
                             currentPage = max(0, characters.count - 1)
-                            Logger.debug("캐릭터 목록 변경으로 현재 페이지 조정: \(currentPage)")
                         }
                         
                         // 짧은 지연 후 로딩 완료 처리

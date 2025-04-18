@@ -620,7 +620,6 @@ class FirebaseRepository {
             // 추가 골드 맵 설정 - 이 부분이 중요합니다
             if let additionalGoldMap = data["additionalGoldMap"] as? String {
                 character.additionalGoldMap = additionalGoldMap
-                Logger.debug("친구 캐릭터 '\(name)'의 additionalGoldMap: \(additionalGoldMap)")
             }
             
             // 일일 숙제 데이터 설정

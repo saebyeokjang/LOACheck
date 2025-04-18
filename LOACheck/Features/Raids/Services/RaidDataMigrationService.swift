@@ -18,7 +18,7 @@ class RaidDataMigrationService {
     private let lastVersionKey = "lastAppVersion"
     
     /// 앱 시작 시 호출되어 필요한 데이터 마이그레이션 수행
-    func checkAndPerformMigrations(modelContext: ModelContext) {
+    @MainActor func checkAndPerformMigrations(modelContext: ModelContext) {
         // 현재 앱 버전
         let currentVersion = AppUpdateService.shared.getCurrentAppVersion()
         
@@ -42,6 +42,7 @@ class RaidDataMigrationService {
     }
     
     /// 모든 캐릭터의 레이드 데이터를 최신 정보로 업데이트
+    @MainActor
     private func updateAllRaidData(modelContext: ModelContext) {
         Logger.info("모든 캐릭터의 레이드 데이터 업데이트 시작")
         
