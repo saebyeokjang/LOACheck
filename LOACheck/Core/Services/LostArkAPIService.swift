@@ -42,6 +42,7 @@ enum APIError: Error, LocalizedError {
     case forbidden
     case rateLimit
     case serviceUnavailable
+    case documentNotFound
     case unknown(Int)
     case networkError(Error)
     
@@ -74,6 +75,8 @@ enum APIError: Error, LocalizedError {
             return "API 호출 한도를 초과했습니다. 잠시 후 다시 시도해주세요."
         case .serviceUnavailable:
             return "로스트아크 API 서비스가 현재 점검 중입니다."
+        case .documentNotFound:
+            return "요청한 캐릭터 정보를 찾을 수 없습니다."
         case .unknown(let code):
             return "예상치 못한 오류가 발생했습니다 (코드: \(code))"
         case .networkError(let error):
@@ -380,6 +383,111 @@ class LostArkAPIService {
         }
     }
     
+    // 단일 캐릭터 정보 업데이트 함수
+    @MainActor
+    func updateSingleCharacterViaArmory(
+        name: String,
+        apiKey: String,
+        modelContext: ModelContext,
+        existingCharacter: CharacterModel
+    ) async -> Result<Bool, APIError> {
+        do {
+            Logger.debug("API Request: Updating character \(name) via armory profiles API")
+            
+            // 아머리 프로필 API 호출을 위한 URL 구성
+            let encodedName = name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? name
+            let url = URL(string: "\(baseURL)/armories/characters/\(encodedName)/profiles")!
+            
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            request.addValue("application/json", forHTTPHeaderField: "accept")
+            request.addValue("bearer \(apiKey)", forHTTPHeaderField: "authorization")
+            
+            // API 요청 및 응답 처리
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                return .failure(.invalidResponse)
+            }
+            
+            // 응답 내용 디버깅 로그
+            let responseString = String(data: data, encoding: .utf8) ?? "Unable to decode response"
+            Logger.debug("API 응답: \(responseString.prefix(200))...")
+            
+            // HTML 응답인지 확인
+            if responseString.contains("<!DOCTYPE html>") || responseString.contains("<html") {
+                Logger.error("API가 HTML 응답을 반환함 - 서버 점검 또는 오류 상태일 수 있습니다")
+                
+                // 점검 메시지 포함 여부 확인
+                if responseString.contains("점검") || responseString.contains("maintenance") {
+                    return .failure(.serviceUnavailable)
+                } else {
+                    return .failure(.invalidResponse)
+                }
+            }
+            
+            switch httpResponse.statusCode {
+            case 200:
+                let decoder = JSONDecoder()
+                
+                do {
+                    // 명시적인 타입으로 디코딩
+                    let profileData = try decoder.decode(CharacterProfileResponse.self, from: data)
+                    
+                    // 아이템 레벨 문자열에서 숫자만 추출 (예: "1,728.33" -> 1728.33)
+                    let levelString = profileData.itemMaxLevel.replacingOccurrences(of: ",", with: "")
+                    let level = Double(levelString) ?? existingCharacter.level
+                    
+                    // 캐릭터 정보 업데이트
+                    existingCharacter.server = profileData.serverName
+                    existingCharacter.characterClass = profileData.characterClassName
+                    existingCharacter.level = level
+                    existingCharacter.lastUpdated = Date()
+                    
+                    // 변경사항 저장
+                    try modelContext.save()
+                    
+                    Logger.debug("캐릭터 정보 업데이트 성공: \(name)")
+                    return .success(true)
+                } catch {
+                    Logger.error("JSON 디코딩 오류", error: error)
+                    
+                    // 디코딩 오류 상세 정보 로깅
+                    if let decodingError = error as? DecodingError {
+                        switch decodingError {
+                        case .keyNotFound(let key, let context):
+                            Logger.error("키를 찾을 수 없음: \(key), 경로: \(context.codingPath)")
+                        case .typeMismatch(let type, let context):
+                            Logger.error("타입 불일치: \(type), 경로: \(context.codingPath)")
+                        case .valueNotFound(let type, let context):
+                            Logger.error("값을 찾을 수 없음: \(type), 경로: \(context.codingPath)")
+                        case .dataCorrupted(let context):
+                            Logger.error("데이터 손상: \(context)")
+                        @unknown default:
+                            Logger.error("알 수 없는 디코딩 오류: \(decodingError)")
+                        }
+                    }
+                    
+                    return .failure(.networkError(error))
+                }
+                
+            case 401:
+                return .failure(.unauthorized)
+            case 403:
+                return .failure(.forbidden)
+            case 429:
+                return .failure(.rateLimit)
+            case 503:
+                return .failure(.serviceUnavailable)
+            default:
+                return .failure(.unknown(httpResponse.statusCode))
+            }
+        } catch {
+            Logger.error("단일 캐릭터 업데이트 오류", error: error)
+            return .failure(.networkError(error))
+        }
+    }
+    
     // 캐릭터 존재 여부 확인 메서드
     func validateCharacter(name: String, apiKey: String) async -> Result<Bool, APIError> {
         do {
@@ -431,10 +539,29 @@ extension APIError {
             return "API 호출 한도를 초과했습니다.\n잠시 후 다시 시도해 주세요."
         case .unauthorized:
             return "API 키가 유효하지 않습니다.\n설정에서 API 키를 확인해 주세요."
+        case .documentNotFound:
+            return "요청한 캐릭터 정보를 찾을 수 없습니다."
         case .forbidden:
             return "API 접근 권한이 없습니다.\n설정에서 API 키를 확인해 주세요."
         case .invalidResponse, .unknown(_), .networkError(_):
             return "네트워크 오류가 발생했습니다.\n인터넷 연결을 확인하고 다시 시도해 주세요."
         }
+    }
+}
+
+// 캐릭터 프로필 응답 모델
+struct CharacterProfileResponse: Decodable {
+    let serverName: String
+    let characterName: String
+    let characterClassName: String
+    let itemAvgLevel: String
+    let itemMaxLevel: String
+    
+    enum CodingKeys: String, CodingKey {
+        case serverName = "ServerName"
+        case characterName = "CharacterName"
+        case characterClassName = "CharacterClassName"
+        case itemAvgLevel = "ItemAvgLevel"
+        case itemMaxLevel = "ItemMaxLevel"
     }
 }

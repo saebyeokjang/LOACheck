@@ -10,8 +10,8 @@ import SwiftData
 
 struct CharacterDetailView: View {
     var character: CharacterModel
-    var isCurrentlyActive: Bool = true // 현재 활성화된 페이지인지 여부
-    @State private var scrollViewID = UUID() // 페이지 전환 시 스크롤뷰 재설정용 ID
+    var isCurrentlyActive: Bool = true
+    @State private var scrollViewID = UUID()
     @Environment(\.colorScheme) private var colorScheme
     
     // 페이지 이동 관련 콜백
@@ -81,6 +81,11 @@ struct CharacterHeaderView: View {
     var goToPreviousPage: (() -> Void)?
     var goToNextPage: (() -> Void)?
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.modelContext) private var modelContext
+    @AppStorage("apiKey") private var apiKey: String = ""
+    @State private var isRefreshing = false
+    @State private var showAlert = false
+    @State private var alertMessage = ""
     
     var body: some View {
         VStack(spacing: 12) {
@@ -105,10 +110,26 @@ struct CharacterHeaderView: View {
                 Spacer()
                 
                 VStack(spacing: 8) {
-                    Text(character.name)
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .foregroundColor(Color.textPrimary)
+                    HStack {
+                        Text(character.name)
+                            .font(.title)
+                            .fontWeight(.bold)
+                            .foregroundColor(Color.textPrimary)
+                            
+                        // 새로고침 버튼 추가
+                        Button(action: {
+                            refreshCharacter()
+                        }) {
+                            Image(systemName: "arrow.clockwise")
+                                .foregroundColor(.blue)
+                                .font(.system(size: 16))
+                                .padding(6)
+                                .background(Color.blue.opacity(0.1))
+                                .clipShape(Circle())
+                        }
+                        .disabled(isRefreshing || apiKey.isEmpty)
+                        .opacity(isRefreshing ? 0.5 : 1.0)
+                    }
                     
                     Text("\(character.server) • \(character.characterClass)")
                         .font(.subheadline)
@@ -128,9 +149,7 @@ struct CharacterHeaderView: View {
                             .font(.caption)
                             .padding(.vertical, 4)
                             .padding(.horizontal, 8)
-                        // 다크모드에서 더 잘 보이도록 배경색 조정
                             .background(Color.yellow.opacity(colorScheme == .dark ? 0.2 : 0.2))
-                        // 다크모드에서 색상 조정
                             .foregroundColor(colorScheme == .dark ? .orange.opacity(0.9) : .orange)
                             .cornerRadius(4)
                     }
@@ -146,7 +165,6 @@ struct CharacterHeaderView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 20, height: 20)
-                    // 다크모드에서 더 잘 보이도록 색상 조정
                         .foregroundColor(goToNextPage != nil ?
                                          (colorScheme == .dark ? .blue.opacity(0.9) : .blue) :
                                             (colorScheme == .dark ? .gray.opacity(0.7) : .gray))
@@ -161,7 +179,82 @@ struct CharacterHeaderView: View {
         .padding()
         .background(Color.cardBackground)
         .cornerRadius(12)
-        // 다크모드에서 그림자 조정
         .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.1), radius: 5, x: 0, y: 2)
+        .alert("알림", isPresented: $showAlert) {
+            Button("확인") {}
+        } message: {
+            Text(alertMessage)
+        }
+        .overlay {
+            if isRefreshing {
+                ProgressView()
+                    .padding(8)
+                    .background(Color(.systemBackground).opacity(0.7))
+                    .cornerRadius(8)
+            }
+        }
+    }
+    
+    // 개별 캐릭터 새로고침 함수
+    private func refreshCharacter() {
+        guard !apiKey.isEmpty else {
+            alertMessage = "API 키가 설정되지 않았습니다. 설정 탭에서 API 키를 입력해주세요."
+            showAlert = true
+            return
+        }
+        
+        guard !isRefreshing else { return }
+        
+        isRefreshing = true
+        
+        Task {
+            let result = await LostArkAPIService.shared.updateSingleCharacterViaArmory(
+                name: character.name,
+                apiKey: apiKey,
+                modelContext: modelContext,
+                existingCharacter: character
+            )
+            
+            await MainActor.run {
+                isRefreshing = false
+                
+                switch result {
+                case .success:
+                    alertMessage = "\(character.name) 캐릭터의 정보가 갱신되었습니다."
+                    
+                    // 동기화 표시
+                    DataSyncManager.shared.markLocalChanges()
+                    
+                    // 자동 동기화 수행 (로그인 상태 및 네트워크 연결 확인)
+                    if AuthManager.shared.isLoggedIn && NetworkMonitorService.shared.isConnected {
+                        Task {
+                            let success = await DataSyncManager.shared.uploadToServer()
+                            Logger.debug("캐릭터 새로고침으로 인한 동기화 결과: \(success ? "성공" : "실패")")
+                        }
+                    }
+                    
+                    // 성공 시 NotificationCenter를 통해 갱신 알림 발송
+                    NotificationCenter.default.post(name: NSNotification.Name("RefreshCharacterList"), object: nil)
+                    
+                case .failure(let error):
+                    switch error {
+                    case .serviceUnavailable:
+                        alertMessage = "로스트아크 API 서비스가 현재 점검 중입니다. 나중에 다시 시도해주세요."
+                    case .rateLimit:
+                        alertMessage = "API 호출 한도를 초과했습니다. 잠시 후 다시 시도해주세요."
+                    case .unauthorized:
+                        alertMessage = "API 키가 유효하지 않습니다. 설정에서 API 키를 확인해주세요."
+                    case .forbidden:
+                        alertMessage = "API 접근 권한이 없습니다. 설정에서 API 키를 확인해주세요."
+                    case .documentNotFound:
+                        alertMessage = "원정대 목록에서 해당 캐릭터를 찾을 수 없습니다."
+                    default:
+                        alertMessage = "네트워크 오류가 발생했습니다. 인터넷 연결을 확인하고 다시 시도해주세요."
+                    }
+                }
+                
+                showAlert = true
+            }
+        }
     }
 }
