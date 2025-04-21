@@ -31,26 +31,59 @@ enum AppTheme: String, CaseIterable {
 
 class ThemeManager: ObservableObject {
     static let shared = ThemeManager()
+    private var isInitializing = true
     
-    // 다크모드 설정 (이전 코드와의 호환성)
+    // 다크모드 설정
     @AppStorage("isDarkMode") var isDarkMode: Bool = false {
         didSet {
+            // 초기화 중에는 변경 무시
+            if isInitializing { return }
+            
             // isDarkMode가 변경되면 selectedTheme도 함께 변경
-            selectedTheme = isDarkMode ? .dark : .light
+            if selectedTheme != (isDarkMode ? .dark : .light) {
+                selectedTheme = isDarkMode ? .dark : .light
+            }
         }
     }
     
-    // 선택된 테마 (시스템/라이트/다크)
+    // 선택된 테마
     @AppStorage("selectedTheme") var selectedTheme: AppTheme = .system {
         didSet {
-            // selectedTheme이 변경되면 isDarkMode도 함께 변경 (이전 코드와의 호환성)
+            // 초기화 중에는 변경 무시
+            if isInitializing { return }
+            
+            // selectedTheme이 변경되면 isDarkMode도 함께 변경
             if selectedTheme != .system {
-                isDarkMode = selectedTheme == .dark
+                let newDarkMode = selectedTheme == .dark
+                if isDarkMode != newDarkMode {
+                    isDarkMode = newDarkMode
+                }
             } else {
-                // 시스템 설정을 따르는 경우, 시스템 환경에 맞게 설정
+                // 시스템 설정을 따르는 경우
                 let systemIsDark = UITraitCollection.current.userInterfaceStyle == .dark
-                isDarkMode = systemIsDark
+                if isDarkMode != systemIsDark {
+                    isDarkMode = systemIsDark
+                }
             }
+        }
+    }
+    init() {
+        // 여기서 초기값들을 설정한 후 초기화 플래그 해제
+        defer { isInitializing = false }
+        
+        // 초기 테마 설정 로직
+        let storedTheme = UserDefaults.standard.string(forKey: "selectedTheme")
+        if let themeName = storedTheme, let theme = AppTheme(rawValue: themeName) {
+            self.selectedTheme = theme
+            if theme != .system {
+                self.isDarkMode = theme == .dark
+            } else {
+                // 시스템 설정 확인
+                self.isDarkMode = UITraitCollection.current.userInterfaceStyle == .dark
+            }
+        } else {
+            // 저장된 테마가 없는 경우 isDarkMode 값에 따라 설정
+            self.selectedTheme = isDarkMode ? .dark : .light
         }
     }
     

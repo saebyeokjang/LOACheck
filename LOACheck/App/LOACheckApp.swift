@@ -147,10 +147,10 @@ struct LOACheckApp: App {
     
     // 앱 테마 초기화
     private func setupAppTheme() {
-        // 시스템 설정인 경우 시스템 모드를 따름
-        if themeManager.selectedTheme == .system {
+        // StateObject 대신 싱글톤 직접 접근
+        if ThemeManager.shared.selectedTheme == .system {
             let isDarkMode = UITraitCollection.current.userInterfaceStyle == .dark
-            themeManager.isDarkMode = isDarkMode
+            ThemeManager.shared.isDarkMode = isDarkMode
         }
     }
     

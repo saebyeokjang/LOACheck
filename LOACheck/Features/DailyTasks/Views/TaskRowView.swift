@@ -86,7 +86,7 @@ struct TaskRowView: View {
                     .cornerRadius(4)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
-                    .buttonStyle(ScaleButtonStyle())
+                    .buttonStyle(DefaultButtonStyle())
                     .disabled(isProcessing)
                 }
                 
@@ -127,7 +127,7 @@ struct TaskRowView: View {
                                 .font(.system(size: 14))
                                 .foregroundColor(colorScheme == .dark ? .blue.opacity(0.8) : .blue)
                         }
-                        .buttonStyle(ScaleButtonStyle())
+                        .buttonStyle(DefaultButtonStyle())
                         .frame(width: 30, height: 30)
                         .contentShape(Circle())
                         .disabled(isProcessing)

@@ -14,10 +14,6 @@ extension Color {
     static let lostarkGold = Color(red: 1.0, green: 0.8, blue: 0.0)
     
     // 기본 시스템 색상 - 다크모드 지원
-    static let textPrimary = Color("textPrimary")
-    static let textSecondary = Color("textSecondary")
-    static let cardBackground = Color("cardBackground")
-    static let backgroundPrimary = Color("backgroundPrimary")
     static let dividerColor = Color("dividerColor")
     
     // 난이도별 색상
@@ -61,27 +57,8 @@ extension Color {
     static let warningYellow = Color.yellow // 경고 표시용 색상
 }
 
+// MARK: - 다크모드 관련 유틸리티 함수
 extension Color {
-    // 배경 색상
-    static let backgroundSecondary = Color("backgroundSecondary", bundle: nil) // 두 번째 배경 색상
-    static let backgroundTertiary = Color("backgroundTertiary", bundle: nil) // 세 번째 배경 색상
-    
-    // 입력 필드 관련 색상
-    static let inputBackground = Color("inputBackground", bundle: nil) // 입력 필드 배경
-    static let inputBorder = Color("inputBorder", bundle: nil) // 입력 필드 테두리
-    
-    // 선택 색상
-    static let selectionBackground = Color("selectionBackground", bundle: nil) // 선택 항목 배경
-    
-    // 메시지 색상
-    static let successBackground = Color("successBackground", bundle: nil) // 성공 메시지 배경
-    static let warningBackground = Color("warningBackground", bundle: nil) // 경고 메시지 배경
-    static let errorBackground = Color("errorBackground", bundle: nil) // 오류 메시지 배경
-    
-    // 아이템 상태별 색상
-    static let completedBackground = Color("completedBackground", bundle: nil) // 완료 항목 배경
-    static let pendingBackground = Color("pendingBackground", bundle: nil) // 보류 항목 배경
-    
     // 다크모드에서 투명도를 조정하는 헬퍼 함수
     static func dynamicOpacity(_ color: Color, light: Double, dark: Double) -> Color {
         return ThemeManager.shared.isCurrentlyInDarkMode ? color.opacity(dark) : color.opacity(light)
@@ -151,7 +128,7 @@ extension Color {
     }
 }
 
-// MARK: - Asset 색상 추가를 위한 템플릿 함수
+// MARK: - 에셋 컬러 생성 유틸리티
 extension Color {
     // 다크모드 대응 색상 생성을 위한 헬퍼 함수
     static func createDarkModeColor(name: String, light: UIColor, dark: UIColor) -> String {

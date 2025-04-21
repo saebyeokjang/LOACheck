@@ -70,7 +70,7 @@ struct DailyTasksView: View {
                     .padding(8)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(ScaleButtonStyle())
+                .buttonStyle(DefaultButtonStyle())
                 
                 Button(action: {
                     isSectionExpanded.toggle()
@@ -81,7 +81,7 @@ struct DailyTasksView: View {
                         .background(Color.gray.opacity(0.1))
                         .clipShape(Circle())
                 }
-                .buttonStyle(ScaleButtonStyle())
+                .buttonStyle(DefaultButtonStyle())
             }
             
             if isSectionExpanded {

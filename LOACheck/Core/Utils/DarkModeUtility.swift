@@ -14,10 +14,15 @@ class DarkModeObserver: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     
     init() {
-        // ThemeManager의 isDarkMode 상태를 구독
-        ThemeManager.shared.$isDarkMode
-            .sink { [weak self] isDark in
-                self?.isDarkMode = isDark
+        // ThemeManager의 isDarkMode 상태를 관찰
+        NotificationCenter.default.publisher(for: Notification.Name("ThemeChanged"))
+            .sink { [weak self] notification in
+                if let isDark = notification.object as? Bool {
+                    self?.isDarkMode = isDark
+                } else {
+                    // ThemeManager로부터 직접 가져오기
+                    self?.isDarkMode = ThemeManager.shared.isDarkMode
+                }
             }
             .store(in: &cancellables)
         
@@ -27,6 +32,9 @@ class DarkModeObserver: ObservableObject {
                 self?.checkSystemDarkMode()
             }
             .store(in: &cancellables)
+        
+        // 초기값 설정
+        isDarkMode = ThemeManager.shared.isDarkMode
     }
     
     // 시스템 다크모드 확인
@@ -61,7 +69,7 @@ extension View {
     }
 }
 
-// 사용자 정의 컬러 스키마 확장
+// 커스텀 컬러 스키마 확장
 extension ColorScheme {
     // 현재 다크모드 상태에 따라 색상 반환
     static func dynamicColor(light: Color, dark: Color) -> Color {
