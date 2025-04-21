@@ -10,6 +10,7 @@ import SwiftUI
 struct AddFriendView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var friendsService: FriendsService
+    @Environment(\.colorScheme) private var colorScheme
     
     @State private var searchCharacterName = ""
     @State private var searchedUser: User?
@@ -29,10 +30,11 @@ struct AddFriendView: View {
                     Text("친구 추가")
                         .font(.title2)
                         .fontWeight(.bold)
+                        .foregroundColor(Color.textPrimary)
                     
                     Text("친구의 캐릭터 이름을 입력하여 검색할 수 있습니다")
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color.textSecondary)
                         .multilineTextAlignment(.center)
                 }
                 .padding(.top)
@@ -41,12 +43,20 @@ struct AddFriendView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("캐릭터 이름")
                         .font(.headline)
+                        .foregroundColor(Color.textPrimary)
                     
                     HStack {
                         TextField("친구 캐릭터 이름 입력", text: $searchCharacterName)
                             .autocapitalization(.none)
                             .padding()
-                            .background(Color(.systemGray6))
+                            .foregroundColor(Color.textPrimary)
+                        // 다크모드에 맞게 배경색 변경
+                            .background(colorScheme == .dark ? Color(.systemGray5) : Color(.systemGray6))
+                        // 테두리 추가
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(colorScheme == .dark ? Color.gray.opacity(0.3) : Color.gray.opacity(0.1), lineWidth: 1)
+                            )
                             .cornerRadius(10)
                         
                         Button(action: searchUser) {
@@ -55,10 +65,12 @@ struct AddFriendView: View {
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 10)
-                                .background(Color.blue)
+                            // 다크모드에서 버튼 색상 조정
+                                .background(colorScheme == .dark ? Color.blue.opacity(0.8) : Color.blue)
                                 .cornerRadius(10)
                         }
                         .disabled(searchCharacterName.isEmpty || isSearching)
+                        .opacity(searchCharacterName.isEmpty || isSearching ? 0.6 : 1.0)
                     }
                 }
                 .padding(.horizontal)
@@ -67,104 +79,35 @@ struct AddFriendView: View {
                     // 검색 중 로딩 표시
                     ProgressView("검색 중...")
                         .padding()
+                        .foregroundColor(Color.textPrimary)
                 } else if hasSearched {
                     if let user = searchedUser {
                         // 검색 결과 표시
-                        VStack(spacing: 16) {
-                            // 요청 상태에 따라 다른 UI 표시
-                            if requestSent {
-                                // 요청 전송 성공 시 표시할 UI
-                                VStack(spacing: 16) {
-                                    // 사용자 정보
-                                    VStack(spacing: 8) {
-                                        Text(user.displayName)
-                                            .font(.title3)
-                                            .fontWeight(.semibold)
-                                        
-                                        if let characterDetails = characterDetails {
-                                            // 대표 캐릭터 상세 정보
-                                            VStack(spacing: 4) {
-                                                Text("캐릭터: \(characterDetails.name)")
-                                                    .font(.subheadline)
-                                                    .foregroundColor(.primary)
-                                                
-                                                HStack(spacing: 8) {
-                                                    Text(characterDetails.server)
-                                                        .font(.caption)
-                                                        .foregroundColor(.blue)
-                                                        .padding(.horizontal, 8)
-                                                        .padding(.vertical, 4)
-                                                        .background(Color.blue.opacity(0.1))
-                                                        .cornerRadius(8)
-                                                    
-                                                    Text(characterDetails.characterClass)
-                                                        .font(.caption)
-                                                        .foregroundColor(.blue)
-                                                        .padding(.horizontal, 8)
-                                                        .padding(.vertical, 4)
-                                                        .background(Color.blue.opacity(0.1))
-                                                        .cornerRadius(8)
-                                                    
-                                                    Text("Lv. \(String(format: "%.2f", characterDetails.level))")
-                                                        .font(.caption)
-                                                        .foregroundColor(.blue)
-                                                        .padding(.horizontal, 8)
-                                                        .padding(.vertical, 4)
-                                                        .background(Color.blue.opacity(0.1))
-                                                        .cornerRadius(8)
-                                                }
-                                            }
-                                        } else {
-                                            Text("캐릭터: \(searchCharacterName)")
-                                                .font(.subheadline)
-                                                .foregroundColor(.secondary)
-                                        }
-                                    }
-                                    
-                                    // 요청 성공 메시지
-                                    HStack {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundColor(.green)
-                                            .font(.title2)
-                                        Text("친구 요청을 보냈습니다")
-                                            .font(.headline)
-                                            .foregroundColor(.green)
-                                    }
-                                    .padding()
-                                    .frame(maxWidth: .infinity)
-                                    .background(Color.green.opacity(0.1))
-                                    .cornerRadius(10)
-                                }
-                                .padding()
-                                .background(Color(.systemGray6))
-                                .cornerRadius(16)
-                            } else {
-                                // 기존 검색 결과 UI
-                                UserSearchResultView(
-                                    user: user,
-                                    characterName: searchCharacterName,
-                                    characterDetails: characterDetails,
-                                    isLoading: false,
-                                    onSendRequest: {
-                                        sendFriendRequest(to: searchCharacterName)
-                                    }
-                                )
+                        UserSearchResultView(
+                            user: user,
+                            characterName: searchCharacterName,
+                            characterDetails: characterDetails,
+                            isLoading: false,
+                            requestSent: requestSent,
+                            onSendRequest: {
+                                sendFriendRequest(to: searchCharacterName)
                             }
-                        }
+                        )
                         .padding()
                     } else {
                         // 검색 결과 없음
                         VStack(spacing: 12) {
                             Image(systemName: "person.slash")
                                 .font(.system(size: 40))
-                                .foregroundColor(.gray)
+                                .foregroundColor(Color.gray)
                             
                             Text("캐릭터를 찾을 수 없습니다")
                                 .font(.headline)
+                                .foregroundColor(Color.textPrimary)
                             
                             Text("캐릭터 이름을 확인하고 다시 시도하세요")
                                 .font(.subheadline)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Color.textSecondary)
                         }
                         .padding()
                     }
@@ -178,6 +121,7 @@ struct AddFriendView: View {
                     Button("닫기") {
                         dismiss()
                     }
+                    .foregroundColor(Color.blue)
                 }
             }
             .alert(isPresented: $showAlert) {
@@ -187,6 +131,7 @@ struct AddFriendView: View {
                     dismissButton: .default(Text("확인"))
                 )
             }
+            .background(Color.backgroundPrimary)
         }
     }
     
@@ -287,7 +232,9 @@ struct UserSearchResultView: View {
     var characterName: String
     var characterDetails: CharacterModel?
     var isLoading: Bool
+    var requestSent: Bool
     var onSendRequest: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         VStack(spacing: 16) {
@@ -296,54 +243,83 @@ struct UserSearchResultView: View {
                 Text(user.displayName)
                     .font(.title3)
                     .fontWeight(.semibold)
+                    .foregroundColor(Color.textPrimary)
                 
                 if let characterDetails = characterDetails {
                     // 대표 캐릭터 상세 정보가 있는 경우
-                    VStack(spacing: 8) {
-                        HStack(spacing: 8) {
-                            Text("\(characterDetails.server) • \(characterDetails.characterClass)")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                        Text("Lv. \(String(format: "%.2f", characterDetails.level))")
-                            .font(.body)
-                            .foregroundColor(.black)
+                    HStack(spacing: 8) {
+                        Text(characterDetails.server)
+                            .font(.caption)
+                            .foregroundColor(colorScheme == .dark ? .blue.opacity(0.9) : .blue)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(Color.blue.opacity(0.1))
+                            .background(colorScheme == .dark ? Color.blue.opacity(0.15) : Color.blue.opacity(0.1))
+                            .cornerRadius(8)
+                        
+                        Text(characterDetails.characterClass)
+                            .font(.caption)
+                            .foregroundColor(colorScheme == .dark ? .blue.opacity(0.9) : .blue)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(colorScheme == .dark ? Color.blue.opacity(0.15) : Color.blue.opacity(0.1))
+                            .cornerRadius(8)
+                        
+                        Text("Lv. \(String(format: "%.2f", characterDetails.level))")
+                            .font(.caption)
+                            .foregroundColor(colorScheme == .dark ? .blue.opacity(0.9) : .blue)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(colorScheme == .dark ? Color.blue.opacity(0.15) : Color.blue.opacity(0.1))
                             .cornerRadius(8)
                     }
                 } else {
                     // 대표 캐릭터 기본 정보만 있는 경우
                     Text("캐릭터: \(characterName)")
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color.textSecondary)
                     
                     if isLoading {
                         // 캐릭터 정보 로딩 중
                         ProgressView("캐릭터 정보 로딩 중...")
                             .font(.caption)
+                            .foregroundColor(Color.textSecondary)
                     }
                 }
             }
             
-            // 요청 버튼
-            Button(action: onSendRequest) {
+            // 친구 요청 상태에 따라 다른 UI 표시
+            if requestSent {
+                // 친구 요청 전송 성공 상태
                 HStack {
-                    Image(systemName: "person.badge.plus")
-                    Text("친구 요청 보내기")
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text("친구 요청을 보냈습니다")
                         .font(.headline)
+                        .foregroundColor(.green)
                 }
-                .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.blue)
+                .background(colorScheme == .dark ? Color.green.opacity(0.15) : Color.green.opacity(0.1))
                 .cornerRadius(10)
+            } else {
+                // 친구 요청 버튼
+                Button(action: onSendRequest) {
+                    HStack {
+                        Image(systemName: "person.badge.plus")
+                        Text("친구 요청 보내기")
+                            .font(.headline)
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue)
+                    .cornerRadius(10)
+                }
+                .disabled(isLoading)
             }
-            .disabled(isLoading)
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(colorScheme == .dark ? Color.gray.opacity(0.2) : Color(.systemGray6))
         .cornerRadius(16)
     }
 }

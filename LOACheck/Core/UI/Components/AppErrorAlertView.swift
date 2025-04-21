@@ -64,11 +64,12 @@ struct AlertOverlay: View {
     var secondaryButtonTitle: String?
     var primaryAction: () -> Void
     var secondaryAction: (() -> Void)?
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         ZStack {
             // 배경 블러 효과
-            Color.black.opacity(0.4)
+            Color.black.opacity(colorScheme == .dark ? 0.6 : 0.4)
                 .edgesIgnoringSafeArea(.all)
             
             // 알림 카드
@@ -135,7 +136,7 @@ struct AlertOverlay: View {
                 .padding(.horizontal)
                 .padding(.bottom)
             }
-            .background(Color(.systemBackground))
+            .background(Color(.cardBackground))
             .cornerRadius(16)
             .padding(.horizontal, 32)
             .shadow(radius: 20)

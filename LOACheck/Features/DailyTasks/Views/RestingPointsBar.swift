@@ -10,6 +10,7 @@ import SwiftUI
 struct RestingPointsBar: View {
     var current: Int
     var maximum: Int
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -17,21 +18,20 @@ struct RestingPointsBar: View {
             HStack {
                 Text("휴식보너스")
                     .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color.textSecondary)
                 
                 Spacer()
                 
                 Text("\(current)/\(maximum)")
                     .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color.textSecondary)
             }
             
             // 프로그레스 바
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    // 배경
                     RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.gray.opacity(0.2))
+                        .fill(Color.gray.opacity(colorScheme == .dark ? 0.3 : 0.2))
                         .frame(height: 4)
                     
                     // 채워진 부분
@@ -54,11 +54,16 @@ struct RestingPointsBar: View {
     private func getBarColor() -> Color {
         let percentage = Double(current) / Double(maximum)
         switch percentage {
-        case 0..<0.25: return .blue
-        case 0.25..<0.5: return .teal
-        case 0.5..<0.75: return .green
-        case 0.75...1.0: return .orange
-        default: return .blue
+        case 0..<0.25:
+            return colorScheme == .dark ? Color.blue.opacity(0.8) : Color.blue
+        case 0.25..<0.5:
+            return colorScheme == .dark ? Color.teal.opacity(0.8) : Color.teal
+        case 0.5..<0.75:
+            return colorScheme == .dark ? Color.green.opacity(0.8) : Color.green
+        case 0.75...1.0:
+            return colorScheme == .dark ? Color.orange.opacity(0.8) : Color.orange
+        default:
+            return colorScheme == .dark ? Color.blue.opacity(0.8) : Color.blue
         }
     }
 }

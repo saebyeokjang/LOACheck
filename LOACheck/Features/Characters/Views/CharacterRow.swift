@@ -14,6 +14,7 @@ struct CharacterRow: View {
     let goldEarnerCount: Int
     
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -22,13 +23,15 @@ struct CharacterRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(character.name)
                         .font(.headline)
+                        .foregroundColor(Color.textPrimary)
                     
                     Text("\(character.server) • \(character.characterClass)")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color.textSecondary)
                     
                     Text("레벨: \(String(format: "%.2f", character.level))")
                         .font(.caption)
+                        .foregroundColor(Color.textSecondary)
                 }
                 
                 Spacer()
@@ -37,7 +40,7 @@ struct CharacterRow: View {
                     HStack(spacing: 8) {
                         Text("보기")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color.textSecondary)
                             .frame(width: 40, alignment: .trailing)
                         
                         Toggle(isOn: Binding(
@@ -63,7 +66,7 @@ struct CharacterRow: View {
                     HStack(spacing: 8) {
                         Text("골드")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color.textSecondary)
                             .frame(width: 40, alignment: .trailing)
                         
                         Toggle(isOn: Binding(
