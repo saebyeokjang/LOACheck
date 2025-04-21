@@ -5,10 +5,10 @@
 //  Created by Saebyeok Jang on 3/31/25.
 //
 
+// 경매 아이템 행 (각인서 목록용)
 import SwiftUI
 import SwiftData
 
-// 경매 아이템 행 (각인서 목록용) - 다크모드 개선
 struct AuctionItemRow: View {
     var item: AuctionItem
     @Environment(\.colorScheme) private var colorScheme
@@ -28,14 +28,14 @@ struct AuctionItemRow: View {
             .cornerRadius(6)
             .overlay(
                 RoundedRectangle(cornerRadius: 6)
-                    .stroke(Color.relicGrade, lineWidth: 2) // 유물등급 색상 적용
+                    .stroke(Color.relicGrade, lineWidth: 2)
             )
             
             // 아이템 정보
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.name)
                     .font(.headline)
-                    .foregroundColor(Color.relicGrade) // 유물등급 색상 적용
+                    .foregroundColor(Color.relicGrade)
                 
                 // 각인 정보
                 let engraveInfo = item.engraveInfo
@@ -68,7 +68,5 @@ struct AuctionItemRow: View {
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 4)
-        .background(Color.cardBackground)
-        .cornerRadius(8)
     }
 }

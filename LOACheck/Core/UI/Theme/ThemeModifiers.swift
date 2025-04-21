@@ -71,6 +71,7 @@ extension View {
     // 앱 배경색 적용
     func appBackgroundColor() -> some View {
         self.background(Color.backgroundPrimary)
+            .edgesIgnoringSafeArea(.all)
     }
     
     // 다크모드/라이트모드 전환 애니메이션

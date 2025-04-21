@@ -146,6 +146,7 @@ struct CharacterPagingView: View {
                 }
             }
         }
+        .background(Color.backgroundPrimary)
         .onAppear {
             loadCharacters()
         }

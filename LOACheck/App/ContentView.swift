@@ -40,27 +40,30 @@ struct ContentView: View {
         ZStack {
             TabView(selection: $selectedTab) {
                 CharacterPagingView(goToSettingsAction: {
-                    // 설정 탭으로 이동하는 클로저
                     selectedTab = 4
                 })
+                .appBackgroundColor()
                 .tabItem {
                     Label("캐릭터", systemImage: "person.fill")
                 }
                 .tag(0)
                 
                 CharacterListView()
+                    .appBackgroundColor()
                     .tabItem {
                         Label("관리", systemImage: "list.bullet")
                     }
                     .tag(1)
                 
                 MarketView()
+                    .appBackgroundColor()
                     .tabItem {
                         Label("시세", systemImage: "magnifyingglass")
                     }
                     .tag(2)
                 
                 FriendsListView()
+                    .appBackgroundColor()
                     .tabItem {
                         Label("친구", systemImage: "person.2.fill")
                     }
@@ -68,11 +71,13 @@ struct ContentView: View {
                     .badge(friendRequestBadge)
                 
                 SettingsView()
+                    .appBackgroundColor()
                     .tabItem {
                         Label("설정", systemImage: "gear")
                     }
                     .tag(4)
             }
+            .background(Color.backgroundPrimary)
             .onChange(of: selectedTab) { oldValue, newValue in
                 Logger.debug("탭 변경: \(oldValue) -> \(newValue)")
                 
