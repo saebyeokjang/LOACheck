@@ -89,90 +89,93 @@ struct CharacterHeaderView: View {
     
     var body: some View {
         VStack(spacing: 12) {
-            HStack {
-                // 이전 페이지로 이동
-                Button(action: {
-                    goToPreviousPage?()
-                }) {
-                    Image(systemName: "chevron.left")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 20, height: 20)
-                        .foregroundColor(goToPreviousPage != nil ?
-                                         (colorScheme == .dark ? .blue.opacity(0.9) : .blue) :
-                                            (colorScheme == .dark ? .gray.opacity(0.7) : .gray))
-                        .frame(width: 44, height: 44)
-                        .background(Color.clear)
-                        .cornerRadius(8)
-                }
-                .disabled(goToPreviousPage == nil)
-                
-                Spacer()
-                
-                VStack(spacing: 8) {
-                    HStack {
+            ZStack(alignment: .topTrailing) {
+                // 메인 콘텐츠
+                HStack {
+                    // 이전 페이지로 이동
+                    Button(action: {
+                        goToPreviousPage?()
+                    }) {
+                        Image(systemName: "chevron.left")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 20, height: 20)
+                            .foregroundColor(goToPreviousPage != nil ?
+                                             (colorScheme == .dark ? .blue.opacity(0.9) : .blue) :
+                                                (colorScheme == .dark ? .gray.opacity(0.7) : .gray))
+                            .frame(width: 44, height: 44)
+                            .background(Color.clear)
+                            .cornerRadius(8)
+                    }
+                    .disabled(goToPreviousPage == nil)
+                    
+                    Spacer()
+                    
+                    VStack(spacing: 8) {
                         Text(character.name)
                             .font(.title)
                             .fontWeight(.bold)
                             .foregroundColor(Color.textPrimary)
-                            
-                        // 새로고침 버튼 추가
-                        Button(action: {
-                            refreshCharacter()
-                        }) {
-                            Image(systemName: "arrow.clockwise")
-                                .foregroundColor(.blue)
-                                .font(.system(size: 16))
-                                .padding(6)
-                                .background(Color.blue.opacity(0.1))
-                                .clipShape(Circle())
-                        }
-                        .disabled(isRefreshing || apiKey.isEmpty)
-                        .opacity(isRefreshing ? 0.5 : 1.0)
-                    }
-                    
-                    Text("\(character.server) • \(character.characterClass)")
-                        .font(.subheadline)
-                        .foregroundColor(Color.textSecondary)
-                    
-                    Text("아이템 레벨: \(String(format: "%.2f", character.level))")
-                        .font(.headline)
-                        .padding(.vertical, 4)
-                        .padding(.horizontal, 12)
-                        .background(Color.blue.opacity(colorScheme == .dark ? 0.15 : 0.1))
-                        .foregroundColor(colorScheme == .dark ? .blue.opacity(0.9) : .blue)
-                        .cornerRadius(8)
-                    
-                    // 골드 획득 캐릭터 표시
-                    if character.isGoldEarner {
-                        Text("골드 획득 캐릭터")
-                            .font(.caption)
+                        
+                        Text("\(character.server) • \(character.characterClass)")
+                            .font(.subheadline)
+                            .foregroundColor(Color.textSecondary)
+                        
+                        Text("아이템 레벨: \(String(format: "%.2f", character.level))")
+                            .font(.headline)
                             .padding(.vertical, 4)
-                            .padding(.horizontal, 8)
-                            .background(Color.yellow.opacity(colorScheme == .dark ? 0.2 : 0.2))
-                            .foregroundColor(colorScheme == .dark ? .orange.opacity(0.9) : .orange)
-                            .cornerRadius(4)
+                            .padding(.horizontal, 12)
+                            .background(Color.blue.opacity(colorScheme == .dark ? 0.15 : 0.1))
+                            .foregroundColor(colorScheme == .dark ? .blue.opacity(0.9) : .blue)
+                            .cornerRadius(8)
+                        
+                        // 골드 획득 캐릭터 표시
+                        if character.isGoldEarner {
+                            Text("골드 획득 캐릭터")
+                                .font(.caption)
+                                .padding(.vertical, 4)
+                                .padding(.horizontal, 8)
+                                .background(Color.yellow.opacity(colorScheme == .dark ? 0.2 : 0.2))
+                                .foregroundColor(colorScheme == .dark ? .orange.opacity(0.9) : .orange)
+                                .cornerRadius(4)
+                        }
                     }
+                    
+                    Spacer()
+                    
+                    // 다음 페이지로 이동 버튼
+                    Button(action: {
+                        goToNextPage?()
+                    }) {
+                        Image(systemName: "chevron.right")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 20, height: 20)
+                            .foregroundColor(goToNextPage != nil ?
+                                            (colorScheme == .dark ? .blue.opacity(0.9) : .blue) :
+                                                (colorScheme == .dark ? .gray.opacity(0.7) : .gray))
+                            .frame(width: 44, height: 44)
+                            .background(Color.clear)
+                            .cornerRadius(8)
+                    }
+                    .disabled(goToNextPage == nil)
                 }
                 
-                Spacer()
-                
-                // 다음 페이지로 이동
+                // 새로고침 버튼을 오른쪽 상단 구석에 배치
                 Button(action: {
-                    goToNextPage?()
+                    refreshCharacter()
                 }) {
-                    Image(systemName: "chevron.right")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 20, height: 20)
-                        .foregroundColor(goToNextPage != nil ?
-                                         (colorScheme == .dark ? .blue.opacity(0.9) : .blue) :
-                                            (colorScheme == .dark ? .gray.opacity(0.7) : .gray))
-                        .frame(width: 44, height: 44)
-                        .background(Color.clear)
-                        .cornerRadius(8)
+                    Image(systemName: "arrow.clockwise")
+                        .foregroundColor(.blue)
+                        .font(.system(size: 16))
+                        .padding(6)
+                        .background(Color.blue.opacity(0.1))
+                        .clipShape(Circle())
                 }
-                .disabled(goToNextPage == nil)
+                .disabled(isRefreshing || apiKey.isEmpty)
+                .opacity(isRefreshing ? 0.5 : 1.0)
+                .padding(.trailing, 8)
+                .padding(.top, 8)
             }
             .padding(.horizontal)
         }
@@ -184,14 +187,6 @@ struct CharacterHeaderView: View {
             Button("확인") {}
         } message: {
             Text(alertMessage)
-        }
-        .overlay {
-            if isRefreshing {
-                ProgressView()
-                    .padding(8)
-                    .background(Color(.systemBackground).opacity(0.7))
-                    .cornerRadius(8)
-            }
         }
     }
     

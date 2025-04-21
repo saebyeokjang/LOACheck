@@ -13,13 +13,13 @@ struct CharacterPagingView: View {
     @State private var isCharacterLoading = true
     var goToSettingsAction: (() -> Void)?
     @State private var currentPage = 0
-    @State private var isPageChanging = false // 페이지 전환 중 상태
-    @State private var dragOffset: CGFloat = 0 // 드래그 상태 추적
-    @State private var screenWidth: CGFloat = UIScreen.main.bounds.width // 화면 너비
-    @State private var showCharacterSelector = false // 캐릭터 선택기 표시 여부
-    @State private var animationDirection: Int = 0 // 애니메이션 방향 (1: 다음 페이지, -1: 이전 페이지, 0: 없음)
-    @State private var isAnimating = false // 애니메이션 진행 중 상태
-    @State private var showGoldSummary = false // 골드 요약 시트 표시 여부
+    @State private var isPageChanging = false
+    @State private var dragOffset: CGFloat = 0
+    @State private var screenWidth: CGFloat = UIScreen.main.bounds.width
+    @State private var showCharacterSelector = false
+    @State private var animationDirection: Int = 0
+    @State private var isAnimating = false
+    @State private var showGoldSummary = false
     
     @Environment(\.modelContext) private var modelContext
     
@@ -28,7 +28,12 @@ struct CharacterPagingView: View {
     }
     
     var body: some View {
-        VStack {
+        VStack(spacing: 0) {
+            // SafeArea 위쪽 여백을 추가하는 빈 뷰
+            Color.clear
+                .frame(height: 0)
+                .padding(.top, 1) // 최소한의 패딩
+            
             // 캐릭터 로딩 중 화면 추가
             if isCharacterLoading {
                 ProgressView("캐릭터 불러오는 중...")
@@ -36,7 +41,7 @@ struct CharacterPagingView: View {
             } else if characters.isEmpty {
                 EmptyCharactersView(goToSettingsAction: goToSettingsAction)
             } else {
-                // 상단 네비게이션 바
+                // 상단 네비게이션 바 - 상태바 아래에 배치
                 HStack {
                     // 바로가기 버튼
                     Button(action: {
@@ -78,8 +83,11 @@ struct CharacterPagingView: View {
                         .cornerRadius(12)
                     }
                 }
-                .padding(.horizontal)
-                .padding(.top, 8)
+                .padding(.horizontal, 16)
+                .padding(.top, 16) // 상단 여백 증가
+                .padding(.bottom, 8)
+                .frame(height: 52) // 높이를 증가
+                .zIndex(1)
                 
                 // 각 페이지의 너비를 측정하기 위한 GeometryReader
                 GeometryReader { geometry in
@@ -144,9 +152,15 @@ struct CharacterPagingView: View {
                             }
                     )
                 }
+                .zIndex(0)
             }
         }
         .background(Color.backgroundPrimary)
+        .ignoresSafeArea(.all, edges: []) // 안전 영역 전체 무시하지 않음
+        .safeAreaInset(edge: .top) {
+            // 상단 Safe Area에 투명한 공간 추가
+            Color.clear.frame(height: 0)
+        }
         .onAppear {
             loadCharacters()
         }

@@ -42,7 +42,7 @@ struct ContentView: View {
                 CharacterPagingView(goToSettingsAction: {
                     selectedTab = 4
                 })
-                .appBackgroundColor()
+                .edgesIgnoringSafeArea([]) // SafeArea 존중하도록 수정
                 .tabItem {
                     Label("캐릭터", systemImage: "person.fill")
                 }
@@ -78,6 +78,10 @@ struct ContentView: View {
                     .tag(4)
             }
             .background(Color.backgroundPrimary)
+            .safeAreaInset(edge: .top) {
+                // 상단 Safe Area에 투명한 공간 추가
+                Color.clear.frame(height: 0)
+            }
             .onChange(of: selectedTab) { oldValue, newValue in
                 Logger.debug("탭 변경: \(oldValue) -> \(newValue)")
                 
