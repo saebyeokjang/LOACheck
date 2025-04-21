@@ -47,7 +47,6 @@ struct FriendsListView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     if authManager.isLoggedIn {
                         HStack(spacing: 16) {
-                            // 친구 요청 버튼 (아이콘 제거, 텍스트로 표시)
                             Button(action: {
                                 showFriendRequests = true
                             }) {
@@ -106,7 +105,6 @@ struct FriendsListView: View {
                     }
                 }
             }
-            .background(Color.backgroundPrimary)
         }
     }
     
@@ -211,6 +209,5 @@ struct EmptyFriendsView: View {
                 .multilineTextAlignment(.center)
         }
         .padding()
-        .background(Color.backgroundPrimary)
     }
 }

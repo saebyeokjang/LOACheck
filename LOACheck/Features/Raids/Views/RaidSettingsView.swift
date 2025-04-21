@@ -632,6 +632,7 @@ struct GateCell: View {
     var isGoldDisabled: Bool
     var selectedDifficulty: String
     var onSelect: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         Button(action: onSelect) {
@@ -649,7 +650,9 @@ struct GateCell: View {
             }
             .frame(height: 60)
             .frame(minWidth: 0, maxWidth: .infinity)
-            .background(isSelected ? getDifficultyColor().opacity(0.1) : Color.white)
+            .background(isSelected ?
+                        getDifficultyColor().opacity(0.1) :
+                            (colorScheme == .dark ? Color.black.opacity(0.2) : Color.white))
         }
         .buttonStyle(PlainButtonStyle())
     }
