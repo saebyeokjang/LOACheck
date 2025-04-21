@@ -16,25 +16,32 @@ class EngraveEffectManager {
     private let effectCodes: [String: Int] = [
         "추가 피해": 41,
         "적에게 주는 피해 증가": 42,
+        "세레나데, 신성, 조화 게이지 획득량 증가": 43,
+        "낙인력": 44,
         "공격력 %": 45,
         "무기 공격력 %": 46,
+        "파티원 회복 효과": 47,
+        "파티원 보호막 효과": 48,
         "치명타 적중률": 49,
         "치명타 피해": 50,
+        "아군 공격력 강화 효과": 51,
+        "아군 피해량 강화 효과": 52,
         "공격력 +": 53,
-        "무기 공격력 +": 54
+        "무기 공격력 +": 54,
+        "최대 생명력": 55
     ]
     
     // 부위별 연마효과 맵핑
     private let categoryEffects: [AccessoryCategory: [String]] = [
-        .necklace: ["추가 피해", "적에게 주는 피해 증가", "공격력 +", "무기 공격력 +"],
-        .earring: ["공격력 %", "무기 공격력 %", "공격력 +", "무기 공격력 +"],
-        .ring: ["치명타 적중률", "치명타 피해", "공격력 +", "무기 공격력 +"]
+        .necklace: ["추가 피해", "적에게 주는 피해 증가", "세레나데, 신성, 조화 게이지 획득량 증가", "낙인력", "공격력 +", "무기 공격력 +", "최대 생명력"],
+        .earring: ["공격력 %", "무기 공격력 %", "파티원 회복 효과", "파티원 보호막 효과", "공격력 +", "무기 공격력 +", "최대 생명력"],
+        .ring: ["치명타 적중률", "치명타 피해", "아군 공격력 강화 효과", "아군 피해량 강화 효과", "공격력 +", "무기 공격력 +", "최대 생명력"]
     ]
     
     // 연마효과별 가능한 값 목록 - var로 변경하여 수정 가능하게 함
     private var effectValues: [String: [EngraveEffectValue]] = [
         "추가 피해": [
-            EngraveEffectValue(displayValue: "0.70%", value: 70, isPercentage: true), // 0.60%에서 0.70%로 수정
+            EngraveEffectValue(displayValue: "0.70%", value: 70, isPercentage: true),
             EngraveEffectValue(displayValue: "1.60%", value: 160, isPercentage: true),
             EngraveEffectValue(displayValue: "2.60%", value: 260, isPercentage: true)
         ],
@@ -42,6 +49,16 @@ class EngraveEffectManager {
             EngraveEffectValue(displayValue: "0.55%", value: 55, isPercentage: true),
             EngraveEffectValue(displayValue: "1.20%", value: 120, isPercentage: true),
             EngraveEffectValue(displayValue: "2.00%", value: 200, isPercentage: true)
+        ],
+        "세레나데, 신성, 조화 게이지 획득량 증가": [
+            EngraveEffectValue(displayValue: "1.60%", value: 160, isPercentage: true),
+            EngraveEffectValue(displayValue: "3.60%", value: 360, isPercentage: true),
+            EngraveEffectValue(displayValue: "6.00%", value: 600, isPercentage: true)
+        ],
+        "낙인력": [
+            EngraveEffectValue(displayValue: "2.15%", value: 215, isPercentage: true),
+            EngraveEffectValue(displayValue: "4.80%", value: 480, isPercentage: true),
+            EngraveEffectValue(displayValue: "8.00%", value: 800, isPercentage: true)
         ],
         "공격력 %": [
             EngraveEffectValue(displayValue: "0.40%", value: 40, isPercentage: true),
@@ -53,6 +70,16 @@ class EngraveEffectManager {
             EngraveEffectValue(displayValue: "1.80%", value: 180, isPercentage: true),
             EngraveEffectValue(displayValue: "3.00%", value: 300, isPercentage: true)
         ],
+        "파티원 회복 효과": [
+            EngraveEffectValue(displayValue: "0.95%", value: 95, isPercentage: true),
+            EngraveEffectValue(displayValue: "2.10%", value: 210, isPercentage: true),
+            EngraveEffectValue(displayValue: "3.50%", value: 350, isPercentage: true)
+        ],
+        "파티원 보호막 효과": [
+            EngraveEffectValue(displayValue: "0.95%", value: 95, isPercentage: true),
+            EngraveEffectValue(displayValue: "2.10%", value: 210, isPercentage: true),
+            EngraveEffectValue(displayValue: "3.50%", value: 350, isPercentage: true)
+        ],
         "치명타 적중률": [
             EngraveEffectValue(displayValue: "0.40%", value: 40, isPercentage: true),
             EngraveEffectValue(displayValue: "0.95%", value: 95, isPercentage: true),
@@ -62,6 +89,16 @@ class EngraveEffectManager {
             EngraveEffectValue(displayValue: "1.10%", value: 110, isPercentage: true),
             EngraveEffectValue(displayValue: "2.40%", value: 240, isPercentage: true),
             EngraveEffectValue(displayValue: "4.00%", value: 400, isPercentage: true)
+        ],
+        "아군 공격력 강화 효과": [
+            EngraveEffectValue(displayValue: "1.35%", value: 135, isPercentage: true),
+            EngraveEffectValue(displayValue: "3.00%", value: 300, isPercentage: true),
+            EngraveEffectValue(displayValue: "5.00%", value: 500, isPercentage: true)
+        ],
+        "아군 피해량 강화 효과": [
+            EngraveEffectValue(displayValue: "2.00%", value: 200, isPercentage: true),
+            EngraveEffectValue(displayValue: "4.50%", value: 450, isPercentage: true),
+            EngraveEffectValue(displayValue: "7.50%", value: 750, isPercentage: true)
         ],
         "공격력 +": [
             EngraveEffectValue(displayValue: "80", value: 80, isPercentage: false),

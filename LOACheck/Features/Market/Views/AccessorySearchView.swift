@@ -19,7 +19,7 @@ struct AccessorySearchView: View {
     @State private var selectedAccessoryType = 0  // 0: 목걸이, 1: 귀걸이, 2: 반지
     @State private var selectedEngraveEffects: [String] = []
     @State private var selectedEngraveValues: [String: Double] = [:] // 연마효과별 선택된 값
-    @State private var selectedQuality: Int = 0
+    @State private var selectedQuality: Int = 67
     @State private var searchResults: [AuctionItem] = []
     @State private var currentPage = 1
     @State private var totalPages = 1
@@ -147,7 +147,7 @@ struct AccessorySearchView: View {
                 .padding(.vertical, 8)
                 .padding(.horizontal, 12)
                 .background(selectedEngraveEffects.contains(effect) ?
-                    Color.blue : (colorScheme == .dark ? Color.gray.opacity(0.2) : Color.gray.opacity(0.1)))
+                            Color.blue : (colorScheme == .dark ? Color.gray.opacity(0.2) : Color.gray.opacity(0.1)))
                 .cornerRadius(8)
             }
             
@@ -179,7 +179,7 @@ struct AccessorySearchView: View {
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
                             .background(selectedEngraveValues[effect] == Double(effectValue.value) ?
-                                Color.blue : (colorScheme == .dark ? Color.gray.opacity(0.2) : Color.gray.opacity(0.1)))
+                                        Color.blue : (colorScheme == .dark ? Color.gray.opacity(0.2) : Color.gray.opacity(0.1)))
                             .cornerRadius(4)
                     }
                 }
@@ -199,8 +199,15 @@ struct AccessorySearchView: View {
                 
                 Slider(value: Binding(
                     get: { Double(selectedQuality) },
-                    set: { selectedQuality = Int($0) }
-                ), in: 0...100, step: 10)
+                    set: { newValue in
+                        let rawValue = Int(newValue)
+                        if rawValue >= 65 && rawValue <= 69 {
+                            selectedQuality = 67
+                        } else {
+                            selectedQuality = rawValue
+                        }
+                    }
+                ), in: 0...100, step: 1)
             }
             .padding(.horizontal, 16)
         }

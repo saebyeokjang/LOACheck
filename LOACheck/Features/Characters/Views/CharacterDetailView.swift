@@ -84,7 +84,6 @@ struct CharacterHeaderView: View {
     
     var body: some View {
         VStack(spacing: 12) {
-            // 페이지 이동 버튼 포함한 캐릭터 헤더
             HStack {
                 // 이전 페이지로 이동
                 Button(action: {
@@ -94,7 +93,6 @@ struct CharacterHeaderView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 20, height: 20)
-                    // 다크모드에서 더 잘 보이도록 색상 조정
                         .foregroundColor(goToPreviousPage != nil ?
                                          (colorScheme == .dark ? .blue.opacity(0.9) : .blue) :
                                             (colorScheme == .dark ? .gray.opacity(0.7) : .gray))
@@ -107,7 +105,6 @@ struct CharacterHeaderView: View {
                 Spacer()
                 
                 VStack(spacing: 8) {
-                    // 캐릭터 이름 및 정보
                     Text(character.name)
                         .font(.title)
                         .fontWeight(.bold)
@@ -121,9 +118,7 @@ struct CharacterHeaderView: View {
                         .font(.headline)
                         .padding(.vertical, 4)
                         .padding(.horizontal, 12)
-                    // 다크모드에서 더 잘 보이도록 배경색 조정
                         .background(Color.blue.opacity(colorScheme == .dark ? 0.15 : 0.1))
-                    // 다크모드에서 색상 조정
                         .foregroundColor(colorScheme == .dark ? .blue.opacity(0.9) : .blue)
                         .cornerRadius(8)
                     
