@@ -20,7 +20,8 @@ final class RaidGate {
     var additionalGold: Int = 0 // 추가 수익
     var isGoldDisabled: Bool = false
     
-    @Relationship var character: CharacterModel?
+    @Relationship(deleteRule: .nullify)
+    var character: CharacterModel?
     
     var displayName: String {
         "\(raid) \(gate + 1)관문(\(difficulty))"

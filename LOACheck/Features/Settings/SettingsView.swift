@@ -23,6 +23,7 @@ struct SettingsView: View {
     @State private var showDataSyncChoiceAlert = false
     @State private var showSyncStrategySheet = false
     @State private var isDataSyncing = false
+    @ObservedObject private var themeManager = ThemeManager.shared
     
     // 환경 객체
     @EnvironmentObject var authManager: AuthManager
@@ -120,6 +121,18 @@ struct SettingsView: View {
                 buildSettingsContent()
             }
             .navigationTitle("설정")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        ThemeManager.shared.isDarkMode.toggle()
+                    }) {
+                        Image(systemName: ThemeManager.shared.isDarkMode ? "sun.max.fill" : "moon.fill")
+                            .imageScale(.large)
+                            .foregroundColor(ThemeManager.shared.isDarkMode ? .yellow : .blue)
+                            .animation(.spring(), value: ThemeManager.shared.isDarkMode)
+                    }
+                }
+            }
             .alert("알림", isPresented: $isShowingAlert) {
                 Button("확인") { }
             } message: {

@@ -75,7 +75,7 @@ struct AccessoryResultRow: View {
                     if let tradeCount = item.tradeAllowCount {
                         Text("거래 가능 횟수: \(tradeCount)")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(.textSecondary)
                     }
                 }
                 
@@ -166,6 +166,7 @@ struct AccessoryResultRow: View {
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 6)
+        .background(Color.cardBackground)
     }
     
     // 품질에 따른 색상 반환

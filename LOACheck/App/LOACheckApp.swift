@@ -18,6 +18,7 @@ struct LOACheckApp: App {
     @StateObject private var errorHandlingService = ErrorHandlingService.shared
     @StateObject private var networkMonitor = NetworkMonitorService.shared
     @StateObject private var friendsService = FriendsService.shared
+    @ObservedObject private var themeManager = ThemeManager.shared
     
     // 앱 시작 시 초기화 플래그
     @State private var isInitialized = false
@@ -40,9 +41,14 @@ struct LOACheckApp: App {
                 .environmentObject(errorHandlingService)
                 .environmentObject(friendsService)
                 .environment(\.refresh, RefreshAction {
-                    // 앱 전체 새로고침 로직 - 동기 함수로 변경
+                    // 앱 전체 새로고침
                     Task { await performGlobalRefresh() }
                 })
+                // 다크모드 적용
+                .preferredColorScheme(themeManager.colorScheme)
+                .onOpenURL { url in
+                    GIDSignIn.sharedInstance.handle(url)
+                }
                 .onOpenURL { url in
                     // 구글 로그인 URL 처리
                     GIDSignIn.sharedInstance.handle(url)

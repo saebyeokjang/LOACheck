@@ -169,7 +169,7 @@ struct RaidCardView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("\(getOrderString(for: raidName)) \(raidName)")
                         .font(.headline)
-                        .foregroundColor(isTopRaid || !isGoldEarner ? .primary : .gray)
+                        .foregroundColor(Color.textPrimary)
                     
                     if isGoldEarner {
                         // 레이드 총 골드 계산
@@ -278,7 +278,7 @@ struct RaidCardView: View {
                 }
             }
         }
-        .background(Color.white)
+        .background(Color.cardBackground)
         .cornerRadius(10)
         .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
         .padding(.vertical, 4)

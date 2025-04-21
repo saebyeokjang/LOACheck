@@ -120,7 +120,6 @@ struct RaidSettingsView: View {
     
     // 선택된 레이드 설정 저장
     private func saveRaidSettings() {
-        // 기존 레이드 관문 정보 저장
         var existingGates: [String: RaidGate] = [:]
         if let gates = character.raidGates {
             for gate in gates {
@@ -150,7 +149,7 @@ struct RaidSettingsView: View {
                     if let existingGate = existingGates[key] {
                         // 기존 관문 업데이트
                         existingGate.goldReward = goldReward
-                        existingGate.isGoldDisabled = isGoldDisabled // 골드 비활성화 상태 업데이트
+                        existingGate.isGoldDisabled = isGoldDisabled
                         newGates.append(existingGate)
                     } else {
                         // 새 관문 생성
@@ -161,24 +160,29 @@ struct RaidSettingsView: View {
                             goldReward: goldReward,
                             isCompleted: false,
                             lastCompletedAt: nil,
-                            isGoldDisabled: isGoldDisabled // 골드 비활성화 상태 설정
+                            isGoldDisabled: isGoldDisabled
                         )
+                        // 캐릭터 참조 설정
+                        newGate.character = character
                         newGates.append(newGate)
                     }
                 }
             }
         }
         
-        // 캐릭터에 새 관문 목록 설정
-        character.raidGates = newGates
-        
-        // 동기화 표시
-        DataSyncManager.shared.markLocalChanges()
-        
-        // 즉시 동기화 실행
-        if AuthManager.shared.isLoggedIn && NetworkMonitorService.shared.isConnected {
-            Task {
-                await DataSyncManager.shared.uploadToServer()
+        // 메인 스레드에서 SwiftData 컨텍스트 작업 수행
+        DispatchQueue.main.async {
+            // 기존 관문을 모두 새 목록으로 대체
+            character.raidGates = newGates
+            
+            // 동기화 표시
+            DataSyncManager.shared.markLocalChanges()
+            
+            // 즉시 동기화 실행 (비동기로 처리)
+            if AuthManager.shared.isLoggedIn && NetworkMonitorService.shared.isConnected {
+                Task {
+                    await DataSyncManager.shared.uploadToServer()
+                }
             }
         }
     }
