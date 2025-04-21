@@ -8,9 +8,10 @@
 import SwiftUI
 import SwiftData
 
-// 장신구 검색 결과 행 컴포넌트 (수정)
+// 장신구 검색 결과 행 컴포넌트 (다크모드 개선)
 struct AccessoryResultRow: View {
     var item: AuctionItem
+    @Environment(\.colorScheme) private var colorScheme
     
     // 효과 등급 색상 결정을 위한 헬퍼 함수
     private func getEffectTierColor(effect: ItemOption) -> Color {
@@ -49,7 +50,7 @@ struct AccessoryResultRow: View {
                             .foregroundColor(.orange)
                     }
                     .frame(width: 52, height: 48) // 프레임 크기 증가
-                    .background(Color.black.opacity(0.05))
+                    .background(colorScheme == .dark ? Color.black.opacity(0.2) : Color.black.opacity(0.05))
                     .cornerRadius(6, corners: [.topLeft, .topRight])
                     
                     // 품질 표시
@@ -75,7 +76,7 @@ struct AccessoryResultRow: View {
                     if let tradeCount = item.tradeAllowCount {
                         Text("거래 가능 횟수: \(tradeCount)")
                             .font(.caption)
-                            .foregroundColor(.textSecondary)
+                            .foregroundColor(Color.textSecondary)
                     }
                 }
                 
@@ -89,7 +90,7 @@ struct AccessoryResultRow: View {
                     
                     Text(item.auctionInfo.buyPrice != nil ? "즉시 구매가" : "최저 입찰가")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color.textSecondary)
                 }
             }
             
@@ -127,7 +128,7 @@ struct AccessoryResultRow: View {
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 4)
-            .background(Color.gray.opacity(0.1))
+            .background(colorScheme == .dark ? Color.gray.opacity(0.15) : Color.gray.opacity(0.1))
             .cornerRadius(4)
             
             // 연마효과 정보
@@ -142,7 +143,7 @@ struct AccessoryResultRow: View {
                             // 공백 제거
                             Text(effect.optionName.trimmingCharacters(in: .whitespaces))
                                 .font(.caption2)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Color.textSecondary)
                             
                             if effect.isValuePercentage {
                                 Text("+\(String(format: "%.2f", effect.value))%")
@@ -158,7 +159,7 @@ struct AccessoryResultRow: View {
                         }
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(effectColor.opacity(0.1))
+                        .background(colorScheme == .dark ? effectColor.opacity(0.15) : effectColor.opacity(0.1))
                         .cornerRadius(4)
                     }
                 }
@@ -167,19 +168,7 @@ struct AccessoryResultRow: View {
         .padding(.vertical, 10)
         .padding(.horizontal, 6)
         .background(Color.cardBackground)
-    }
-    
-    // 품질에 따른 색상 반환
-    private func getQualityColor(_ quality: Int) -> Color {
-        switch quality {
-        case 0..<10: return .red
-        case 10..<30: return .yellow
-        case 30..<70: return .green
-        case 70..<90: return .blue
-        case 90..<100: return .purple
-        case 100: return Color(red: 1.0, green: 0.5, blue: 0.0)
-        default: return .gray
-        }
+        .cornerRadius(8)
     }
     
     // 스탯 이름 축약
@@ -188,5 +177,30 @@ struct AccessoryResultRow: View {
         if fullName.contains("민첩") { return "민첩" }
         if fullName.contains("지능") { return "지능" }
         return fullName
+    }
+}
+
+// 스탯 표시용 컴포넌트
+struct StatView: View {
+    var name: String
+    var value: Int
+    var color: Color = .blue
+    @Environment(\.colorScheme) private var colorScheme
+    
+    var body: some View {
+        VStack(alignment: .center, spacing: 2) {
+            Text(name)
+                .font(.caption2)
+                .foregroundColor(Color.textSecondary)
+            
+            Text("\(value)")
+                .font(.caption)
+                .fontWeight(.bold)
+                .foregroundColor(color)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(colorScheme == .dark ? color.opacity(0.15) : color.opacity(0.1))
+        .cornerRadius(4)
     }
 }

@@ -13,6 +13,7 @@ struct FriendCardView: View {
     
     @State private var showRaidSummary = false
     @State private var showDeleteConfirmation = false
+    @Environment(\.colorScheme) private var colorScheme
     
     // 대표 캐릭터 (사용자가 지정한 대표 캐릭터 - displayName과 이름이 일치하는 캐릭터)
     private var representativeCharacter: CharacterModel? {
@@ -60,15 +61,16 @@ struct FriendCardView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(friendWithCharacters.friend.displayName)
                         .font(.headline)
-                        .foregroundColor(.primary)
+                        .foregroundColor(Color.textPrimary)
                     
                     // 서버, 클래스, 레벨 정보
                     if let character = representativeCharacter {
                         Text("\(character.server) • \(character.characterClass)")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color.textSecondary)
                         Text("Lv.\(String(format: "%.2f", character.level))")
                             .font(.caption)
+                            .foregroundColor(Color.textSecondary)
                     }
                 }
                 
@@ -82,6 +84,7 @@ struct FriendCardView: View {
                         .foregroundColor(.orange)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
+                        .background(colorScheme == .dark ? Color.yellow.opacity(0.15) : Color.yellow.opacity(0.1))
                         .cornerRadius(8)
                 }
                 
@@ -124,9 +127,9 @@ struct FriendCardView: View {
                 }
             }
         }
-        .background(Color(.systemBackground))
+        .background(Color.cardBackground)
         .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.1), radius: 5, x: 0, y: 2)
     }
 }
 
@@ -134,6 +137,7 @@ struct FriendCardView: View {
 struct FriendCharacterRow: View {
     var character: CharacterModel
     @State private var showCharacterDetail = false
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         Button(action: {
@@ -144,11 +148,11 @@ struct FriendCharacterRow: View {
                     Text(character.name)
                         .font(.subheadline)
                         .fontWeight(.medium)
-                        .foregroundColor(.primary)
+                        .foregroundColor(Color.textPrimary)
                     
                     Text("\(character.server) • \(character.characterClass)")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color.textSecondary)
                 }
                 
                 Spacer()
@@ -182,9 +186,13 @@ struct FriendCharacterRow: View {
                 }
             }
             .contentShape(Rectangle())
+            .padding(.vertical, 8)
+            .padding(.horizontal, 4)
         }
         .buttonStyle(PlainButtonStyle())
         .padding(.vertical, 4)
+        .background(Color.cardBackground)
+        .cornerRadius(8)
         .sheet(isPresented: $showCharacterDetail) {
             NavigationStack {
                 FriendCharacterDetailView(character: character)

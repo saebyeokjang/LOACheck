@@ -16,6 +16,7 @@ struct FriendsListView: View {
     @State private var refreshTrigger = false
     @State private var showingRemoveAlert = false
     @State private var friendToRemove: Friend?
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         NavigationStack {
@@ -26,6 +27,7 @@ struct FriendsListView: View {
                 } else if friendsService.isLoading {
                     // 로딩 중
                     ProgressView("친구 목록을 불러오는 중...")
+                        .foregroundColor(Color.textPrimary)
                 } else if friendsService.friendsWithCharacters.isEmpty {
                     // 친구가 없는 경우
                     EmptyFriendsView()
@@ -104,6 +106,7 @@ struct FriendsListView: View {
                     }
                 }
             }
+            .background(Color.backgroundPrimary)
         }
     }
     
@@ -118,6 +121,7 @@ struct FriendsListView: View {
 struct FriendsScrollView: View {
     var friendsWithCharacters: [FriendWithCharacters]
     var onRemoveFriend: (Friend) -> Void
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         List {
@@ -144,12 +148,14 @@ struct FriendsScrollView: View {
             // 여기서는 간단한 딜레이만 추가하고 상위 뷰에서 처리하도록 함
             try? await Task.sleep(nanoseconds: 500_000_000) // 0.5초 대기
         }
+        .background(Color.backgroundPrimary)
     }
 }
 
 // 로그인하지 않은 경우 표시할 뷰
 struct NotLoggedInView: View {
     @State private var showSignIn = false
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         VStack(spacing: 20) {
@@ -162,6 +168,7 @@ struct NotLoggedInView: View {
             Text("친구 기능을 사용하려면 로그인이 필요합니다")
                 .font(.headline)
                 .multilineTextAlignment(.center)
+                .foregroundColor(Color.textPrimary)
             
             Button(action: {
                 showSignIn = true
@@ -178,11 +185,14 @@ struct NotLoggedInView: View {
         .sheet(isPresented: $showSignIn) {
             SignInView(isPresented: $showSignIn)
         }
+        .background(Color.backgroundPrimary)
     }
 }
 
 // 친구가 없는 경우 표시할 뷰
 struct EmptyFriendsView: View {
+    @Environment(\.colorScheme) private var colorScheme
+    
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "person.3")
@@ -193,12 +203,14 @@ struct EmptyFriendsView: View {
             
             Text("아직 친구가 없습니다")
                 .font(.headline)
+                .foregroundColor(Color.textPrimary)
             
             Text("상단의 친구추가 버튼을 눌러 친구를 추가해보세요")
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundColor(Color.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .padding()
+        .background(Color.backgroundPrimary)
     }
 }

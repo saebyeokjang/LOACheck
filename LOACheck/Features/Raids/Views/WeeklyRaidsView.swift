@@ -12,6 +12,7 @@ import FirebaseAnalytics
 struct WeeklyRaidsView: View {
     var character: CharacterModel
     @State private var isShowingRaidSettings = false
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -19,6 +20,7 @@ struct WeeklyRaidsView: View {
                 Text("주간 레이드")
                     .font(.headline)
                     .fontWeight(.bold)
+                    .foregroundColor(Color.textPrimary)
                 
                 Spacer()
                 
@@ -31,6 +33,7 @@ struct WeeklyRaidsView: View {
             }
             
             Divider()
+                .background(Color.dividerColor)
             
             if let raidGates = character.raidGates, !raidGates.isEmpty {
                 // 레이드별로 그룹화 및 표시
@@ -44,11 +47,11 @@ struct WeeklyRaidsView: View {
                             .foregroundColor(.gray)
                         
                         Text("설정된 레이드가 없습니다")
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color.textSecondary)
                         
                         Text("레이드 설정 버튼을 눌러 레이드를 추가하세요")
                             .font(.caption)
-                            .foregroundColor(.gray)
+                            .foregroundColor(Color.textSecondary)
                             .multilineTextAlignment(.center)
                     }
                     Spacer()
@@ -57,9 +60,9 @@ struct WeeklyRaidsView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color.cardBackground)
         .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.1), radius: 5, x: 0, y: 2)
         .sheet(isPresented: $isShowingRaidSettings) {
             RaidSettingsView(character: character)
         }
@@ -71,6 +74,7 @@ struct RaidListCardView: View {
     var character: CharacterModel
     var raidGates: [RaidGate]
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         // 레이드별로 그룹화
@@ -101,7 +105,7 @@ struct RaidListCardView: View {
                 HStack {
                     Text("획득량 / 주간 골드")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color.textSecondary)
                     
                     Spacer()
                     
@@ -117,7 +121,7 @@ struct RaidListCardView: View {
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(Color.yellow.opacity(0.1))
+                .background(Color.yellow.opacity(colorScheme == .dark ? 0.15 : 0.1))
                 .cornerRadius(8)
             }
             
@@ -157,6 +161,7 @@ struct RaidCardView: View {
     
     @State private var isAllCompleted: Bool = false
     @State private var showAdditionalGoldSheet = false
+    @Environment(\.colorScheme) private var colorScheme
     
     private var isGoldDisabled: Bool {
         return gates.first?.isGoldDisabled ?? false
@@ -237,7 +242,7 @@ struct RaidCardView: View {
                     ZStack {
                         // 프레임 배경과 테두리
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(isAllCompleted ? Color.green.opacity(0.1) : Color.white)
+                            .fill(isAllCompleted ? Color.green.opacity(colorScheme == .dark ? 0.2 : 0.1) : (colorScheme == .dark ? Color.black.opacity(0.2) : Color.white))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 4)
                                     .stroke(isAllCompleted ? Color.green.opacity(0.3) : Color.gray.opacity(0.3), lineWidth: 1)
@@ -252,7 +257,7 @@ struct RaidCardView: View {
                         }
                     }
                 }
-                .foregroundColor(isAllCompleted ? .secondary : .primary)
+                .foregroundColor(isAllCompleted ? Color.textSecondary : Color.textPrimary)
                 .cornerRadius(4)
                 .frame(width: 30, height: 30) // 터치 영역 확장
                 .contentShape(Rectangle()) // 명확한 터치 영역 정의
@@ -261,7 +266,8 @@ struct RaidCardView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .background(isTopRaid && isGoldEarner ?
-                        Color.yellow.opacity(0.05) : Color.gray.opacity(0.05))
+                        (colorScheme == .dark ? Color.yellow.opacity(0.08) : Color.yellow.opacity(0.05)) :
+                        (colorScheme == .dark ? Color.gray.opacity(0.08) : Color.gray.opacity(0.05)))
             
             // 레이드 관문 그리드
             let displayGates = getSortedGates()
@@ -280,7 +286,7 @@ struct RaidCardView: View {
         }
         .background(Color.cardBackground)
         .cornerRadius(10)
-        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
+        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.2 : 0.05), radius: 2, x: 0, y: 1)
         .padding(.vertical, 4)
         .opacity(isTopRaid || !isGoldEarner ? 1.0 : 0.7)  // 상위 레이드가 아니면 흐리게
         .onAppear {
@@ -349,6 +355,7 @@ struct GateButton: View {
     var isTopRaid: Bool  // 상위 3개 레이드인지 여부
     var isGoldDisabled: Bool
     var allGates: [RaidGate]  // 같은 레이드의 모든 관문
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         Button(action: {
@@ -361,6 +368,7 @@ struct GateButton: View {
                         .font(.subheadline)
                         .fontWeight(.medium)
                         .strikethrough(gate.isCompleted)
+                        .foregroundColor(gate.isCompleted ? Color.textSecondary : Color.textPrimary)
                     
                     // 난이도 텍스트로 표시
                     Text(gate.difficulty)
@@ -371,12 +379,6 @@ struct GateButton: View {
                 
                 // 골드 보상 - 비활성화 상태 표시
                 HStack(spacing: 2) {
-//                    if isGoldDisabled && isTopRaid && isGoldEarner {
-//                        Image(systemName: "g.circle.slash")
-//                            .font(.caption2)
-//                            .foregroundColor(.gray)
-//                    }
-                    
                     Text("\(gate.goldReward)G")
                         .font(.caption)
                         .foregroundColor(getGoldRewardColor())
@@ -390,7 +392,7 @@ struct GateButton: View {
                 RoundedRectangle(cornerRadius: 4)
                     .stroke(getBorderColor(), lineWidth: 1)
             )
-            .foregroundColor(gate.isCompleted ? .secondary : .primary)
+            .foregroundColor(gate.isCompleted ? Color.textSecondary : Color.textPrimary)
             .cornerRadius(4)
         }
         .padding(4)
@@ -481,11 +483,11 @@ struct GateButton: View {
     // 배경색 결정
     private func getBackgroundColor() -> Color {
         if !canToggleGate() && !gate.isCompleted {
-            return Color.gray.opacity(0.05)  // 비활성화 상태
+            return colorScheme == .dark ? Color.gray.opacity(0.08) : Color.gray.opacity(0.05)  // 비활성화 상태
         } else if gate.isCompleted {
-            return Color.gray.opacity(0.1)
+            return colorScheme == .dark ? Color.gray.opacity(0.15) : Color.gray.opacity(0.1)
         } else {
-            return Color.white
+            return colorScheme == .dark ? Color.black.opacity(0.2) : Color.white
         }
     }
     

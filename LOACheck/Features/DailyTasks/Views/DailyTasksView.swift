@@ -14,6 +14,7 @@ struct DailyTasksView: View {
     
     @AppStorage("dailyTasksSectionExpanded") private var isSectionExpanded = true
     @State private var showRestingPointsInfo = false
+    @Environment(\.colorScheme) private var colorScheme
     
     private var sortedTasks: [DailyTask] {
         tasks.sorted { task1, task2 in
@@ -53,6 +54,7 @@ struct DailyTasksView: View {
                 Text("일일 숙제")
                     .font(.headline)
                     .fontWeight(.bold)
+                    .foregroundColor(Color.textPrimary)
                 
                 Spacer()
                 
@@ -85,6 +87,7 @@ struct DailyTasksView: View {
             if isSectionExpanded {
                 VStack(spacing: 0) {
                     Divider()
+                        .background(Color.dividerColor)
                     
                     LazyVStack(spacing: 8) {
                         ForEach(sortedTasks) { task in
@@ -92,6 +95,7 @@ struct DailyTasksView: View {
                             
                             if task != sortedTasks.last {
                                 Divider()
+                                    .background(Color.dividerColor)
                                     .padding(.vertical, 4)
                             }
                         }
@@ -101,9 +105,9 @@ struct DailyTasksView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color.cardBackground)
         .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.1), radius: 5, x: 0, y: 2)
         .alert(isPresented: $showRestingPointsInfo) {
             Alert(
                 title: Text("휴식보너스 시스템"),

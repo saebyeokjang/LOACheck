@@ -12,6 +12,7 @@ struct CharacterDetailView: View {
     var character: CharacterModel
     var isCurrentlyActive: Bool = true // 현재 활성화된 페이지인지 여부
     @State private var scrollViewID = UUID() // 페이지 전환 시 스크롤뷰 재설정용 ID
+    @Environment(\.colorScheme) private var colorScheme
     
     // 페이지 이동 관련 콜백
     var goToPreviousPage: (() -> Void)?
@@ -68,6 +69,7 @@ struct CharacterDetailView: View {
                     }
                 }
             }
+            .background(Color.backgroundPrimary)
         }
     }
 }
@@ -77,6 +79,7 @@ struct CharacterHeaderView: View {
     var character: CharacterModel
     var goToPreviousPage: (() -> Void)?
     var goToNextPage: (() -> Void)?
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         VStack(spacing: 12) {
@@ -105,16 +108,18 @@ struct CharacterHeaderView: View {
                     Text(character.name)
                         .font(.title)
                         .fontWeight(.bold)
+                        .foregroundColor(Color.textPrimary)
                     
                     Text("\(character.server) • \(character.characterClass)")
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color.textSecondary)
                     
                     Text("아이템 레벨: \(String(format: "%.2f", character.level))")
                         .font(.headline)
                         .padding(.vertical, 4)
                         .padding(.horizontal, 12)
                         .background(Color.blue.opacity(0.1))
+                        .foregroundColor(.blue)
                         .cornerRadius(8)
                     
                     // 골드 획득 캐릭터 표시
@@ -150,8 +155,8 @@ struct CharacterHeaderView: View {
             .padding(.horizontal)
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color.cardBackground)
         .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.1), radius: 5, x: 0, y: 2)
     }
 }

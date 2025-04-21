@@ -14,6 +14,7 @@ struct TaskRowView: View {
     var character: CharacterModel  // 캐릭터 모델 추가
     @State private var showRestingEditor: Bool = false
     @State private var isProcessing: Bool = false // 처리 중 상태 추가
+    @Environment(\.colorScheme) private var colorScheme
     
     // 캐릭터 레벨에 따른 작업 이름
     private var taskDisplayName: String {
@@ -28,7 +29,7 @@ struct TaskRowView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(taskDisplayName)  // 계산 속성 사용
                         .font(.headline)
-                        .foregroundColor(task.completionCount == task.type.maxCompletionCount ? .secondary : .primary)
+                        .foregroundColor(task.completionCount == task.type.maxCompletionCount ? Color.textSecondary : Color.textPrimary)
                     // 취소선 적용: 에포나 의뢰는 3회 모두 완료했을 때만, 다른 항목은 완료하면 취소선
                         .strikethrough(task.type == .eponaQuest ?
                                        (task.completionCount == task.type.maxCompletionCount) :
@@ -82,7 +83,7 @@ struct TaskRowView: View {
                         }
                     }
                 }
-                .foregroundColor(task.completionCount > 0 ? .secondary : .primary)
+                .foregroundColor(task.completionCount > 0 ? Color.textSecondary : Color.textPrimary)
                 .cornerRadius(4)
                 .frame(width: 44, height: 44) // 터치 영역 확장
                 .contentShape(Rectangle()) // 명확한 터치 영역 정의
@@ -117,7 +118,7 @@ struct TaskRowView: View {
                 HStack(spacing: 4) {
                     Text("\(task.restingPoints)/\(task.type.maxRestingPoints)")
                         .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color.textSecondary)
                     
                     // 편집 버튼
                     Button(action: {
@@ -154,11 +155,11 @@ struct TaskRowView: View {
     // 체크박스 배경색 - 주간 레이드 스타일
     private func getCheckBackgroundColor() -> Color {
         if task.completionCount == task.type.maxCompletionCount {
-            return Color.green.opacity(0.1)
+            return Color.green.opacity(colorScheme == .dark ? 0.2 : 0.1)
         } else if task.completionCount > 0 {
-            return Color.blue.opacity(0.1)
+            return Color.blue.opacity(colorScheme == .dark ? 0.2 : 0.1)
         } else {
-            return Color.white
+            return colorScheme == .dark ? Color.black.opacity(0.2) : Color.white
         }
     }
     

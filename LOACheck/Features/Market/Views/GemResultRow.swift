@@ -10,7 +10,7 @@ import SwiftData
 
 struct GemResultRow: View {
     var item: AuctionItem
-    @Environment(\.colorScheme) var colorScheme
+    @Environment(\.colorScheme) private var colorScheme
     
     // 보석 레벨에 따른 색상 결정
     private func getGemColor(level: Int) -> Color {
@@ -39,6 +39,11 @@ struct GemResultRow: View {
         return level
     }
     
+    // 보석 타입 확인 (겁화 또는 작열)
+    private func isRedGem() -> Bool {
+        return item.name.contains("겁화")
+    }
+    
     var body: some View {
         HStack(spacing: 12) {
             // 보석 아이콘 (레벨별 테두리 색상 적용)
@@ -47,12 +52,11 @@ struct GemResultRow: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
             } placeholder: {
-                let isRedGem = item.name.contains("겁화")
                 Image(systemName: "circle.hexagongrid.fill")
-                    .foregroundColor(isRedGem ? .red : .blue)
+                    .foregroundColor(isRedGem() ? .red : .blue)
             }
             .frame(width: 48, height: 48)
-            .background(Color.black.opacity(0.05))
+            .background(colorScheme == .dark ? Color.black.opacity(0.2) : Color.black.opacity(0.05))
             .cornerRadius(6)
             .overlay(
                 RoundedRectangle(cornerRadius: 6)
@@ -62,7 +66,7 @@ struct GemResultRow: View {
             // 보석 이름 - 다크모드 대응
             Text(item.name)
                 .font(.headline)
-                .foregroundColor(colorScheme == .dark ? .white : getGemColor(level: extractGemLevel()))
+                .foregroundColor(getGemColor(level: extractGemLevel()))
             
             Spacer()
             
@@ -72,6 +76,8 @@ struct GemResultRow: View {
                 .foregroundColor(.orange)
         }
         .padding(.vertical, 8)
-        .background(colorScheme == .dark ? Color(UIColor.systemGray6) : Color.white)
+        .padding(.horizontal, 4)
+        .background(Color.cardBackground)
+        .cornerRadius(8)
     }
 }

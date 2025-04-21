@@ -11,6 +11,7 @@ import SwiftData
 struct MarketView: View {
     @AppStorage("lastMarketTab") private var selectedTab = 0
     @State private var lastRefreshedTime: Date? = nil
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         NavigationStack {
@@ -21,7 +22,7 @@ struct MarketView: View {
                         Spacer()
                         Text("마지막 갱신: \(lastRefreshed.formatted(date: .omitted, time: .shortened))")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color.textSecondary)
                     }
                     .padding(.horizontal)
                     .padding(.top, 8)
@@ -56,8 +57,55 @@ struct MarketView: View {
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .transition(.opacity)
                 .animation(.default, value: selectedTab)
+                .background(Color.backgroundPrimary)
             }
             .navigationTitle("시세")
+            .background(Color.backgroundPrimary)
         }
+    }
+}
+
+// 에러 뷰 다크모드 대응
+struct APIErrorView: View {
+    var message: String
+    var retryAction: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 50))
+                .foregroundColor(.orange)
+            
+            Text(message)
+                .font(.headline)
+                .multilineTextAlignment(.center)
+                .padding()
+                .foregroundColor(Color.textPrimary)
+            
+            Button(action: retryAction) {
+                Text("다시 시도")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(width: 200)
+                    .padding()
+                    .background(Color.blue)
+                    .cornerRadius(10)
+            }
+            
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .background(Color.backgroundPrimary)
+    }
+}
+
+// 품질 색상 공통 함수 확장
+extension View {
+    // 품질에 따른 색상 반환
+    func getQualityColor(_ quality: Int) -> Color {
+        return Color.qualityColor(quality)
     }
 }

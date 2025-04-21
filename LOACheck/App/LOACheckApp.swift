@@ -32,6 +32,9 @@ struct LOACheckApp: App {
         
         // 로그 시스템 초기화
         setupLoggingSystem()
+        
+        // 앱 테마 설정 (다크모드 설정 적용)
+        setupAppTheme()
     }
     
     var body: some Scene {
@@ -44,8 +47,9 @@ struct LOACheckApp: App {
                     // 앱 전체 새로고침
                     Task { await performGlobalRefresh() }
                 })
-                // 다크모드 적용
+            // 다크모드 적용
                 .preferredColorScheme(themeManager.colorScheme)
+                .animation(.easeInOut(duration: 0.3), value: themeManager.isDarkMode)
                 .onOpenURL { url in
                     GIDSignIn.sharedInstance.handle(url)
                 }

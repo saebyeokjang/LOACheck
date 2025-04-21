@@ -8,9 +8,10 @@
 import SwiftUI
 import SwiftData
 
-// 경매 아이템 행 (각인서 목록용)
+// 경매 아이템 행 (각인서 목록용) - 다크모드 개선
 struct AuctionItemRow: View {
     var item: AuctionItem
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         HStack(spacing: 12) {
@@ -23,7 +24,7 @@ struct AuctionItemRow: View {
                     .foregroundColor(.orange)
             }
             .frame(width: 48, height: 48)
-            .background(Color.black.opacity(0.05))
+            .background(colorScheme == .dark ? Color.black.opacity(0.2) : Color.black.opacity(0.05))
             .cornerRadius(6)
             .overlay(
                 RoundedRectangle(cornerRadius: 6)
@@ -44,7 +45,7 @@ struct AuctionItemRow: View {
                             HStack(spacing: 4) {
                                 Text(key)
                                     .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(Color.textSecondary)
                                 
                                 Text("+\(Int(value))")
                                     .font(.caption)
@@ -65,6 +66,9 @@ struct AuctionItemRow: View {
                     .foregroundColor(.orange)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 4)
+        .background(Color.cardBackground)
+        .cornerRadius(8)
     }
 }
