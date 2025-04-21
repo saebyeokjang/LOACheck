@@ -67,6 +67,26 @@ struct CharacterPagingView: View {
                     
                     Spacer()
                     
+                    // 캐릭터 갱신 버튼 - 가운데에 추가
+                        Button(action: {
+                            refreshCurrentCharacter()
+                        }) {
+                            HStack(spacing: 4) {
+                                Text("캐릭터 갱신")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                            }
+                            .foregroundColor(Color.textPrimary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Color.gray.opacity(0.1))
+                            .cornerRadius(12)
+                        }
+                        .disabled(isCharacterLoading || characters.isEmpty)
+                        .opacity(isCharacterLoading ? 0.5 : 1.0)
+                        
+                        Spacer()
+                    
                     // 골드 요약 버튼
                     Button(action: {
                         showGoldSummary = true
@@ -190,6 +210,46 @@ struct CharacterPagingView: View {
                             }
                         }
                     }
+            }
+        }
+    }
+    
+    // 현재 표시된 캐릭터 갱신 함수
+    private func refreshCurrentCharacter() {
+        guard !characters.isEmpty && currentPage < characters.count else { return }
+        
+        isCharacterLoading = true
+        
+        Task {
+            if let apiKey = UserDefaults.standard.string(forKey: "apiKey"), !apiKey.isEmpty {
+                let currentCharacter = characters[currentPage]
+                let result = await LostArkAPIService.shared.updateSingleCharacterViaArmory(
+                    name: currentCharacter.name,
+                    apiKey: apiKey,
+                    modelContext: modelContext,
+                    existingCharacter: currentCharacter
+                )
+                
+                await MainActor.run {
+                    isCharacterLoading = false
+                    
+                    // 동기화 표시
+                    DataSyncManager.shared.markLocalChanges()
+                    
+                    // 자동 동기화 수행
+                    if AuthManager.shared.isLoggedIn && NetworkMonitorService.shared.isConnected {
+                        Task {
+                            await DataSyncManager.shared.uploadToServer()
+                        }
+                    }
+                    
+                    // 갱신 알림 발송
+                    NotificationCenter.default.post(name: NSNotification.Name("RefreshCharacterList"), object: nil)
+                }
+            } else {
+                await MainActor.run {
+                    isCharacterLoading = false
+                }
             }
         }
     }

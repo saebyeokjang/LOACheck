@@ -160,22 +160,6 @@ struct CharacterHeaderView: View {
                     }
                     .disabled(goToNextPage == nil)
                 }
-                
-                // 새로고침 버튼을 오른쪽 상단 구석에 배치
-                Button(action: {
-                    refreshCharacter()
-                }) {
-                    Image(systemName: "arrow.clockwise")
-                        .foregroundColor(.blue)
-                        .font(.system(size: 16))
-                        .padding(6)
-                        .background(Color.blue.opacity(0.1))
-                        .clipShape(Circle())
-                }
-                .disabled(isRefreshing || apiKey.isEmpty)
-                .opacity(isRefreshing ? 0.5 : 1.0)
-                .padding(.trailing, 8)
-                .padding(.top, 8)
             }
             .padding(.horizontal)
         }
