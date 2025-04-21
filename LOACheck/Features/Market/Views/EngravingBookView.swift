@@ -99,7 +99,7 @@ struct EngravingBookView: View {
                             Spacer()
                         }
                         .padding()
-                        .background(Color.white)
+                        .background(Color.cardBackground)
                         .listRowSeparator(.hidden)
                         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 20, trailing: 0))
                     }

@@ -8,11 +8,12 @@
 import SwiftUI
 import SwiftData
 
-// 검색 필터 섹션 컴포넌트
+// MARK: - 수정된 SearchFilterSection
 struct SearchFilterSection<Content: View>: View {
     var title: String
     @State var isExpanded: Bool
     let content: Content
+    @Environment(\.colorScheme) private var colorScheme
     
     init(title: String, isExpanded: Bool = false, @ViewBuilder content: () -> Content) {
         self.title = title
@@ -31,15 +32,16 @@ struct SearchFilterSection<Content: View>: View {
                 HStack {
                     Text(title)
                         .font(.headline)
+                        .foregroundColor(Color.textPrimary)
                     
                     Spacer()
                     
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color.textSecondary)
                 }
                 .padding(.vertical, 12)
                 .padding(.horizontal, 16)
-                .background(Color.gray.opacity(0.05))
+                .background(colorScheme == .dark ? Color.gray.opacity(0.1) : Color.gray.opacity(0.05))
                 .cornerRadius(10)
             }
             .buttonStyle(PlainButtonStyle())
@@ -48,11 +50,11 @@ struct SearchFilterSection<Content: View>: View {
             if isExpanded {
                 content
                     .padding(.vertical, 12)
-                    .background(Color.white)
+                    .background(Color.cardBackground) // 다크모드 대응
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .background(Color.gray.opacity(0.05))
+        .background(colorScheme == .dark ? Color.gray.opacity(0.1) : Color.gray.opacity(0.05))
         .cornerRadius(10)
         .padding(.horizontal)
     }

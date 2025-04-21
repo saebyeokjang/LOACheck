@@ -563,11 +563,11 @@ struct GateButton: View {
     // 배경색 결정 - 다크모드 대응
     private func getBackgroundColor() -> Color {
         if !canToggleGate() && !gate.isCompleted {
-            return colorScheme == .dark ? Color.gray.opacity(0.08) : Color.gray.opacity(0.05)  // 비활성화 상태
+            return colorScheme == .dark ? Color.gray.opacity(0.08) : Color.gray.opacity(0.05)
         } else if gate.isCompleted {
             return colorScheme == .dark ? Color.gray.opacity(0.15) : Color.gray.opacity(0.1)
         } else {
-            return colorScheme == .dark ? Color.black.opacity(0.2) : Color.white
+            return colorScheme == .dark ? Color.cardBackground : Color.white
         }
     }
     

@@ -27,6 +27,7 @@ struct AccessorySearchView: View {
     
     // 부위별 카테고리
     let accessoryCategories: [AccessoryCategory] = [.necklace, .earring, .ring]
+    @Environment(\.colorScheme) private var colorScheme
     
     // 현재 선택된 부위에 따른 연마효과 옵션
     var currentEngraveEffects: [String] {
@@ -38,190 +39,11 @@ struct AccessorySearchView: View {
     var body: some View {
         VStack {
             if isLoading {
-                // 로딩 화면
-                ProgressView("장신구 검색 중...")
-                    .padding()
+                loadingView
             } else if let error = errorMessage {
-                // 에러 화면 - APIErrorView 사용
-                APIErrorView(message: error) {
-                    // 재시도 버튼 액션
-                    errorMessage = nil
-                }
+                errorView(message: error)
             } else {
-                // 검색 필터 섹션
-                ScrollView {
-                    VStack(spacing: 16) {
-                        // 부위 선택 세그먼트
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("부위 선택")
-                                .font(.headline)
-                                .padding(.horizontal)
-                            
-                            Picker("부위", selection: $selectedAccessoryType) {
-                                ForEach(0..<accessoryCategories.count, id: \.self) { index in
-                                    Text(accessoryCategories[index].name).tag(index)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                            .padding(.horizontal)
-                            .onChange(of: selectedAccessoryType) { _, _ in
-                                // 부위가 변경되면 연마효과 선택 초기화
-                                selectedEngraveEffects = []
-                                selectedEngraveValues = [:]
-                            }
-                        }
-                        .padding(.vertical, 8)
-                        .background(Color.gray.opacity(0.05))
-                        .cornerRadius(10)
-                        .padding(.horizontal)
-                        
-                        // 연마효과 선택 섹션
-                        SearchFilterSection(title: "연마효과 선택", isExpanded: true) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                ForEach(currentEngraveEffects, id: \.self) { effect in
-                                    Button(action: {
-                                        toggleEngraveEffect(effect)
-                                    }) {
-                                        HStack {
-                                            Text(effect)
-                                                .foregroundColor(selectedEngraveEffects.contains(effect) ? .white : .primary)
-                                            
-                                            Spacer()
-                                            
-                                            if selectedEngraveEffects.contains(effect) {
-                                                Image(systemName: "checkmark")
-                                                    .foregroundColor(.white)
-                                            }
-                                        }
-                                        .padding(.vertical, 8)
-                                        .padding(.horizontal, 12)
-                                        .background(selectedEngraveEffects.contains(effect) ? Color.blue : Color.gray.opacity(0.1))
-                                        .cornerRadius(8)
-                                    }
-                                    
-                                    // 선택된 연마효과의 가능한 값들 표시 (선택 가능하도록 변경)
-                                    if selectedEngraveEffects.contains(effect),
-                                       let effectValues = EngraveEffectManager.shared.getEngraveEffectValues(effect) {
-                                        // 하드코딩 된 값 표시
-                                        ScrollView(.horizontal, showsIndicators: false) {
-                                            HStack {
-                                                ForEach(effectValues, id: \.value) { effectValue in
-                                                    Button(action: {
-                                                        // 값 선택 또는 해제
-                                                        if selectedEngraveValues[effect] == Double(effectValue.value) {
-                                                            selectedEngraveValues.removeValue(forKey: effect)
-                                                        } else {
-                                                            // 효과 값을 그대로 저장 (isPercentage 고려하지 않고)
-                                                            selectedEngraveValues[effect] = Double(effectValue.value)
-                                                        }
-                                                    }) {
-                                                        Text(effectValue.displayValue)
-                                                            .font(.caption)
-                                                            .foregroundColor(selectedEngraveValues[effect] == Double(effectValue.value) ? .white : .primary)
-                                                            .padding(.horizontal, 8)
-                                                            .padding(.vertical, 4)
-                                                            .background(selectedEngraveValues[effect] == Double(effectValue.value) ?
-                                                                        Color.blue : Color.gray.opacity(0.1))
-                                                            .cornerRadius(4)
-                                                    }
-                                                }
-                                            }
-                                            .padding(.leading, 16)
-                                            .padding(.bottom, 4)
-                                        }
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                        }
-                        
-                        // 품질 선택 섹션
-                        SearchFilterSection(title: "최소 품질", isExpanded: true) {
-                            VStack {
-                                Text("\(selectedQuality)")
-                                    .font(.headline)
-                                    .foregroundColor(.blue)
-                                
-                                Slider(value: Binding(
-                                    get: { Double(selectedQuality) },
-                                    set: { selectedQuality = Int($0) }
-                                ), in: 0...100, step: 10)
-                            }
-                            .padding(.horizontal, 16)
-                        }
-                        
-                        // 검색 버튼
-                        Button(action: performSearch) {
-                            Text("장신구 검색")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.blue)
-                                .cornerRadius(10)
-                        }
-                        .padding(.horizontal)
-                        .disabled(selectedEngraveEffects.isEmpty)
-                        
-                        if !searchResults.isEmpty {
-                            // 검색 결과 섹션
-                            VStack(alignment: .leading) {
-                                Text("검색 결과 (\(searchResults.count))")
-                                    .font(.headline)
-                                    .padding(.horizontal)
-                                
-                                Divider()
-                                
-                                // 결과를 LazyVStack으로 변경
-                                LazyVStack(spacing: 0) {
-                                    // 결과 목록
-                                    ForEach(Array(searchResults.enumerated()), id: \.offset) { index, item in
-                                        AccessoryResultRow(item: item)
-                                            .padding(.horizontal)
-                                        
-                                        Divider()
-                                    }
-                                    
-                                    // 페이지네이션 컨트롤 - 더보기 버튼
-                                    if isPaginating {
-                                        // 로딩 인디케이터
-                                        HStack {
-                                            Spacer()
-                                            ProgressView()
-                                                .padding()
-                                            Spacer()
-                                        }
-                                    } else if currentPage < totalPages {
-                                        // 더보기 버튼
-                                        Button(action: loadNextPage) {
-                                            HStack {
-                                                Spacer()
-                                                Text("더 보기")
-                                                    .foregroundColor(.blue)
-                                                    .padding()
-                                                Spacer()
-                                            }
-                                            .background(Color.gray.opacity(0.05))
-                                            .cornerRadius(8)
-                                            .padding(.horizontal)
-                                            .padding(.top, 4)
-                                        }
-                                    }
-                                }
-                            }
-                            .padding(.top)
-                        } else if !isLoading && errorMessage == nil {
-                            // 검색 결과 없음 (초기 상태 또는 검색 결과 없음)
-                            VStack {
-                                Text("부위와 연마효과를 선택하고 검색 버튼을 눌러주세요")
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
-                            }
-                            .padding(.top, 10)
-                        }
-                    }
-                    .padding(.vertical)
-                }
+                contentView
             }
         }
         .alert(isPresented: $showAlert) {
@@ -232,6 +54,246 @@ struct AccessorySearchView: View {
             )
         }
     }
+    
+    // MARK: - 컴포넌트 뷰들
+    
+    private var loadingView: some View {
+        ProgressView("장신구 검색 중...")
+            .padding()
+            .foregroundColor(Color.textPrimary)
+    }
+    
+    private func errorView(message: String) -> some View {
+        APIErrorView(message: message) {
+            errorMessage = nil
+        }
+    }
+    
+    private var contentView: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                partSelectionSection
+                engraveEffectSection
+                qualitySection
+                searchButtonView
+                
+                if !searchResults.isEmpty {
+                    searchResultsSection
+                } else if !isLoading && errorMessage == nil {
+                    emptyStateView
+                }
+            }
+            .padding(.vertical)
+        }
+        .background(Color.backgroundPrimary)
+    }
+    
+    // 부위 선택 섹션
+    private var partSelectionSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("부위 선택")
+                .font(.headline)
+                .padding(.horizontal)
+                .foregroundColor(Color.textPrimary)
+            
+            Picker("부위", selection: $selectedAccessoryType) {
+                ForEach(0..<accessoryCategories.count, id: \.self) { index in
+                    Text(accessoryCategories[index].name).tag(index)
+                }
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal)
+            .onChange(of: selectedAccessoryType) { _, _ in
+                // 부위가 변경되면 연마효과 선택 초기화
+                selectedEngraveEffects = []
+                selectedEngraveValues = [:]
+            }
+        }
+        .padding(.vertical, 8)
+        .background(colorScheme == .dark ? Color.gray.opacity(0.1) : Color.gray.opacity(0.05))
+        .cornerRadius(10)
+        .padding(.horizontal)
+    }
+    
+    // 연마효과 선택 섹션
+    private var engraveEffectSection: some View {
+        SearchFilterSection(title: "연마효과 선택", isExpanded: true) {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(currentEngraveEffects, id: \.self) { effect in
+                    engraveEffectButton(effect: effect)
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+    
+    // 연마효과 버튼
+    private func engraveEffectButton(effect: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Button(action: {
+                toggleEngraveEffect(effect)
+            }) {
+                HStack {
+                    Text(effect)
+                        .foregroundColor(selectedEngraveEffects.contains(effect) ? .white : Color.textPrimary)
+                    
+                    Spacer()
+                    
+                    if selectedEngraveEffects.contains(effect) {
+                        Image(systemName: "checkmark")
+                            .foregroundColor(.white)
+                    }
+                }
+                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+                .background(selectedEngraveEffects.contains(effect) ?
+                    Color.blue : (colorScheme == .dark ? Color.gray.opacity(0.2) : Color.gray.opacity(0.1)))
+                .cornerRadius(8)
+            }
+            
+            // 선택된 연마효과의 가능한 값들 표시
+            if selectedEngraveEffects.contains(effect),
+               let effectValues = EngraveEffectManager.shared.getEngraveEffectValues(effect) {
+                effectValuesScrollView(effect: effect, values: effectValues)
+            }
+        }
+    }
+    
+    // 효과값 선택 스크롤뷰
+    private func effectValuesScrollView(effect: String, values: [EngraveEffectValue]) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack {
+                ForEach(values, id: \.value) { effectValue in
+                    Button(action: {
+                        // 값 선택 또는 해제
+                        if selectedEngraveValues[effect] == Double(effectValue.value) {
+                            selectedEngraveValues.removeValue(forKey: effect)
+                        } else {
+                            // 효과 값을 그대로 저장 (isPercentage 고려하지 않고)
+                            selectedEngraveValues[effect] = Double(effectValue.value)
+                        }
+                    }) {
+                        Text(effectValue.displayValue)
+                            .font(.caption)
+                            .foregroundColor(selectedEngraveValues[effect] == Double(effectValue.value) ? .white : Color.textPrimary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(selectedEngraveValues[effect] == Double(effectValue.value) ?
+                                Color.blue : (colorScheme == .dark ? Color.gray.opacity(0.2) : Color.gray.opacity(0.1)))
+                            .cornerRadius(4)
+                    }
+                }
+            }
+            .padding(.leading, 16)
+            .padding(.bottom, 4)
+        }
+    }
+    
+    // 품질 선택 섹션
+    private var qualitySection: some View {
+        SearchFilterSection(title: "최소 품질", isExpanded: true) {
+            VStack {
+                Text("\(selectedQuality)")
+                    .font(.headline)
+                    .foregroundColor(.blue)
+                
+                Slider(value: Binding(
+                    get: { Double(selectedQuality) },
+                    set: { selectedQuality = Int($0) }
+                ), in: 0...100, step: 10)
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+    
+    // 검색 버튼
+    private var searchButtonView: some View {
+        Button(action: performSearch) {
+            Text("장신구 검색")
+                .font(.headline)
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.blue)
+                .cornerRadius(10)
+        }
+        .padding(.horizontal)
+        .disabled(selectedEngraveEffects.isEmpty)
+    }
+    
+    // 검색 결과 없을 때 표시
+    private var emptyStateView: some View {
+        VStack {
+            Text("부위와 연마효과를 선택하고 검색 버튼을 눌러주세요")
+                .foregroundColor(Color.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.top, 10)
+    }
+    
+    // 검색 결과 섹션
+    private var searchResultsSection: some View {
+        VStack(alignment: .leading) {
+            Text("검색 결과 (\(searchResults.count))")
+                .font(.headline)
+                .foregroundColor(Color.textPrimary)
+                .padding(.horizontal)
+            
+            Divider()
+                .background(Color.dividerColor)
+            
+            resultsListView
+        }
+        .padding(.top)
+    }
+    
+    // 결과 리스트
+    private var resultsListView: some View {
+        LazyVStack(spacing: 0) {
+            // 결과 목록
+            ForEach(Array(searchResults.enumerated()), id: \.offset) { index, item in
+                AccessoryResultRow(item: item)
+                    .padding(.horizontal)
+                
+                Divider()
+                    .background(Color.dividerColor)
+            }
+            
+            paginationControls
+        }
+    }
+    
+    // 페이지네이션 컨트롤
+    private var paginationControls: some View {
+        Group {
+            if isPaginating {
+                // 로딩 인디케이터
+                HStack {
+                    Spacer()
+                    ProgressView()
+                        .padding()
+                    Spacer()
+                }
+            } else if currentPage < totalPages {
+                // 더보기 버튼
+                Button(action: loadNextPage) {
+                    HStack {
+                        Spacer()
+                        Text("더 보기")
+                            .foregroundColor(.blue)
+                            .padding()
+                        Spacer()
+                    }
+                    .background(colorScheme == .dark ? Color.gray.opacity(0.15) : Color.gray.opacity(0.05))
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                    .padding(.top, 4)
+                }
+            }
+        }
+    }
+    
+    // MARK: - 메서드
     
     // 다음 페이지 로드
     private func loadNextPage() {
@@ -269,7 +331,7 @@ struct AccessorySearchView: View {
         }
     }
     
-    // 연마효과 토글 (최대 3개까지만 선택 가능)
+    // 연마효과 토글
     private func toggleEngraveEffect(_ effect: String) {
         if selectedEngraveEffects.contains(effect) {
             // 이미 선택된 효과라면 제거
@@ -295,7 +357,7 @@ struct AccessorySearchView: View {
         searchResults = []
     }
     
-    // 실제 검색 수행 (API 호출)
+    // 실제 검색 수행
     private func performSearch() {
         // 검색 조건이 선택되지 않은 경우
         if selectedEngraveEffects.isEmpty {

@@ -270,7 +270,7 @@ struct RaidSettingCardView: View {
                 .opacity(selectedRaids.contains(raidGroup.name) ? 1.0 : 0.0)
             }
             .padding()
-            .background(Color.white)
+            .background(Color.cardBackground)
             .cornerRadius(10)
             .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
             
@@ -390,7 +390,7 @@ struct DifficultyRow: View {
                 )
             }
         }
-        .background(Color.white)
+        .background(Color.cardBackground)
         .cornerRadius(10)
         .overlay(
             RoundedRectangle(cornerRadius: 10)
@@ -577,6 +577,7 @@ struct DifficultyHeaderCell: View {
     var isSelected: Bool
     var isGoldDisabled: Bool
     var onSelect: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         Button(action: onSelect) {
@@ -594,9 +595,18 @@ struct DifficultyHeaderCell: View {
             }
             .frame(height: 60)
             .frame(minWidth: 0, maxWidth: .infinity)
-            .background(isSelected ? getDifficultyColor().opacity(0.1) : Color.gray.opacity(0.05))
+            .background(backgroundColorForCell())
         }
         .buttonStyle(PlainButtonStyle())
+    }
+    
+    // 배경색을 계산하는 메서드 추가
+    private func backgroundColorForCell() -> Color {
+        if isSelected {
+            return getDifficultyColor().opacity(colorScheme == .dark ? 0.15 : 0.1)
+        } else {
+            return colorScheme == .dark ? Color(red: 0.15, green: 0.15, blue: 0.15) : Color.gray.opacity(0.05)
+        }
     }
     
     // 난이도에 따른 색상 반환
