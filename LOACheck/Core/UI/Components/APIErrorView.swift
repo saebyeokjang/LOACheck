@@ -11,6 +11,7 @@ import SwiftUI
 struct APIErrorView: View {
     var message: String
     var retryAction: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         VStack(spacing: 20) {
@@ -20,14 +21,11 @@ struct APIErrorView: View {
                 .font(.system(size: 50))
                 .foregroundColor(.orange)
             
-            Text("데이터를 불러올 수 없습니다")
-                .font(.headline)
-            
             Text(message)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+                .font(.headline)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal)
+                .padding()
+                .foregroundColor(Color.textPrimary)
             
             Button(action: retryAction) {
                 Text("다시 시도")
@@ -41,5 +39,7 @@ struct APIErrorView: View {
             
             Spacer()
         }
+        .frame(maxWidth: .infinity)
+        .background(Color.backgroundPrimary)
     }
 }

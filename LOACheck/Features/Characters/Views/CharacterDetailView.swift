@@ -25,7 +25,7 @@ struct CharacterDetailView: View {
     
     var body: some View {
         ScrollViewReader { proxy in
-            ScrollView(showsIndicators: false) { // 스크롤바 숨김
+            ScrollView(showsIndicators: false) {
                 VStack(spacing: 16) {
                     // 스크롤 최상단 위치 식별을 위한 빈 뷰
                     Color.clear
@@ -43,19 +43,19 @@ struct CharacterDetailView: View {
                     if let dailyTasks = character.dailyTasks, !dailyTasks.isEmpty {
                         DailyTasksView(
                             tasks: dailyTasks,
-                            character: character,  // 캐릭터 모델 전달
+                            character: character,
                             isActiveView: isCurrentlyActive
                         )
                     }
                     
-                    // 주간 레이드 섹션
+                    // 주간 레이드 섹션 - 다크모드 개선 버전 사용
                     WeeklyRaidsView(character: character)
                     
                     Spacer()
                 }
                 .padding(.bottom, 20)
             }
-            .id(scrollViewID) // 스크롤뷰 ID 부여
+            .id(scrollViewID)
             .onAppear {
                 // 뷰가 나타날 때 최상단으로 이동
                 proxy.scrollTo(ScrollToTop.top, anchor: .top)
@@ -63,12 +63,13 @@ struct CharacterDetailView: View {
             .onChange(of: isCurrentlyActive) { _, newValue in
                 if newValue {
                     // 페이지가 활성화될 때 스크롤 위치 재설정
-                    scrollViewID = UUID() // 스크롤뷰 재생성
+                    scrollViewID = UUID()
                     DispatchQueue.main.async {
                         proxy.scrollTo(ScrollToTop.top, anchor: .top)
                     }
                 }
             }
+            // 배경색을 다크모드 대응 색상으로 변경
             .background(Color.backgroundPrimary)
         }
     }
@@ -93,13 +94,15 @@ struct CharacterHeaderView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 20, height: 20)
-                        .foregroundColor(goToPreviousPage != nil ? .blue : .gray)
+                    // 다크모드에서 더 잘 보이도록 색상 조정
+                        .foregroundColor(goToPreviousPage != nil ?
+                                         (colorScheme == .dark ? .blue.opacity(0.9) : .blue) :
+                                            (colorScheme == .dark ? .gray.opacity(0.7) : .gray))
                         .frame(width: 44, height: 44)
                         .background(Color.clear)
                         .cornerRadius(8)
                 }
                 .disabled(goToPreviousPage == nil)
-
                 
                 Spacer()
                 
@@ -118,8 +121,10 @@ struct CharacterHeaderView: View {
                         .font(.headline)
                         .padding(.vertical, 4)
                         .padding(.horizontal, 12)
-                        .background(Color.blue.opacity(0.1))
-                        .foregroundColor(.blue)
+                    // 다크모드에서 더 잘 보이도록 배경색 조정
+                        .background(Color.blue.opacity(colorScheme == .dark ? 0.15 : 0.1))
+                    // 다크모드에서 색상 조정
+                        .foregroundColor(colorScheme == .dark ? .blue.opacity(0.9) : .blue)
                         .cornerRadius(8)
                     
                     // 골드 획득 캐릭터 표시
@@ -128,8 +133,10 @@ struct CharacterHeaderView: View {
                             .font(.caption)
                             .padding(.vertical, 4)
                             .padding(.horizontal, 8)
-                            .background(Color.yellow.opacity(0.2))
-                            .foregroundColor(.orange)
+                        // 다크모드에서 더 잘 보이도록 배경색 조정
+                            .background(Color.yellow.opacity(colorScheme == .dark ? 0.2 : 0.2))
+                        // 다크모드에서 색상 조정
+                            .foregroundColor(colorScheme == .dark ? .orange.opacity(0.9) : .orange)
                             .cornerRadius(4)
                     }
                 }
@@ -144,19 +151,22 @@ struct CharacterHeaderView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 20, height: 20)
-                        .foregroundColor(goToNextPage != nil ? .blue : .gray)
+                    // 다크모드에서 더 잘 보이도록 색상 조정
+                        .foregroundColor(goToNextPage != nil ?
+                                         (colorScheme == .dark ? .blue.opacity(0.9) : .blue) :
+                                            (colorScheme == .dark ? .gray.opacity(0.7) : .gray))
                         .frame(width: 44, height: 44)
                         .background(Color.clear)
                         .cornerRadius(8)
                 }
                 .disabled(goToNextPage == nil)
-
             }
             .padding(.horizontal)
         }
         .padding()
         .background(Color.cardBackground)
         .cornerRadius(12)
+        // 다크모드에서 그림자 조정
         .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.1), radius: 5, x: 0, y: 2)
     }
 }

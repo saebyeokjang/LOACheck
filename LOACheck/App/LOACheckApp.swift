@@ -18,7 +18,7 @@ struct LOACheckApp: App {
     @StateObject private var errorHandlingService = ErrorHandlingService.shared
     @StateObject private var networkMonitor = NetworkMonitorService.shared
     @StateObject private var friendsService = FriendsService.shared
-    @ObservedObject private var themeManager = ThemeManager.shared
+    @StateObject private var themeManager = ThemeManager.shared // 테마 관리자를 StateObject로 선언
     
     // 앱 시작 시 초기화 플래그
     @State private var isInitialized = false
@@ -43,24 +43,25 @@ struct LOACheckApp: App {
                 .environmentObject(authManager)
                 .environmentObject(errorHandlingService)
                 .environmentObject(friendsService)
+                .environmentObject(themeManager) // 테마 관리자 환경 객체로 추가
                 .environment(\.refresh, RefreshAction {
                     // 앱 전체 새로고침
                     Task { await performGlobalRefresh() }
                 })
-            // 다크모드 적용
+            // 다크모드 설정 적용
                 .preferredColorScheme(themeManager.colorScheme)
+            // 다크모드 애니메이션 적용
                 .animation(.easeInOut(duration: 0.3), value: themeManager.isDarkMode)
                 .onOpenURL { url in
-                    GIDSignIn.sharedInstance.handle(url)
-                }
-                .onOpenURL { url in
-                    // 구글 로그인 URL 처리
                     GIDSignIn.sharedInstance.handle(url)
                 }
                 .onAppear {
                     if !isInitialized {
                         setupAppLifecycleHandlers()
                         setupPeriodicSync()
+                        
+                        // 앱 시작 시 시스템 다크모드 변경 감지 설정
+                        setupDarkModeObserver()
                         
                         // 앱 시작 시 로그인 상태라면 친구 리스너 설정
                         if authManager.isLoggedIn {
@@ -79,8 +80,10 @@ struct LOACheckApp: App {
                             "os_version": UIDevice.current.systemVersion,
                             "app_version": AppUpdateService.shared.getCurrentAppVersion(),
                             "network_connected": NetworkMonitorService.shared.isConnected,
-                            "connection_type": NetworkMonitorService.shared.connectionType.displayName
+                            "connection_type": NetworkMonitorService.shared.connectionType.displayName,
+                            "is_dark_mode": themeManager.isDarkMode // 다크모드 상태 추적
                         ])
+                        
                         // 세션 시간 추적을 위해 UserDefaults에 시작 시간 저장
                         UserDefaults.standard.set(sessionStartTime.timeIntervalSince1970, forKey: "session_start_time")
                     }
@@ -98,7 +101,8 @@ struct LOACheckApp: App {
                             
                             Analytics.logEvent("app_session_end", parameters: [
                                 "session_duration_seconds": sessionDuration,
-                                "user_logged_in": AuthManager.shared.isLoggedIn
+                                "user_logged_in": AuthManager.shared.isLoggedIn,
+                                "is_dark_mode": themeManager.isDarkMode // 다크모드 상태 추적
                             ])
                         }
                     }
@@ -139,7 +143,37 @@ struct LOACheckApp: App {
         }
     }
     
-    // 로컬 우선 동기화 메서드 추가
+    // MARK: - 다크모드 관련 함수
+    
+    // 앱 테마 초기화
+    private func setupAppTheme() {
+        // 시스템 설정인 경우 시스템 모드를 따름
+        if themeManager.selectedTheme == .system {
+            let isDarkMode = UITraitCollection.current.userInterfaceStyle == .dark
+            themeManager.isDarkMode = isDarkMode
+        }
+    }
+    
+    // 시스템 다크모드 변경 감지
+    private func setupDarkModeObserver() {
+        // UITraitCollection 변경 감지를 위한 노티피케이션 구독
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            if themeManager.selectedTheme == .system {
+                let systemIsDark = UITraitCollection.current.userInterfaceStyle == .dark
+                if themeManager.isDarkMode != systemIsDark {
+                    themeManager.isDarkMode = systemIsDark
+                }
+            }
+        }
+    }
+    
+    // MARK: - 기존 함수들
+    
+    // 로컬 우선 동기화 메서드
     private func performLocalPrioritySync() async {
         guard let modelContext = DataSyncManager.shared.modelContext,
               NetworkMonitorService.shared.isConnected,
@@ -173,17 +207,6 @@ struct LOACheckApp: App {
                     _ = await DataSyncManager.shared.pushToCloud()
                 }
             }
-        }
-    }
-    
-    class AppDelegate: NSObject, UIApplicationDelegate {
-        func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
-            return true
-        }
-        
-        // iOS 9 이상에서 구글 로그인 URL 처리를 위해 필요
-        func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
-            return GIDSignIn.sharedInstance.handle(url)
         }
     }
     
@@ -259,6 +282,14 @@ struct LOACheckApp: App {
             if let modelContext = DataSyncManager.shared.modelContext {
                 TaskResetManager.shared.checkResetOnForeground(modelContext: modelContext)
             }
+            
+            // 시스템 다크모드 변경사항 확인 (앱이 백그라운드에 있는 동안 변경될 수 있음)
+            if themeManager.selectedTheme == .system {
+                let systemIsDark = UITraitCollection.current.userInterfaceStyle == .dark
+                if themeManager.isDarkMode != systemIsDark {
+                    themeManager.isDarkMode = systemIsDark
+                }
+            }
         }
         
         NotificationCenter.default.addObserver(
@@ -273,6 +304,10 @@ struct LOACheckApp: App {
             if AuthManager.shared.userId != "" {
                 UserDefaults.standard.set(repChar, forKey: "representativeCharacter_\(AuthManager.shared.userId)")
             }
+            
+            // 테마 설정 저장
+            UserDefaults.standard.set(themeManager.isDarkMode, forKey: "isDarkMode")
+            UserDefaults.standard.set(themeManager.selectedTheme.rawValue, forKey: "selectedTheme")
         }
         
         // 앱이 포그라운드로 돌아올 때 친구 리스너가 작동 중인지 확인

@@ -16,6 +16,7 @@ struct WeeklyRaidsView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            // 주간 레이드 헤더
             HStack {
                 Text("주간 레이드")
                     .font(.headline)
@@ -27,8 +28,9 @@ struct WeeklyRaidsView: View {
                 Button(action: {
                     isShowingRaidSettings = true
                 }) {
+                    // 다크모드에서 더 잘 보이도록 아이콘 색상 조정
                     Image(systemName: "gearshape.fill")
-                        .foregroundStyle(.gray)
+                        .foregroundColor(colorScheme == .dark ? .gray.opacity(0.8) : .gray)
                 }
             }
             
@@ -37,14 +39,16 @@ struct WeeklyRaidsView: View {
             
             if let raidGates = character.raidGates, !raidGates.isEmpty {
                 // 레이드별로 그룹화 및 표시
-                RaidListCardView(character: character, raidGates: raidGates)
+                ImprovedRaidListCardView(character: character, raidGates: raidGates)
             } else {
+                // 설정된 레이드가 없을 때 안내 메시지
                 HStack {
                     Spacer()
                     VStack(spacing: 12) {
+                        // 다크모드에서 더 잘 보이도록 아이콘 색상 조정
                         Image(systemName: "exclamationmark.triangle")
                             .font(.system(size: 30))
-                            .foregroundColor(.gray)
+                            .foregroundColor(colorScheme == .dark ? .gray.opacity(0.8) : .gray)
                         
                         Text("설정된 레이드가 없습니다")
                             .foregroundColor(Color.textSecondary)
@@ -54,9 +58,11 @@ struct WeeklyRaidsView: View {
                             .foregroundColor(Color.textSecondary)
                             .multilineTextAlignment(.center)
                     }
+                    .padding(.vertical, 20)
                     Spacer()
                 }
-                .padding(.vertical, 20)
+                .background(colorScheme == .dark ? Color.black.opacity(0.1) : Color.gray.opacity(0.03))
+                .cornerRadius(8)
             }
         }
         .padding()
@@ -82,7 +88,6 @@ struct RaidListCardView: View {
         
         // 레이드 순서를 RaidData.RaidType.sortOrder 기준으로 정렬
         let sortedRaidNames = groupedGates.keys.sorted { raid1, raid2 in
-            // RaidType 찾기
             guard let type1 = RaidData.RaidType.allCases.first(where: { $0.rawValue == raid1 }),
                   let type2 = RaidData.RaidType.allCases.first(where: { $0.rawValue == raid2 }) else {
                 return raid1 < raid2 // 기본 알파벳 순
@@ -110,17 +115,19 @@ struct RaidListCardView: View {
                     Spacer()
                     
                     HStack(spacing: 4) {
+                        // 다크모드에서 색상 조정
                         Image(systemName: "circle.fill")
                             .font(.system(size: 8))
-                            .foregroundColor(.yellow)
+                            .foregroundColor(colorScheme == .dark ? .yellow.opacity(0.8) : .yellow)
                         
                         Text("\(earnedTotalGold) / \(totalGold) G")
                             .fontWeight(.semibold)
-                            .foregroundColor(.orange)
+                            .foregroundColor(colorScheme == .dark ? .orange.opacity(0.9) : .orange)
                     }
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
+                // 다크모드에서 더 잘 보이도록 배경색 투명도 조정
                 .background(Color.yellow.opacity(colorScheme == .dark ? 0.15 : 0.1))
                 .cornerRadius(8)
             }
@@ -128,7 +135,7 @@ struct RaidListCardView: View {
             // 각 레이드 카드 (순서 고정)
             ForEach(sortedRaidNames, id: \.self) { raidName in
                 if let gates = groupedGates[raidName] {
-                    RaidCardView(
+                    ImprovedRaidCardView(
                         raidName: raidName,
                         gates: gates,
                         isGoldEarner: character.isGoldEarner,
@@ -156,7 +163,7 @@ struct RaidCardView: View {
     var raidName: String
     var gates: [RaidGate]
     var isGoldEarner: Bool
-    var isTopRaid: Bool  // 상위 3개 레이드인지 여부
+    var isTopRaid: Bool
     var character: CharacterModel
     
     @State private var isAllCompleted: Bool = false
@@ -195,22 +202,22 @@ struct RaidCardView: View {
                                 if additionalGold > 0 {
                                     Text("\(displayAdditionalGold) / \(additionalGold) G")
                                         .font(.caption)
-                                        .foregroundColor(.green)
+                                        .foregroundColor(colorScheme == .dark ? .green.opacity(0.9) : .green)
                                     
                                     Text("(+\(additionalGold)G)")
                                         .font(.caption)
-                                        .foregroundColor(.green)
+                                        .foregroundColor(colorScheme == .dark ? .green.opacity(0.9) : .green)
                                 }
                             } else {
                                 // 상위 레이드 - 클리어 골드 + 추가 골드
                                 Text("\(earnedGold + displayAdditionalGold) / \(totalGold + additionalGold) G")
                                     .font(.caption)
-                                    .foregroundColor(.orange)
+                                    .foregroundColor(colorScheme == .dark ? .orange.opacity(0.9) : .orange)
                                 
                                 if additionalGold > 0 {
                                     Text("(+\(additionalGold)G)")
                                         .font(.caption)
-                                        .foregroundColor(.green)
+                                        .foregroundColor(colorScheme == .dark ? .green.opacity(0.9) : .green)
                                 }
                             }
                         }
@@ -227,7 +234,8 @@ struct RaidCardView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "plus").font(.title3)
                         }
-                        .foregroundColor(.green)
+                        // 다크모드에서 색상 조정
+                        .foregroundColor(colorScheme == .dark ? .green.opacity(0.9) : .green)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                     }
@@ -242,10 +250,14 @@ struct RaidCardView: View {
                     ZStack {
                         // 프레임 배경과 테두리
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(isAllCompleted ? Color.green.opacity(colorScheme == .dark ? 0.2 : 0.1) : (colorScheme == .dark ? Color.black.opacity(0.2) : Color.white))
+                            .fill(isAllCompleted ?
+                                  Color.green.opacity(colorScheme == .dark ? 0.2 : 0.1) :
+                                    (colorScheme == .dark ? Color.black.opacity(0.2) : Color.white))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 4)
-                                    .stroke(isAllCompleted ? Color.green.opacity(0.3) : Color.gray.opacity(0.3), lineWidth: 1)
+                                    .stroke(isAllCompleted ?
+                                            Color.green.opacity(colorScheme == .dark ? 0.5 : 0.3) :
+                                                Color.gray.opacity(colorScheme == .dark ? 0.5 : 0.3), lineWidth: 1)
                             )
                             .frame(width: 32, height: 32)
                         
@@ -259,22 +271,23 @@ struct RaidCardView: View {
                 }
                 .foregroundColor(isAllCompleted ? Color.textSecondary : Color.textPrimary)
                 .cornerRadius(4)
-                .frame(width: 30, height: 30) // 터치 영역 확장
-                .contentShape(Rectangle()) // 명확한 터치 영역 정의
-                .buttonStyle(ScaleButtonStyle()) // 커스텀 버튼 스타일 적용
+                .frame(width: 30, height: 30)
+                .contentShape(Rectangle())
+                .buttonStyle(ScaleButtonStyle())
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
+            // 다크모드에서 헤더 배경색 조정
             .background(isTopRaid && isGoldEarner ?
                         (colorScheme == .dark ? Color.yellow.opacity(0.08) : Color.yellow.opacity(0.05)) :
-                        (colorScheme == .dark ? Color.gray.opacity(0.08) : Color.gray.opacity(0.05)))
+                            (colorScheme == .dark ? Color.gray.opacity(0.08) : Color.gray.opacity(0.05)))
             
             // 레이드 관문 그리드
             let displayGates = getSortedGates()
             
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: displayGates.count > 0 ? min(4, displayGates.count) : 1), spacing: 0) {
                 ForEach(displayGates) { gate in
-                    GateButton(
+                    ImprovedGateButton(
                         gate: gate,
                         isGoldEarner: isGoldEarner,
                         isTopRaid: isTopRaid,
@@ -286,6 +299,7 @@ struct RaidCardView: View {
         }
         .background(Color.cardBackground)
         .cornerRadius(10)
+        // 다크모드에서 그림자 조정
         .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.2 : 0.05), radius: 2, x: 0, y: 1)
         .padding(.vertical, 4)
         .opacity(isTopRaid || !isGoldEarner ? 1.0 : 0.7)  // 상위 레이드가 아니면 흐리게
@@ -352,9 +366,9 @@ struct RaidCardView: View {
 struct GateButton: View {
     @Bindable var gate: RaidGate
     var isGoldEarner: Bool
-    var isTopRaid: Bool  // 상위 3개 레이드인지 여부
+    var isTopRaid: Bool
     var isGoldDisabled: Bool
-    var allGates: [RaidGate]  // 같은 레이드의 모든 관문
+    var allGates: [RaidGate]
     @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
@@ -370,10 +384,10 @@ struct GateButton: View {
                         .strikethrough(gate.isCompleted)
                         .foregroundColor(gate.isCompleted ? Color.textSecondary : Color.textPrimary)
                     
-                    // 난이도 텍스트로 표시
+                    // 난이도 텍스트로 표시 - 다크모드에서 색상 조정
                     Text(gate.difficulty)
                         .font(.caption2)
-                        .foregroundColor(getDifficultyColor(gate.difficulty))
+                        .foregroundColor(getDifficultyColor(gate.difficulty).opacity(colorScheme == .dark ? 0.9 : 1.0))
                         .strikethrough(gate.isCompleted)
                 }
                 
@@ -401,13 +415,13 @@ struct GateButton: View {
     
     // 골드 보상 색상 계산 - 비활성화 상태 고려
     private func getGoldRewardColor() -> Color {
-        if !isGoldEarner { return .gray } // 골드 획득 캐릭터가 아니면 회색
+        if !isGoldEarner { return colorScheme == .dark ? .gray.opacity(0.7) : .gray } // 골드 획득 캐릭터가 아니면 회색
         
-        if isGoldDisabled && isTopRaid { return .orange } // 비활성화된 상위 레이드는 주황색
+        if isGoldDisabled && isTopRaid { return colorScheme == .dark ? .orange.opacity(0.7) : .orange } // 비활성화된 상위 레이드는 주황색
         
-        if isTopRaid { return .orange } // 상위 레이드는 주황색
+        if isTopRaid { return colorScheme == .dark ? .orange.opacity(0.9) : .orange } // 상위 레이드는 주황색
         
-        return .gray // 그 외에는 회색
+        return colorScheme == .dark ? .gray.opacity(0.7) : .gray // 그 외에는 회색
     }
     
     // 이 관문을 토글할 수 있는지 확인
@@ -480,7 +494,7 @@ struct GateButton: View {
         }
     }
     
-    // 배경색 결정
+    // 배경색 결정 - 다크모드 대응
     private func getBackgroundColor() -> Color {
         if !canToggleGate() && !gate.isCompleted {
             return colorScheme == .dark ? Color.gray.opacity(0.08) : Color.gray.opacity(0.05)  // 비활성화 상태
@@ -491,16 +505,24 @@ struct GateButton: View {
         }
     }
     
-    // 테두리 색상 결정
+    // 테두리 색상 결정 - 다크모드 대응
     private func getBorderColor() -> Color {
         if !canToggleGate() && !gate.isCompleted {
-            return Color.gray.opacity(0.2)  // 비활성화 상태
+            return Color.gray.opacity(colorScheme == .dark ? 0.3 : 0.2)  // 비활성화 상태
         } else if gate.isCompleted {
-            return Color.gray.opacity(0.3)
+            return Color.gray.opacity(colorScheme == .dark ? 0.5 : 0.3)
         } else {
-            return gate.difficulty == "하드" ? Color.red.opacity(0.3) :
-            gate.difficulty == "노말" ? Color.blue.opacity(0.3) :
-            Color.green.opacity(0.3)
+            // 난이도에 따른 테두리 색상 - 다크모드에서 더 잘 보이도록 투명도 조정
+            switch gate.difficulty {
+            case "하드":
+                return Color.red.opacity(colorScheme == .dark ? 0.5 : 0.3)
+            case "노말":
+                return Color.blue.opacity(colorScheme == .dark ? 0.5 : 0.3)
+            case "싱글":
+                return Color.green.opacity(colorScheme == .dark ? 0.5 : 0.3)
+            default:
+                return Color.gray.opacity(colorScheme == .dark ? 0.5 : 0.3)
+            }
         }
     }
 }
