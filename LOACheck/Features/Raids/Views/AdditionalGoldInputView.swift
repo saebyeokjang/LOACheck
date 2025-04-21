@@ -13,15 +13,17 @@ struct AdditionalGoldInputView: View {
     var raidName: String
     
     @State private var additionalGold: String = "0"
+    @State private var baseGold: Int = 0
+    @State private var isTopRaid: Bool = false
     @Environment(\.dismiss) private var dismiss
     
+    init(character: CharacterModel, raidName: String) {
+        self.character = character
+        self.raidName = raidName
+        self._additionalGold = State(initialValue: "\(character.getAdditionalGold(for: raidName))")
+    }
+    
     var body: some View {
-        // baseGold 변수를 body 메서드 시작 부분에서 계산
-        let baseGold = calculateBaseGold()
-        
-        // 상위 3개 레이드인지 확인
-        let isTopRaid = isTopThreeRaid()
-        
         NavigationView {
             Form {
                 Section(header: Text("\(raidName) 추가 수익")) {
@@ -31,7 +33,6 @@ struct AdditionalGoldInputView: View {
                         
                         Spacer()
                         
-                        // 미리 계산된 baseGold 사용 (상위 3개 레이드인 경우만 주황색)
                         Text("\(baseGold)G")
                             .foregroundColor(isTopRaid ? .orange : .gray)
                     }
@@ -100,70 +101,50 @@ struct AdditionalGoldInputView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("저장") {
                         saveAdditionalGold()
-                        
-                        // 서버에 즉시 동기화 시도 추가
-                        if AuthManager.shared.isLoggedIn && NetworkMonitorService.shared.isConnected {
-                            Task {
-                                await DataSyncManager.shared.uploadToServer()
-                            }
-                        }
-                        
-                        dismiss()
                     }
                 }
             }
             .onAppear {
-                // 현재 additionalGoldMap에서 값을 가져오는 것으로 변경
-                additionalGold = "\(character.getAdditionalGold(for: raidName))"
-                
-                // 로그로 현재 상태 확인
-                Logger.debug("레이드 \(raidName)의 additionalGoldMap: \(character.getAdditionalGold(for: raidName))G")
-                
-                // 해당 레이드의 관문 additionalGold 출력
-                if let gates = character.raidGates {
-                    let matchingGates = gates.filter { $0.raid == raidName }
-                    for gate in matchingGates {
-                        Logger.debug("레이드 게이트 \(raidName) 관문 \(gate.gate + 1)의 additionalGold: \(gate.additionalGold)G")
-                    }
-                }
+                // 뷰가 나타날 때 한 번만 계산
+                calculateDisplayValues()
             }
         }
     }
     
-    // 해당 레이드의 기본 골드 보상 계산
-    private func calculateBaseGold() -> Int {
-        guard let gates = character.raidGates else { return 0 }
+    // 표시 값을 미리 계산
+    private func calculateDisplayValues() {
+        // 1. 표시용 기본 골드 계산
+        if let gates = character.raidGates {
+            let raidGates = gates.filter { $0.raid == raidName && $0.isCompleted }
+            baseGold = raidGates.reduce(0) { $0 + $1.currentGoldReward }
+        }
         
-        // 해당 레이드의 완료된 관문 골드 합산
-        let raidGates = gates.filter { $0.raid == raidName && $0.isCompleted }
-        return raidGates.reduce(0) { $0 + $1.goldReward }
-    }
-    
-    // 현재 레이드가 상위 3개 레이드인지 확인
-    private func isTopThreeRaid() -> Bool {
+        // 2. 상위 레이드 여부 확인
         let topRaidNames = character.getTopRaidNames()
-        return topRaidNames.contains(raidName)
+        isTopRaid = topRaidNames.contains(raidName)
     }
     
-    // 입력된 추가 골드 저장
+    // 입력된 추가 골드 저장 - 안전하게 수정
     private func saveAdditionalGold() {
         // 숫자가 아닌 문자를 안전하게 처리
         let safeGold = Int(additionalGold) ?? 0
         
-        // CharacterModel의 setAdditionalGold 메서드 호출
-        character.setAdditionalGold(safeGold, for: raidName)
-        
-        // 로그로 설정 후 상태 확인
-        Logger.debug("추가 골드 저장 후 additionalGoldMap: \(character.additionalGoldMap)")
-        
-        if let gates = character.raidGates {
-            let matchingGates = gates.filter { $0.raid == raidName }
-            for gate in matchingGates {
-                Logger.debug("저장 후 레이드 게이트 \(raidName) 관문 \(gate.gate + 1)의 additionalGold: \(gate.additionalGold)G")
-            }
-        }
+        // 직접 additionalGoldForRaids 수정 (더 안전한 접근 방식)
+        var currentMap = character.additionalGoldForRaids
+        currentMap[raidName] = safeGold
+        character.additionalGoldForRaids = currentMap
         
         // 동기화 표시
         DataSyncManager.shared.markLocalChanges()
+        
+        // 서버에 즉시 동기화 시도 추가
+        if AuthManager.shared.isLoggedIn && NetworkMonitorService.shared.isConnected {
+            Task {
+                await DataSyncManager.shared.uploadToServer()
+            }
+        }
+        
+        // 대화상자 닫기
+        dismiss()
     }
 }

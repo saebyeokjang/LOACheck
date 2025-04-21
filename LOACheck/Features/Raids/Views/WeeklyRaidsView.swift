@@ -143,16 +143,6 @@ struct RaidListCardView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 4)
             }
-            
-            // 골드 획득 캐릭터이고 레이드가 3개 이상인 경우 안내 문구 표시
-            if character.isGoldEarner && groupedGates.count > 3 {
-                Text("※ 골드 보상이 높은 상위 3개 레이드만 골드를 획득합니다")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 4)
-            }
         }
     }
 }
