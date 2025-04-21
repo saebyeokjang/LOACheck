@@ -240,41 +240,32 @@ struct UserSearchResultView: View {
         VStack(spacing: 16) {
             // 사용자 정보
             VStack(spacing: 8) {
-                Text(user.displayName)
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                    .foregroundColor(Color.textPrimary)
-                
                 if let characterDetails = characterDetails {
-                    // 대표 캐릭터 상세 정보가 있는 경우
-                    HStack(spacing: 8) {
-                        Text(characterDetails.server)
-                            .font(.caption)
-                            .foregroundColor(colorScheme == .dark ? .blue.opacity(0.9) : .blue)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(colorScheme == .dark ? Color.blue.opacity(0.15) : Color.blue.opacity(0.1))
-                            .cornerRadius(8)
-                        
-                        Text(characterDetails.characterClass)
-                            .font(.caption)
-                            .foregroundColor(colorScheme == .dark ? .blue.opacity(0.9) : .blue)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(colorScheme == .dark ? Color.blue.opacity(0.15) : Color.blue.opacity(0.1))
-                            .cornerRadius(8)
-                        
-                        Text("Lv. \(String(format: "%.2f", characterDetails.level))")
-                            .font(.caption)
-                            .foregroundColor(colorScheme == .dark ? .blue.opacity(0.9) : .blue)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(colorScheme == .dark ? Color.blue.opacity(0.15) : Color.blue.opacity(0.1))
-                            .cornerRadius(8)
-                    }
+                    // 대표 캐릭터 상세 정보가 있는 경우 - 가운데 정렬 형태로 표시
+                    Text(characterDetails.name)
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(Color.textPrimary)
+                    
+                    Text("\(characterDetails.server) • \(characterDetails.characterClass)")
+                        .font(.subheadline)
+                        .foregroundColor(Color.textSecondary)
+                    
+                    Text("아이템 레벨: \(String(format: "%.2f", characterDetails.level))")
+                        .font(.subheadline)
+                        .padding(.vertical, 4)
+                        .padding(.horizontal, 12)
+                        .background(colorScheme == .dark ? Color.blue.opacity(0.15) : Color.blue.opacity(0.1))
+                        .foregroundColor(.blue)
+                        .cornerRadius(8)
                 } else {
-                    // 대표 캐릭터 기본 정보만 있는 경우
-                    Text("캐릭터: \(characterName)")
+                    // 캐릭터 정보가 없는 경우 기본 정보 표시
+                    Text(characterName)
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(Color.textPrimary)
+                    
+                    Text("사용자: \(user.displayName)")
                         .font(.subheadline)
                         .foregroundColor(Color.textSecondary)
                     
@@ -286,6 +277,11 @@ struct UserSearchResultView: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity)
+            .multilineTextAlignment(.center)
+            .padding()
+            .background(colorScheme == .dark ? Color.gray.opacity(0.2) : Color(.systemGray6))
+            .cornerRadius(12)
             
             // 친구 요청 상태에 따라 다른 UI 표시
             if requestSent {
@@ -318,15 +314,5 @@ struct UserSearchResultView: View {
                 .disabled(isLoading)
             }
         }
-        .padding()
-        .background(colorScheme == .dark ? Color.gray.opacity(0.2) : Color(.systemGray6))
-        .cornerRadius(16)
-    }
-}
-
-struct AddFriendView_Previews: PreviewProvider {
-    static var previews: some View {
-        AddFriendView()
-            .environmentObject(FriendsService.shared)
     }
 }
