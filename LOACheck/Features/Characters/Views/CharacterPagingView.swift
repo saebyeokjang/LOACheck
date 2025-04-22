@@ -73,6 +73,8 @@ struct CharacterPagingView: View {
                     
                     // 캐릭터 갱신 버튼 - 가운데에 추가
                     Button(action: {
+                        // 이미 로딩 중이면 무시
+                        guard !isCharacterLoading else { return }
                         refreshCurrentCharacter()
                     }) {
                         HStack(spacing: 4) {
@@ -193,7 +195,10 @@ struct CharacterPagingView: View {
         }
         // 주기적으로 캐릭터 목록 새로고침 - 데이터 변경 감지용
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshCharacterList"))) { _ in
-            loadCharacters()
+            // 현재 로딩 중이면 중복 로드 방지
+            if !isCharacterLoading {
+                loadCharacters()
+            }
         }
         .sheet(isPresented: $showCharacterSelector) {
             CharacterSelectorView(
@@ -218,9 +223,12 @@ struct CharacterPagingView: View {
         }
     }
     
-    // 현재 표시된 캐릭터 갱신 함수 - 개선된 버전
+    // 현재 표시된 캐릭터 갱신 함수
     private func refreshCurrentCharacter() {
         guard !characters.isEmpty && currentPage < characters.count else { return }
+        
+        // 이미 로딩 중인 경우 무시
+        guard !isCharacterLoading else { return }
         
         // 이전 작업 취소
         refreshTask?.cancel()
@@ -238,10 +246,16 @@ struct CharacterPagingView: View {
                 if Task.isCancelled { return }
                 
                 await MainActor.run {
-                    isCharacterLoading = false
-                    
                     // 동기화 표시
                     DataSyncManager.shared.markLocalChanges()
+                    
+                    // 현재 캐릭터 정보만 직접 업데이트하고 전체 목록은 다시 로드하지 않음
+                    if case .success = result {
+                        // 캐릭터 정보가 업데이트되었으므로 현재 배열에서 해당 캐릭터 찾아서 업데이트
+                        if let index = characters.firstIndex(where: { $0.id == currentCharacter.id }) {
+                            characters[index] = currentCharacter
+                        }
+                    }
                     
                     // 자동 동기화 수행
                     if AuthManager.shared.isLoggedIn && NetworkMonitorService.shared.isConnected {
@@ -250,8 +264,8 @@ struct CharacterPagingView: View {
                         }
                     }
                     
-                    // 갱신 알림 발송
-                    NotificationCenter.default.post(name: NSNotification.Name("RefreshCharacterList"), object: nil)
+                    // 로딩 상태 해제
+                    isCharacterLoading = false
                 }
             } else {
                 if !Task.isCancelled {
