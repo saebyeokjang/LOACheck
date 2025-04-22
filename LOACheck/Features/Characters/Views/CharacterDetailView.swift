@@ -158,24 +158,6 @@ struct CharacterDetailView: View {
                 }
             }
             .padding(.horizontal)
-            
-            // 갱신 버튼 추가
-            Button(action: {
-                refreshCharacter()
-            }) {
-                HStack {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                    Text("정보 갱신")
-                        .font(.subheadline)
-                }
-                .padding(.vertical, 8)
-                .padding(.horizontal, 16)
-                .background(Color.blue.opacity(0.1))
-                .foregroundColor(.blue)
-                .cornerRadius(8)
-            }
-            .disabled(isRefreshing)
-            .opacity(isRefreshing ? 0.5 : 1.0)
         }
         .padding()
         .background(Color.cardBackground)

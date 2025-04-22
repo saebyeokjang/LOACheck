@@ -21,6 +21,10 @@ struct CharacterPagingView: View {
     @State private var isAnimating = false
     @State private var showGoldSummary = false
     
+    // Task 관리를 위한 상태 변수 추가
+    @State private var loadingTask: Task<Void, Never>? = nil
+    @State private var refreshTask: Task<Void, Never>? = nil
+    
     @Environment(\.modelContext) private var modelContext
     
     init(goToSettingsAction: (() -> Void)? = nil) {
@@ -68,24 +72,24 @@ struct CharacterPagingView: View {
                     Spacer()
                     
                     // 캐릭터 갱신 버튼 - 가운데에 추가
-                        Button(action: {
-                            refreshCurrentCharacter()
-                        }) {
-                            HStack(spacing: 4) {
-                                Text("캐릭터 갱신")
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                            }
-                            .foregroundColor(Color.textPrimary)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(Color.gray.opacity(0.1))
-                            .cornerRadius(12)
+                    Button(action: {
+                        refreshCurrentCharacter()
+                    }) {
+                        HStack(spacing: 4) {
+                            Text("캐릭터 갱신")
+                                .font(.caption)
+                                .fontWeight(.medium)
                         }
-                        .disabled(isCharacterLoading || characters.isEmpty)
-                        .opacity(isCharacterLoading ? 0.5 : 1.0)
-                        
-                        Spacer()
+                        .foregroundColor(Color.textPrimary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(12)
+                    }
+                    .disabled(isCharacterLoading || characters.isEmpty)
+                    .opacity(isCharacterLoading ? 0.5 : 1.0)
+                    
+                    Spacer()
                     
                     // 골드 요약 버튼
                     Button(action: {
@@ -214,13 +218,15 @@ struct CharacterPagingView: View {
         }
     }
     
-    // 현재 표시된 캐릭터 갱신 함수
+    // 현재 표시된 캐릭터 갱신 함수 - 개선된 버전
     private func refreshCurrentCharacter() {
         guard !characters.isEmpty && currentPage < characters.count else { return }
         
+        // 이전 작업 취소
+        refreshTask?.cancel()
         isCharacterLoading = true
         
-        Task {
+        refreshTask = Task {
             if let apiKey = UserDefaults.standard.string(forKey: "apiKey"), !apiKey.isEmpty {
                 let currentCharacter = characters[currentPage]
                 let result = await LostArkAPIService.shared.updateSingleCharacterViaArmory(
@@ -228,6 +234,8 @@ struct CharacterPagingView: View {
                     apiKey: apiKey,
                     modelContext: modelContext
                 )
+                
+                if Task.isCancelled { return }
                 
                 await MainActor.run {
                     isCharacterLoading = false
@@ -246,58 +254,78 @@ struct CharacterPagingView: View {
                     NotificationCenter.default.post(name: NSNotification.Name("RefreshCharacterList"), object: nil)
                 }
             } else {
-                await MainActor.run {
-                    isCharacterLoading = false
+                if !Task.isCancelled {
+                    await MainActor.run {
+                        isCharacterLoading = false
+                    }
                 }
             }
         }
     }
     
-    // SwiftData 수동 로드 기능 추가
+    // SwiftData 수동 로드 기능 - 개선된 버전
     func loadCharacters() {
-            // 로딩 상태 활성화
-            isCharacterLoading = true
-            
-            print("캐릭터 데이터 로딩 시작")
-            Task {
-                await MainActor.run {
+        // 이전 작업이 있으면 취소하여 동시 실행 방지
+        loadingTask?.cancel()
+        
+        // 로딩 상태 활성화
+        isCharacterLoading = true
+        
+        print("캐릭터 데이터 로딩 시작")
+        
+        // 새 작업 시작
+        loadingTask = Task {
+            do {
+                // 메인 스레드에서 안전하게 데이터 가져오기
+                let newCharacters = try await MainActor.run {
+                    var descriptor = FetchDescriptor<CharacterModel>()
+                    descriptor.predicate = #Predicate<CharacterModel> { !$0.isHidden }
+                    descriptor.sortBy = [SortDescriptor(\CharacterModel.level, order: .reverse)]
+                    
                     do {
-                        var descriptor = FetchDescriptor<CharacterModel>()
-                        descriptor.predicate = #Predicate<CharacterModel> { !$0.isHidden }
-                        descriptor.sortBy = [SortDescriptor(\CharacterModel.level, order: .reverse)]
-                        
-                        // 데이터 가져오기
-                        let newCharacters = try modelContext.fetch(descriptor)
-                        print("캐릭터 \(newCharacters.count)개 로드 완료")
-                        
-                        // 기존 캐릭터 수와 현재 페이지 확인
-                        let oldCount = characters.count
-                        
-                        // 캐릭터 목록 업데이트
-                        characters = newCharacters
-                        
-                        // 현재 페이지가 유효한지 확인하고 필요시 조정
-                        if characters.isEmpty {
-                            currentPage = 0
-                        } else if currentPage >= characters.count {
-                            // 현재 페이지가 유효하지 않은 경우 마지막 페이지로 조정
-                            currentPage = max(0, characters.count - 1)
-                        }
-                        
-                        // 짧은 지연 후 로딩 완료 처리
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            isCharacterLoading = false
-                        }
+                        return try modelContext.fetch(descriptor)
                     } catch {
-                        print("캐릭터 로드 오류: \(error.localizedDescription)")
-                        // 에러 발생해도 로딩 완료 처리
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            isCharacterLoading = false
-                        }
+                        print("Fetch 실패: \(error)")
+                        throw error
+                    }
+                }
+                
+                // 작업이 취소되었는지 확인
+                if Task.isCancelled { return }
+                
+                await MainActor.run {
+                    print("캐릭터 \(newCharacters.count)개 로드 완료")
+                    
+                    // 캐릭터 목록 업데이트
+                    characters = newCharacters
+                    
+                    // 현재 페이지가 유효한지 확인하고 필요시 조정
+                    if characters.isEmpty {
+                        currentPage = 0
+                    } else if currentPage >= characters.count {
+                        currentPage = max(0, characters.count - 1)
+                    }
+                }
+                
+                // 짧은 지연 후 로딩 완료 처리
+                try await Task.sleep(nanoseconds: 300_000_000) // 0.3초 대기
+                
+                if !Task.isCancelled {
+                    await MainActor.run {
+                        isCharacterLoading = false
+                    }
+                }
+            } catch {
+                if !Task.isCancelled {
+                    print("캐릭터 로드 오류: \(error.localizedDescription)")
+                    
+                    await MainActor.run {
+                        isCharacterLoading = false
                     }
                 }
             }
         }
+    }
     
     // 특정 페이지가 보여져야 하는지 결정 (성능 최적화)
     private func shouldShowPage(_ index: Int) -> Bool {
