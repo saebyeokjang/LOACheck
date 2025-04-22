@@ -9,10 +9,16 @@ import SwiftUI
 import SwiftData
 
 struct CharacterDetailView: View {
-    var character: CharacterModel
+    // 직접 캐릭터 모델을 참조하되 @Bindable 사용
+    @Bindable var character: CharacterModel
     var isCurrentlyActive: Bool = true
     @State private var scrollViewID = UUID()
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.modelContext) private var modelContext
+    @AppStorage("apiKey") private var apiKey: String = ""
+    @State private var isRefreshing = false
+    @State private var showAlert = false
+    @State private var alertMessage = ""
     
     // 페이지 이동 관련 콜백
     var goToPreviousPage: (() -> Void)?
@@ -33,11 +39,7 @@ struct CharacterDetailView: View {
                         .id(ScrollToTop.top)
                     
                     // 캐릭터 정보 헤더
-                    CharacterHeaderView(
-                        character: character,
-                        goToPreviousPage: goToPreviousPage,
-                        goToNextPage: goToNextPage
-                    )
+                    characterHeaderView()
                     
                     // 일일 숙제 섹션
                     if let dailyTasks = character.dailyTasks, !dailyTasks.isEmpty {
@@ -72,22 +74,16 @@ struct CharacterDetailView: View {
             // 배경색을 다크모드 대응 색상으로 변경
             .background(Color.backgroundPrimary)
         }
+        .alert("알림", isPresented: $showAlert) {
+            Button("확인") {}
+        } message: {
+            Text(alertMessage)
+        }
     }
-}
-
-// 캐릭터 헤더 뷰 추가
-struct CharacterHeaderView: View {
-    var character: CharacterModel
-    var goToPreviousPage: (() -> Void)?
-    var goToNextPage: (() -> Void)?
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.modelContext) private var modelContext
-    @AppStorage("apiKey") private var apiKey: String = ""
-    @State private var isRefreshing = false
-    @State private var showAlert = false
-    @State private var alertMessage = ""
     
-    var body: some View {
+    // 캐릭터 헤더 뷰
+    @ViewBuilder
+    private func characterHeaderView() -> some View {
         VStack(spacing: 12) {
             ZStack(alignment: .topTrailing) {
                 // 메인 콘텐츠
@@ -162,19 +158,32 @@ struct CharacterHeaderView: View {
                 }
             }
             .padding(.horizontal)
+            
+            // 갱신 버튼 추가
+            Button(action: {
+                refreshCharacter()
+            }) {
+                HStack {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                    Text("정보 갱신")
+                        .font(.subheadline)
+                }
+                .padding(.vertical, 8)
+                .padding(.horizontal, 16)
+                .background(Color.blue.opacity(0.1))
+                .foregroundColor(.blue)
+                .cornerRadius(8)
+            }
+            .disabled(isRefreshing)
+            .opacity(isRefreshing ? 0.5 : 1.0)
         }
         .padding()
         .background(Color.cardBackground)
         .cornerRadius(12)
         .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.1), radius: 5, x: 0, y: 2)
-        .alert("알림", isPresented: $showAlert) {
-            Button("확인") {}
-        } message: {
-            Text(alertMessage)
-        }
     }
     
-    // 개별 캐릭터 새로고침 함수
+    // 개별 캐릭터 새로고침 함수 - 개선된 버전
     private func refreshCharacter() {
         guard !apiKey.isEmpty else {
             alertMessage = "API 키가 설정되지 않았습니다. 설정 탭에서 API 키를 입력해주세요."
@@ -190,8 +199,7 @@ struct CharacterHeaderView: View {
             let result = await LostArkAPIService.shared.updateSingleCharacterViaArmory(
                 name: character.name,
                 apiKey: apiKey,
-                modelContext: modelContext,
-                existingCharacter: character
+                modelContext: modelContext
             )
             
             await MainActor.run {

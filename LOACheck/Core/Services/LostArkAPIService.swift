@@ -388,11 +388,22 @@ class LostArkAPIService {
     func updateSingleCharacterViaArmory(
         name: String,
         apiKey: String,
-        modelContext: ModelContext,
-        existingCharacter: CharacterModel
+        modelContext: ModelContext
     ) async -> Result<Bool, APIError> {
         do {
             Logger.debug("API Request: Updating character \(name) via armory profiles API")
+            
+            // 캐릭터 검색 - 직접 참조 대신 ID로 찾는 방식
+            let fetchDescriptor = FetchDescriptor<CharacterModel>(
+                predicate: #Predicate<CharacterModel> { character in
+                    character.name == name
+                }
+            )
+            
+            let characters = try modelContext.fetch(fetchDescriptor)
+            guard let character = characters.first else {
+                return .failure(.documentNotFound)
+            }
             
             // 아머리 프로필 API 호출을 위한 URL 구성
             let encodedName = name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? name
@@ -436,15 +447,18 @@ class LostArkAPIService {
                     
                     // 아이템 레벨 문자열에서 숫자만 추출 (예: "1,728.33" -> 1728.33)
                     let levelString = profileData.itemMaxLevel.replacingOccurrences(of: ",", with: "")
-                    let level = Double(levelString) ?? existingCharacter.level
+                    let level = Double(levelString) ?? character.level
                     
-                    // 캐릭터 정보 업데이트
-                    existingCharacter.server = profileData.serverName
-                    existingCharacter.characterClass = profileData.characterClassName
-                    existingCharacter.level = level
-                    existingCharacter.lastUpdated = Date()
+                    // 안전하게 트랜잭션 내에서 모델 업데이트
+                    modelContext.insert(character) // 캐릭터가 컨텍스트에서 확실히 관리되도록 함
                     
-                    // 변경사항 저장
+                    // 프로퍼티 개별 업데이트로 변경
+                    character.server = profileData.serverName
+                    character.characterClass = profileData.characterClassName
+                    character.level = level
+                    character.lastUpdated = Date()
+                    
+                    // 변경사항 즉시 저장
                     try modelContext.save()
                     
                     Logger.debug("캐릭터 정보 업데이트 성공: \(name)")

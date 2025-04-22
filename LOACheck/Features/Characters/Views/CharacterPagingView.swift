@@ -226,8 +226,7 @@ struct CharacterPagingView: View {
                 let result = await LostArkAPIService.shared.updateSingleCharacterViaArmory(
                     name: currentCharacter.name,
                     apiKey: apiKey,
-                    modelContext: modelContext,
-                    existingCharacter: currentCharacter
+                    modelContext: modelContext
                 )
                 
                 await MainActor.run {
