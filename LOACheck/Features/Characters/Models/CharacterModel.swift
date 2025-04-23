@@ -142,23 +142,27 @@ final class CharacterModel {
     // 특정 레이드의 추가 수익 설정
     func setAdditionalGold(_ amount: Int, for raid: String) {
         var currentMap = additionalGoldForRaids
-        let oldAmount = currentMap[raid] ?? 0
+        currentMap[raid] = amount
+        additionalGoldForRaids = currentMap
         
-        if amount != oldAmount {
-            currentMap[raid] = amount
-            additionalGoldForRaids = currentMap
-            
-            // 해당 레이드의 모든 RaidGate 객체의 additionalGold도 함께 업데이트
-            guard let gates = self.raidGates else { return }
-            
+        // 해당 레이드의 모든 RaidGate 객체의 additionalGold도 함께 업데이트
+        if let gates = self.raidGates {
             let matchingGates = gates.filter { $0.raid == raid }
             for gate in matchingGates {
                 gate.additionalGold = amount
             }
-            
-            // 동기화 표시
-            DataSyncManager.shared.markLocalChanges()
         }
+        do {
+            let data = try JSONSerialization.data(withJSONObject: currentMap)
+            if let jsonStr = String(data: data, encoding: .utf8) {
+                additionalGoldMap = jsonStr
+            }
+        } catch {
+            Logger.error("additionalGoldMap 직렬화 실패", error: error)
+        }
+        
+        // 동기화 표시
+        DataSyncManager.shared.markLocalChanges()
     }
     
     // 캐릭터에 대한 주간 골드 보상 계산 (기본 골드는 상위 3개만, 추가 수익은 모든 레이드 적용)

@@ -32,11 +32,6 @@ struct GoldSummaryView: View {
                     }
                 }
             }
-            
-            // 안내 섹션
-            Section(footer: Text("캐릭터당 골드 보상이 높은 최대 3개 레이드에서만 골드를 획득할 수 있습니다.")) {
-                EmptyView()
-            }
         }
         .navigationTitle("주간 획득 골드")
     }

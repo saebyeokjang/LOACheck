@@ -169,6 +169,8 @@ class TaskResetManager {
             
             for gate in allRaidGates {
                 gate.reset()
+                // 추가골드도 확실히 초기화
+                gate.additionalGold = 0
             }
             
             // 캐릭터 추가 골드 초기화
@@ -176,56 +178,48 @@ class TaskResetManager {
             let allCharacters = try modelContext.fetch(characterDescriptor)
             Logger.info("주간 추가 수익 리셋 - \(allCharacters.count)개 캐릭터")
             
-            // 모든 캐릭터와 해당 레이드의 추가 수익 초기화
+            // 모든 캐릭터의 추가 수익 확실히 초기화
             for character in allCharacters {
-                // 디버깅을 위해 이전 상태 저장
-                let oldMap = character.additionalGoldMap
-                
-                // additionalGoldMap 완전 초기화만 수행 (이중 초기화 방지)
                 character.additionalGoldMap = "{}"
                 
-                // RaidGate 객체의 additionalGold도 직접 초기화
+                // 직접 속성에도 접근하여 초기화
+                var emptyMap: [String: Int] = [:]
+                character.additionalGoldForRaids = emptyMap
+                
+                // 모든 레이드 게이트도 확실히 초기화
                 if let gates = character.raidGates {
                     for gate in gates {
-                        if gate.additionalGold > 0 {
-                            gate.additionalGold = 0
-                        }
+                        gate.additionalGold = 0
                     }
                 }
-                
-                Logger.debug("캐릭터 '\(character.name)'의 추가 수익 초기화: \(oldMap) -> {}")
             }
 
-            // 변경사항 저장
+            // 변경사항 즉시 저장
             try modelContext.save()
-
-            // 확실한 동기화 표시 추가
+            
+            // 동기화 표시 및 즉시 동기화 수행
             DataSyncManager.shared.markLocalChanges()
             
-            // 서버에 변경사항 반영
+            // 서버에 즉시 동기화 시도 추가 (중요)
             if AuthManager.shared.isLoggedIn && NetworkMonitorService.shared.isConnected {
                 Task {
-                    // 로컬 우선 전략에 따라 변경된 데이터를 서버에 업로드
-                    let success = await DataSyncManager.shared.uploadToServer()
+                    // 이전에는 uploadToServer를 사용했지만,
+                    // 일관성을 위해 강제로 서버 데이터를 덮어쓰는 pushToCloud를 사용합니다
+                    let success = await DataSyncManager.shared.pushToCloud()
                     
                     if success {
-                        // 변경사항 동기화 완료 표시
                         await MainActor.run {
                             DataSyncManager.shared.hasPendingChanges = false
                             DataSyncManager.shared.lastSyncTime = Date()
                         }
-                        
                         Logger.info("주간 레이드 리셋 데이터 서버 동기화 완료")
                     } else {
                         Logger.error("주간 레이드 리셋 데이터 서버 동기화 실패")
-                        // 실패한 경우 변경사항 표시 유지
                         DataSyncManager.shared.markLocalChanges()
                     }
                 }
             } else {
-                // 오프라인 상태인 경우 변경사항 표시
                 DataSyncManager.shared.markLocalChanges()
-                Logger.info("오프라인 상태 - 주간 레이드 리셋 데이터 변경사항 표시")
             }
         } catch {
             Logger.error("주간 레이드 리셋 실패", error: error)

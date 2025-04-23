@@ -206,6 +206,9 @@ struct ContentView: View {
         // additionalGold 동기화
         syncAdditionalGoldForAllCharacters()
         
+        // 백업에서 추가 골드 복원
+        restoreAdditionalGoldFromBackup()
+        
         // 일일 리셋 체크
         setupTaskResetTimer()
         
@@ -247,6 +250,30 @@ struct ContentView: View {
                         character.synchronizeAdditionalGold()
                     }
                     Logger.info("모든 캐릭터의 additionalGold 동기화 완료: \(characters.count)개 캐릭터")
+                }
+            }
+        }
+    }
+    
+    private func restoreAdditionalGoldFromBackup() {
+        // 모든 캐릭터에 대해 백업된 추가 골드 확인 및 복원
+        for character in characters {
+            if let raidGates = character.raidGates {
+                let raidsSet = Set(raidGates.map { $0.raid })
+                
+                // 캐릭터 식별자로 문자열 생성
+                let characterIdString = character.name.replacingOccurrences(of: " ", with: "_")
+                
+                for raid in raidsSet {
+                    let backupKey = "backup_gold_\(characterIdString)_\(raid)"
+                    if let backupGold = UserDefaults.standard.object(forKey: backupKey) as? Int {
+                        // 백업 값으로 업데이트
+                        character.setAdditionalGold(backupGold, for: raid)
+                        Logger.debug("백업에서 추가 골드 복원: \(raid) - \(backupGold)G")
+                        
+                        // 복원 후 백업 삭제
+                        UserDefaults.standard.removeObject(forKey: backupKey)
+                    }
                 }
             }
         }

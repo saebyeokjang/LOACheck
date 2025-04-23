@@ -124,27 +124,64 @@ struct AdditionalGoldInputView: View {
         isTopRaid = topRaidNames.contains(raidName)
     }
     
-    // 입력된 추가 골드 저장 - 안전하게 수정
+    // 입력된 추가 골드 저장
     private func saveAdditionalGold() {
         // 숫자가 아닌 문자를 안전하게 처리
         let safeGold = Int(additionalGold) ?? 0
         
-        // 직접 additionalGoldForRaids 수정 (더 안전한 접근 방식)
+        // 직접 additionalGoldForRaids 수정
         var currentMap = character.additionalGoldForRaids
         currentMap[raidName] = safeGold
         character.additionalGoldForRaids = currentMap
         
+        // 개별 RaidGate 객체에도 additionalGold 값 적용
+        if let gates = character.raidGates {
+            for gate in gates where gate.raid == raidName {
+                gate.additionalGold = safeGold
+            }
+        }
+        
+        // 중요: modelContext에 직접 접근하여 즉시 저장
+        if let modelContext = character.modelContext {
+            do {
+                try modelContext.save()
+                Logger.debug("추가 골드 수정 내용 디스크에 저장 성공")
+            } catch {
+                Logger.error("추가 골드 저장 실패", error: error)
+            }
+        }
+        
         // 동기화 표시
         DataSyncManager.shared.markLocalChanges()
         
-        // 서버에 즉시 동기화 시도 추가
+        // 서버 동기화를 위한 Task
         if AuthManager.shared.isLoggedIn && NetworkMonitorService.shared.isConnected {
             Task {
-                await DataSyncManager.shared.uploadToServer()
+                // 동기화 결과를 기다림
+                let result = await DataSyncManager.shared.uploadToServer()
+                Logger.debug("추가 골드 수정으로 인한 동기화 결과: \(result ? "성공" : "실패")")
+                
+                // 성공하지 못했다면 UserDefaults에 임시 백업
+                if !result {
+                    // 백업 저장 - 앱 재시작 시 복원 가능하도록
+                    saveBackupAdditionalGold(raidName: raidName, gold: safeGold, characterId: character.id)
+                }
             }
+        } else {
+            // 오프라인 상태면 UserDefaults에 임시 백업
+            saveBackupAdditionalGold(raidName: raidName, gold: safeGold, characterId: character.id)
         }
         
         // 대화상자 닫기
         dismiss()
+    }
+
+    // 백업 저장 헬퍼 함수
+    private func saveBackupAdditionalGold(raidName: String, gold: Int, characterId: PersistentIdentifier) {
+        // 캐릭터 이름을 사용하여 고유 키 생성
+        let characterIdString = character.name.replacingOccurrences(of: " ", with: "_")
+        let key = "backup_gold_\(characterIdString)_\(raidName)"
+        UserDefaults.standard.set(gold, forKey: key)
+        Logger.debug("추가 골드 백업 저장: \(raidName) - \(gold)G")
     }
 }
