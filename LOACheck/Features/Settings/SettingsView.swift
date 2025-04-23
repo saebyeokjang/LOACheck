@@ -127,20 +127,17 @@ struct SettingsView: View {
                         ThemeManager.shared.isDarkMode.toggle()
                     }) {
                         ZStack {
-                            // 항상 같은 크기의 프레임 유지
                             RoundedRectangle(cornerRadius: 4)
                                 .fill(Color.clear)
                                 .frame(width: 36, height: 36)
                             
-                            // 아이콘만 변경되도록 처리
                             Image(systemName: ThemeManager.shared.isDarkMode ? "sun.max.fill" : "moon.fill")
                                 .imageScale(.large)
-                                .font(.system(size: 20)) // 고정된 크기 지정
+                                .font(.system(size: 20))
                                 .foregroundColor(ThemeManager.shared.isDarkMode ? .yellow : .blue)
                         }
                     }
-                    .buttonStyle(PlainButtonStyle()) // 기본 버튼 스타일 제거
-                    // 아이콘 색상에만 애니메이션 적용, 크기나 위치는 제외
+                    .buttonStyle(PlainButtonStyle())
                     .animation(.spring(response: 0.3, dampingFraction: 0.7).speed(1.5), value: ThemeManager.shared.isDarkMode)
                 }
             }

@@ -178,25 +178,29 @@ class TaskResetManager {
             
             // 모든 캐릭터와 해당 레이드의 추가 수익 초기화
             for character in allCharacters {
-                // additionalGoldMap 완전 초기화 - 빈 딕셔너리로 설정
+                // 디버깅을 위해 이전 상태 저장
+                let oldMap = character.additionalGoldMap
+                
+                // additionalGoldMap 완전 초기화만 수행 (이중 초기화 방지)
                 character.additionalGoldMap = "{}"
                 
-                // 기존 추가 수익 개별 초기화 코드는 그대로 유지 (안전성을 위해)
-                if let raidGates = character.raidGates, !raidGates.isEmpty {
-                    // 레이드별로 그룹화하여 유니크한 레이드 이름 목록 생성
-                    let raidNames = Set(raidGates.map { $0.raid })
-                    
-                    // 각 레이드의 추가 수익 초기화
-                    for raidName in raidNames {
-                        character.setAdditionalGold(0, for: raidName)
+                // RaidGate 객체의 additionalGold도 직접 초기화
+                if let gates = character.raidGates {
+                    for gate in gates {
+                        if gate.additionalGold > 0 {
+                            gate.additionalGold = 0
+                        }
                     }
-                    
-                    Logger.debug("캐릭터 '\(character.name)'의 \(raidNames.count)개 레이드 추가 수익 초기화")
                 }
+                
+                Logger.debug("캐릭터 '\(character.name)'의 추가 수익 초기화: \(oldMap) -> {}")
             }
-            
+
             // 변경사항 저장
             try modelContext.save()
+
+            // 확실한 동기화 표시 추가
+            DataSyncManager.shared.markLocalChanges()
             
             // 서버에 변경사항 반영
             if AuthManager.shared.isLoggedIn && NetworkMonitorService.shared.isConnected {

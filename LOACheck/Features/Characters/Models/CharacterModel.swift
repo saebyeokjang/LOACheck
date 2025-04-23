@@ -24,8 +24,11 @@ final class CharacterModel {
     @Transient
     var additionalGoldForRaids: [String: Int] {
         get {
-            // 안전한 구현으로 변경
-            guard !additionalGoldMap.isEmpty, additionalGoldMap != "{}" else {
+            // 빈 맵 체크 강화
+            guard !additionalGoldMap.isEmpty else { return [:] }
+            
+            // 추가 체크: 빈 객체인지 확인
+            if additionalGoldMap.trimmingCharacters(in: .whitespacesAndNewlines) == "{}" {
                 return [:]
             }
             

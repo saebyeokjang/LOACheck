@@ -38,36 +38,6 @@ struct DataSyncSectionView: View {
                         .foregroundColor(.secondary)
                 }
             }
-            
-//            // 수동 동기화 버튼
-//            if dataSyncManager.hasPendingChanges || dataSyncManager.syncError != nil {
-//                Button(action: {
-//                    Task {
-//                        isDataSyncing = true
-//                        let success = await dataSyncManager.performManualSync()
-//                        isDataSyncing = false
-//                        
-//                        if success {
-//                            alertMessage = "데이터가 성공적으로 동기화되었습니다."
-//                        } else if let error = dataSyncManager.syncError {
-//                            alertMessage = "동기화 중 오류가 발생했습니다: \(error.localizedDescription)"
-//                        } else {
-//                            alertMessage = "동기화 중 오류가 발생했습니다."
-//                        }
-//                        isShowingAlert = true
-//                    }
-//                }) {
-//                    HStack {
-//                        Text("지금 동기화하기")
-//                        Spacer()
-//                        if isDataSyncing {
-//                            ProgressView()
-//                                .controlSize(.small)
-//                        }
-//                    }
-//                }
-//                .disabled(isDataSyncing || !networkMonitor.isConnected)
-//            }
         }
     }
 }
