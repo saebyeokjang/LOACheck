@@ -148,8 +148,8 @@ struct ContentView: View {
                         openAppStore()
                     },
                     onLater: {
-                        // 나중에 버튼 - 하루 후 다시 체크
-                        lastUpdateCheckDate = Date().addingTimeInterval(24 * 60 * 60).timeIntervalSince1970
+                        // 나중에 버튼 - 8시간 후 다시 체크
+                        lastUpdateCheckDate = Date().addingTimeInterval(8 * 60 * 60).timeIntervalSince1970
                     }
                 )
                 .transition(.scale)
@@ -315,9 +315,9 @@ struct ContentView: View {
         let lastKnownVersion = UserDefaults.standard.string(forKey: "lastKnownVersion") ?? ""
         let isFirstRunAfterUpdate = lastKnownVersion != currentVersion
         
-        // 마지막 체크로부터 24시간 이상 지났는지 또는 앱 업데이트 후 첫 실행인지 확인
-        if hoursSinceLastCheck < 24 && !isFirstRunAfterUpdate {
-            Logger.debug("24시간 이내에 이미 체크함, 업데이트 체크 건너뜀")
+        // 마지막 체크로부터 8시간 이상 지났는지 또는 앱 업데이트 후 첫 실행인지 확인
+        if hoursSinceLastCheck < 8 && !isFirstRunAfterUpdate {
+            Logger.debug("8시간 이내에 이미 체크함, 업데이트 체크 건너뜀")
             return
         }
         
