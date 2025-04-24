@@ -225,8 +225,8 @@ struct FriendDailyTaskRow: View {
                 .font(.headline)
                 .foregroundColor(task.completionCount == task.type.maxCompletionCount ? .secondary : .primary)
                 .strikethrough(task.type == .eponaQuest ?
-                           (task.completionCount == task.type.maxCompletionCount) :
-                            (task.completionCount > 0))
+                               (task.completionCount == task.type.maxCompletionCount) :
+                                (task.completionCount > 0))
             
             Spacer()
             
@@ -240,7 +240,7 @@ struct FriendDailyTaskRow: View {
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
                         .background(task.completionCount == task.type.maxCompletionCount ?
-                                   Color.green.opacity(0.1) : Color.gray.opacity(0.1))
+                                    Color.green.opacity(0.1) : Color.gray.opacity(0.1))
                         .cornerRadius(8)
                 } else {
                     Text(task.completionCount > 0 ? "완료" : "미완료")
@@ -249,7 +249,7 @@ struct FriendDailyTaskRow: View {
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
                         .background(task.completionCount > 0 ?
-                                   Color.green.opacity(0.1) : Color.gray.opacity(0.1))
+                                    Color.green.opacity(0.1) : Color.gray.opacity(0.1))
                         .cornerRadius(8)
                 }
                 
@@ -283,16 +283,14 @@ struct FriendRaidView: View {
                 Text(raid)
                     .font(.headline)
                 
-                // 더보기 사용 정보 추가
+                // 더보기 사용 정보를 체크마크로 표시
                 let bonusCount = gates.filter { $0.bonusUsed }.count
                 if bonusCount > 0 {
-                    Text("(더보기: \(bonusCount)회)")
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.orange.opacity(0.1))
-                        .cornerRadius(4)
+                    ForEach(0..<bonusCount, id: \.self) { _ in
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.orange)
+                            .font(.system(size: 12))
+                    }
                 }
             }
             
@@ -333,13 +331,6 @@ struct FriendRaidGateView: View {
             Image(systemName: gate.isCompleted ? "checkmark.circle.fill" : "circle")
                 .foregroundColor(gate.isCompleted ? .green : .gray)
                 .font(.system(size: 14))
-            
-            // 더보기 표시 추가
-            if gate.bonusUsed {
-                Image(systemName: "plus.circle.fill")
-                    .foregroundColor(.orange)
-                    .font(.system(size: 10))
-            }
         }
         .frame(height: 60)
         .frame(maxWidth: .infinity)

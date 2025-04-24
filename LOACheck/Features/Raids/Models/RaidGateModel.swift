@@ -57,6 +57,8 @@ final class RaidGate {
     
     func reset() {
         isCompleted = false
+        lastCompletedAt = nil
+        bonusUsed = false
     }
 }
 

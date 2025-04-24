@@ -215,6 +215,22 @@ struct RaidCardView: View {
         return getSortedGates()
     }
     
+    // 더보기 비용 계산
+    private var bonusGoldCost: Int {
+        return gates.filter { $0.bonusUsed }.reduce(0) { total, gate in
+            return total + RaidData.getBonusLootCost(
+                raid: raidName,
+                difficulty: gate.difficulty,
+                gate: gate.gate
+            )
+        }
+    }
+    
+    // 더보기 사용 관문 수
+    private var bonusGatesCount: Int {
+        return gates.filter { $0.bonusUsed }.count
+    }
+    
     private var gridColumns: [GridItem] {
         let count = displayGates.count > 0 ? min(4, displayGates.count) : 1
         return Array(repeating: GridItem(.flexible()), count: count)
@@ -225,9 +241,22 @@ struct RaidCardView: View {
             // 레이드 헤더
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("\(getOrderString(for: raidName)) \(raidName)")
-                        .font(.headline)
-                        .foregroundColor(Color.textPrimary)
+                        // 레이드 이름과 더보기 체크마크 표시
+                        HStack(spacing: 2) {
+                            Text("\(getOrderString(for: raidName)) \(raidName) ")
+                                .font(.headline)
+                                .foregroundColor(Color.textPrimary)
+                            
+                            // 더보기 사용 횟수만큼 체크마크 추가
+                            if bonusGatesCount > 0 {
+                                ForEach(0..<bonusGatesCount, id: \.self) { _ in
+                                    Image(systemName: "checkmark")
+                                        .foregroundColor(.orange)
+                                        .font(.system(size: 12))
+                                        .fontWeight(.bold)
+                                }
+                            }
+                        }
                     
                     // 골드 정보 뷰
                     if isGoldEarner {
@@ -352,7 +381,11 @@ struct RaidCardView: View {
             if isGoldDisabled || !isTopRaid {
                 // 골드 비활성화 또는 상위 레이드가 아님 - 추가 골드만 표시
                 if additionalGold > 0 {
-                    Text("\(displayAdditionalGold) / \(additionalGold) G")
+                    // 더보기 비용 차감
+                    let netDisplayAdditionalGold = displayAdditionalGold > bonusGoldCost ? displayAdditionalGold - bonusGoldCost : 0
+                    let netAdditionalGold = additionalGold > bonusGoldCost ? additionalGold - bonusGoldCost : 0
+                    
+                    Text("\(netDisplayAdditionalGold) / \(netAdditionalGold) G")
                         .font(.caption)
                         .foregroundColor(colorScheme == .dark ? .green.opacity(0.9) : .green)
                     
@@ -361,8 +394,11 @@ struct RaidCardView: View {
                         .foregroundColor(colorScheme == .dark ? .green.opacity(0.9) : .green)
                 }
             } else {
-                // 상위 레이드 - 클리어 골드 + 추가 골드
-                Text("\(earnedGold + displayAdditionalGold) / \(totalGold + additionalGold) G")
+                // 상위 레이드 - 클리어 골드 + 추가 골드 - 더보기 비용
+                let netEarnedGold = (earnedGold + displayAdditionalGold) - bonusGoldCost
+                let netTotalGold = (totalGold + additionalGold) - bonusGoldCost
+                
+                Text("\(netEarnedGold) / \(netTotalGold) G")
                     .font(.caption)
                     .foregroundColor(colorScheme == .dark ? .orange.opacity(0.9) : .orange)
                 
@@ -410,6 +446,9 @@ struct RaidCardView: View {
             for gate in displayGates {
                 gate.isCompleted = false
                 gate.lastCompletedAt = nil
+                
+                // 더보기 사용 초기화
+                gate.bonusUsed = false
             }
         }
         
@@ -530,10 +569,17 @@ struct GateButton: View {
             for laterGate in laterGates {
                 laterGate.isCompleted = false
                 laterGate.lastCompletedAt = nil
+                
+                // 더보기 사용 초기화
+                laterGate.bonusUsed = false
             }
             
             gate.isCompleted = false
             gate.lastCompletedAt = nil
+            
+            // 현재 관문의 더보기 사용도 초기화
+                    gate.bonusUsed = false
+            
         } else {
             // 체크하는 경우 이전 관문도 모두 체크
             let previousGates = allGates.filter { $0.gate < gate.gate }

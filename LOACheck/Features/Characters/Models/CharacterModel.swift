@@ -139,6 +139,7 @@ final class CharacterModel {
         }
     }
     
+    // 더보기 비용 계산 메서드
     func calculateBonusLootCost() -> Int {
         guard let gates = raidGates else { return 0 }
         
@@ -146,11 +147,6 @@ final class CharacterModel {
             .reduce(0) { total, gate in
                 total + RaidData.getBonusLootCost(raid: gate.raid, difficulty: gate.difficulty, gate: gate.gate)
             }
-    }
-    
-    // 실제 획득 골드에서 더보기 비용 차감
-    func calculateNetEarnedGoldReward() -> Int {
-        return calculateEarnedGoldReward() - calculateBonusLootCost()
     }
     
     // 특정 레이드의 추가 수익 설정
@@ -181,20 +177,32 @@ final class CharacterModel {
     
     // 캐릭터에 대한 주간 골드 보상 계산 (기본 골드는 상위 3개만, 추가 수익은 모든 레이드 적용)
     func calculateWeeklyGoldReward() -> Int {
-        return processRaids(onlyTopRaids: true) { raidName, gates in
+        // 우선 더보기 비용을 계산
+        let bonusCost = calculateBonusLootCost()
+        
+        let goldReward = processRaids(onlyTopRaids: true) { raidName, gates in
             // 기본 골드 + 추가 골드
             let baseGold = gates.reduce(0) { $0 + $1.currentGoldReward }
             return baseGold + getAdditionalGold(for: raidName)
         }
+        
+        // 더보기 비용을 차감
+        return goldReward - bonusCost
     }
     
     // 실제 획득한 골드 계산 (기본 골드는 상위 3개만, 추가 수익은 모든 레이드 적용)
     func calculateEarnedGoldReward() -> Int {
-        return processRaids(onlyTopRaids: true, onlyCompleted: true) { raidName, gates in
+        // 우선 더보기 비용을 계산
+        let bonusCost = calculateBonusLootCost()
+        
+        let earnedGold = processRaids(onlyTopRaids: true, onlyCompleted: true) { raidName, gates in
             // 획득한 기본 골드 + 추가 골드
             let earnedGold = gates.reduce(0) { $0 + $1.currentGoldReward }
             return earnedGold + getAdditionalGold(for: raidName)
         }
+        
+        // 더보기 비용을 차감
+        return earnedGold - bonusCost
     }
     
     // 레이드 이름 목록 가져오기 (골드 보상 순)

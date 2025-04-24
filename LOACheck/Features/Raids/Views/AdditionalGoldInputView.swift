@@ -16,10 +16,6 @@ struct AdditionalGoldInputView: View {
     @State private var baseGold: Int = 0
     @State private var isTopRaid: Bool = false
     @State private var completedGates: [RaidGate] = []
-    @State private var totalBonusCost: Int = 0
-    @State private var showConfirmDialog = false
-    @State private var gateToToggle: RaidGate?
-    @State private var newBonusState = false
     
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
@@ -93,7 +89,7 @@ struct AdditionalGoldInputView: View {
                     }
                 }
                 
-                // 새로 추가된 더보기 섹션
+                // 더보기 섹션
                 if !completedGates.isEmpty {
                     Section(header: Text("더보기 설정")) {
                         ForEach(completedGates) { gate in
@@ -111,82 +107,19 @@ struct AdditionalGoldInputView: View {
                                         .foregroundColor(.orange)
                                         .font(.caption)
                                     
-                                    // 더보기 토글
+                                    // 더보기 토글 - 즉시 적용
                                     Toggle("", isOn: Binding(
                                         get: { gate.bonusUsed },
                                         set: { newValue in
-                                            gateToToggle = gate
-                                            newBonusState = newValue
-                                            
-                                            if newValue == true { // 더보기 활성화 시에만 확인 다이얼로그
-                                                showConfirmDialog = true
-                                            } else { // 더보기 비활성화는 바로 적용
-                                                gate.bonusUsed = false
-                                                calculateTotalBonusCost()
-                                                DataSyncManager.shared.markLocalChanges()
-                                            }
+                                            gate.bonusUsed = newValue
+                                            DataSyncManager.shared.markLocalChanges()
                                         }
                                     ))
+                                    .tint(Color.yellow)
                                     .labelsHidden()
                                 }
                             }
                         }
-                        
-                        // 총 더보기 비용
-                        if totalBonusCost > 0 {
-                            HStack {
-                                Text("더보기 총 비용")
-                                    .font(.headline)
-                                
-                                Spacer()
-                                
-                                Text("-\(totalBonusCost)G")
-                                    .foregroundColor(.orange)
-                                    .font(.headline)
-                            }
-                            .padding(.top, 4)
-                        }
-                    }
-                }
-                
-                // 최종 수익 계산 섹션
-                Section(header: Text("최종 골드 계산")) {
-                    HStack {
-                        Text("추가 수익")
-                            .foregroundColor(.green)
-                        
-                        Spacer()
-                        
-                        Text("+\(Int(additionalGold) ?? 0)G")
-                            .foregroundColor(.green)
-                    }
-                    
-                    if totalBonusCost > 0 {
-                        HStack {
-                            Text("더보기 비용")
-                                .foregroundColor(.orange)
-                            
-                            Spacer()
-                            
-                            Text("-\(totalBonusCost)G")
-                                .foregroundColor(.orange)
-                        }
-                    }
-                    
-                    Divider()
-                    
-                    HStack {
-                        Text("최종 순수익")
-                            .font(.headline)
-                            .fontWeight(.bold)
-                        
-                        Spacer()
-                        
-                        let netProfit = (Int(additionalGold) ?? 0) - totalBonusCost
-                        Text("\(netProfit)G")
-                            .font(.headline)
-                            .fontWeight(.bold)
-                            .foregroundColor(netProfit >= 0 ? .blue : .red)
                     }
                 }
                 
@@ -213,24 +146,6 @@ struct AdditionalGoldInputView: View {
                 // 뷰가 나타날 때 데이터 로드
                 calculateDisplayValues()
                 loadCompletedGates()
-                calculateTotalBonusCost()
-            }
-            .alert("더보기 골드 소모", isPresented: $showConfirmDialog) {
-                Button("취소", role: .cancel) { }
-                Button("확인", role: .destructive) {
-                    if let gate = gateToToggle {
-                        gate.bonusUsed = newBonusState
-                        calculateTotalBonusCost()
-                        DataSyncManager.shared.markLocalChanges()
-                    }
-                }
-            } message: {
-                if let gate = gateToToggle {
-                    let cost = RaidData.getBonusLootCost(raid: raidName, difficulty: gate.difficulty, gate: gate.gate)
-                    Text("\(raidName) \(gate.gate + 1)관문 더보기를 사용하시겠습니까? \(cost)G가 소모됩니다.\n\n더보기는 취소할 수 없으며, 소모된 골드는 주간 획득 골드에서 차감됩니다.")
-                } else {
-                    Text("더보기를 사용하시겠습니까?")
-                }
             }
         }
     }
@@ -252,13 +167,6 @@ struct AdditionalGoldInputView: View {
     private func loadCompletedGates() {
         if let gates = character.raidGates {
             completedGates = gates.filter { $0.raid == raidName && $0.isCompleted }
-        }
-    }
-    
-    // 총 더보기 비용 계산
-    private func calculateTotalBonusCost() {
-        totalBonusCost = completedGates.filter { $0.bonusUsed }.reduce(0) { total, gate in
-            total + RaidData.getBonusLootCost(raid: raidName, difficulty: gate.difficulty, gate: gate.gate)
         }
     }
     

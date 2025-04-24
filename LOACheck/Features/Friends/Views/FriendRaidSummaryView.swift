@@ -36,16 +36,8 @@ struct FriendRaidSummaryView: View {
         var total = 0
         
         for character in characters {
-            if let gates = character.raidGates {
-                let bonusGates = gates.filter { $0.bonusUsed }
-                
-                for gate in bonusGates {
-                    total += RaidData.getBonusLootCost(
-                        raid: gate.raid,
-                        difficulty: gate.difficulty,
-                        gate: gate.gate
-                    )
-                }
+            if character.isGoldEarner {
+                total += character.calculateBonusLootCost()
             }
         }
         
@@ -107,6 +99,14 @@ struct FriendCharacterGoldRow: View {
             Text("\(character.server) • \(character.characterClass) • Lv.\(String(format: "%.0f", character.level))")
                 .font(.caption)
                 .foregroundColor(.secondary)
+            
+            // 더보기 사용 정보 표시
+            if let bonusCount = character.raidGates?.filter({ $0.bonusUsed }).count, bonusCount > 0 {
+                Text("더보기 사용: \(bonusCount)회 (-\(character.calculateBonusLootCost())G)")
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                    .padding(.top, 2)
+            }
             
             // 레이드별 골드 내역
             if let gates = character.raidGates, !gates.isEmpty {
@@ -182,6 +182,21 @@ struct FriendRaidInfoRow: View {
         return raidGates.contains { $0.isCompleted }
     }
     
+    // 더보기 사용 관문 수와 비용
+    private var bonusGatesCount: Int {
+        return raidGates.filter { $0.bonusUsed }.count
+    }
+    
+    private var bonusGoldCost: Int {
+        return raidGates.filter { $0.bonusUsed }.reduce(0) { total, gate in
+            return total + RaidData.getBonusLootCost(
+                raid: raidName,
+                difficulty: gate.difficulty,
+                gate: gate.gate
+            )
+        }
+    }
+    
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
@@ -203,6 +218,15 @@ struct FriendRaidInfoRow: View {
                             .fontWeight(.bold)
                             .foregroundColor(.green)
                     }
+                    
+                    // 더보기 사용 횟수만큼 체크마크 추가
+                    if bonusGatesCount > 0 {
+                        ForEach(0..<bonusGatesCount, id: \.self) { _ in
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.orange)
+                                .font(.system(size: 12))
+                        }
+                    }
                 }
                 
                 // 관문 요약 (완료된 관문 수 / 전체 관문 수)
@@ -210,12 +234,23 @@ struct FriendRaidInfoRow: View {
                 Text("\(completedGates)/\(raidGates.count) 관문 완료")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                
+                // 더보기 정보 추가
+                if bonusGatesCount > 0 {
+                    Text("더보기: \(bonusGatesCount)회 (-\(bonusGoldCost)G)")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
             }
             
             Spacer()
             
             VStack(alignment: .trailing) {
                 HStack {
+                    // 더보기 비용 적용 후 골드 계산
+                    let netEarnedGold = (earnedGold + displayAdditionalGold) - bonusGoldCost
+                    let netTotalGold = (totalGold + additionalGold) - bonusGoldCost
+                    
                     // 상위 3개 레이드가 아니면 기본 골드 표시 안 함
                     if isTopRaid && character.isGoldEarner {
                         if isGoldDisabled {
@@ -225,14 +260,17 @@ struct FriendRaidInfoRow: View {
                                 .foregroundColor(.orange)
                                 .strikethrough()
                         } else {
-                            // 기본 골드 + 추가 골드 표시
-                            Text("\(earnedGold + displayAdditionalGold) / \(totalGold + additionalGold) G")
+                            // 기본 골드 + 추가 골드 - 더보기 비용 표시
+                            Text("\(netEarnedGold) / \(netTotalGold) G")
                                 .font(.caption)
                                 .foregroundColor(.orange)
                         }
                     } else if character.isGoldEarner {
                         // 상위 3개가 아닌 레이드는 추가 골드만 표시
-                        Text("\(displayAdditionalGold) / \(additionalGold) G")
+                        let netDisplayAdditionalGold = displayAdditionalGold > bonusGoldCost ? displayAdditionalGold - bonusGoldCost : 0
+                        let netAdditionalGold = additionalGold > bonusGoldCost ? additionalGold - bonusGoldCost : 0
+                        
+                        Text("\(netDisplayAdditionalGold) / \(netAdditionalGold) G")
                             .font(.caption)
                             .foregroundColor(.green)
                             .opacity(additionalGold > 0 ? 1.0 : 0.5)
