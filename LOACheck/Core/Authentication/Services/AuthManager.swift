@@ -221,6 +221,111 @@ class AuthManager: ObservableObject {
         return true
     }
     
+    // 캐릭터 상세 정보와 함께 대표 캐릭터 설정
+    func setRepresentativeCharacterWithDetails(
+        characterName: String,
+        server: String,
+        characterClass: String,
+        level: Double
+    ) async throws -> Bool {
+        // 다른 사용자가 이미 사용 중인지 확인
+        if !characterName.isEmpty && isLoggedIn {
+            let isInUse = try await FirebaseRepository.shared.isCharacterNameAlreadyInUse(characterName)
+            if isInUse {
+                // 이미 사용 중이면 실패 반환
+                Logger.warning("대표 캐릭터 '\(characterName)'는 이미 다른 사용자가 사용 중입니다")
+                return false
+            }
+        }
+        
+        // 사용자별 설정에 저장
+        if isLoggedIn, let uid = currentUser?.id {
+            // 즉시 값을 다시 읽어 검증 (디버깅용)
+            let savedValue = UserDefaults.standard.string(forKey: "representativeCharacter_\(uid)") ?? ""
+            Logger.debug("사용자별 대표 캐릭터 저장 확인: \(savedValue)")
+            
+            // Firestore 업데이트 및 characterNames 컬렉션에도 함께 등록
+            do {
+                let db = Firestore.firestore()
+                
+                // 1. 현재 사용자의 기존 characterNames 검색 및 삭제
+                let snapshot = try await db.collection("characterNames")
+                    .whereField("userId", isEqualTo: uid)
+                    .getDocuments()
+                
+                // 기존 등록된 캐릭터들 삭제 (배치 처리)
+                if !snapshot.documents.isEmpty {
+                    let batch = db.batch()
+                    for doc in snapshot.documents {
+                        // 모든 캐릭터 문서 삭제
+                        batch.deleteDocument(doc.reference)
+                    }
+                    try await batch.commit()
+                    Logger.debug("기존 characterNames 엔트리 \(snapshot.documents.count)개 삭제 완료")
+                }
+                
+                // 2. users 컬렉션의 displayName 업데이트
+                try await db.collection("users").document(uid).updateData([
+                    "displayName": characterName
+                ])
+                
+                // 3. 새 캐릭터 정보 저장 (상세 정보 포함)
+                let characterDoc = db.collection("characterNames").document(characterName)
+                try await characterDoc.setData([
+                    "userId": uid,
+                    "timestamp": FieldValue.serverTimestamp(),
+                    "server": server,
+                    "characterClass": characterClass,
+                    "level": level
+                ])
+                
+                // 4. 현재 사용자 객체 업데이트
+                if var updatedUser = self.currentUser {
+                    updatedUser.displayName = characterName
+                    await MainActor.run {
+                        self.currentUser = updatedUser
+                    }
+                }
+                
+                // 5. 친구들의 친구 목록에서 나의 displayName 업데이트
+                let friendsSnapshot = try await db.collection("users")
+                    .document(uid)
+                    .collection("friends")
+                    .getDocuments()
+                
+                if !friendsSnapshot.documents.isEmpty {
+                    let batch = db.batch()
+                    
+                    for friendDoc in friendsSnapshot.documents {
+                        if let friendId = friendDoc.data()["userId"] as? String {
+                            // 친구의 친구 목록에서 나의 문서 참조
+                            let friendRef = db.collection("users")
+                                .document(friendId)
+                                .collection("friends")
+                                .document(uid)
+                            
+                            // 내 displayName 업데이트
+                            batch.updateData(["displayName": characterName], forDocument: friendRef)
+                        }
+                    }
+                    
+                    // 배치 커밋
+                    try await batch.commit()
+                    Logger.debug("친구들의 친구 목록에서 displayName 업데이트 완료: \(characterName)")
+                }
+                
+                Logger.debug("Firestore displayName 직접 업데이트 성공: '\(characterName)' (characterNames 포함)")
+                return true
+            } catch {
+                Logger.error("Firestore displayName 직접 업데이트 실패: \(error.localizedDescription)")
+                throw error
+            }
+        }
+        
+        // 로컬 저장만 된 경우도 성공으로 간주
+        return true
+    }
+    
     // 대표 캐릭터 이름으로 표시 이름 업데이트
     func updateDisplayNameToRepCharacter() {
         guard isLoggedIn, !representativeCharacter.isEmpty, let uid = currentUser?.id else { return }

@@ -13,9 +13,7 @@ struct RepCharacterEditorView: View {
     @Binding var showRepCharacterEditor: Bool
     @Binding var alertMessage: String
     @Binding var isShowingAlert: Bool
-    @State private var manualRepCharName: String = ""
     @State private var isProcessing = false
-    @State private var errorMessage: String? = nil
     
     var body: some View {
         NavigationStack {
@@ -27,11 +25,20 @@ struct RepCharacterEditorView: View {
                 } else {
                     List(characters) { character in
                         Button(action: {
-                            setRepresentativeCharacter(character.name)
+                            setRepresentativeCharacter(character)
                         }) {
                             HStack {
-                                Text(character.name)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(character.name)
+                                        .foregroundColor(.primary)
+                                    
+                                    Text("\(character.server) • \(character.characterClass)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                
                                 Spacer()
+                                
                                 if character.name == authManager.representativeCharacter {
                                     Image(systemName: "checkmark")
                                         .foregroundColor(.blue)
@@ -41,40 +48,6 @@ struct RepCharacterEditorView: View {
                         .disabled(isProcessing)
                     }
                 }
-                
-                // 직접 입력 옵션
-                VStack(spacing: 12) {
-                    Divider()
-                    
-                    TextField("직접 캐릭터 이름 입력", text: $manualRepCharName)
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
-                    
-                    if let error = errorMessage {
-                        Text(error)
-                            .font(.caption)
-                            .foregroundColor(.red)
-                            .padding(.horizontal)
-                    }
-                    
-                    Button(action: {
-                        if !manualRepCharName.isEmpty {
-                            setRepresentativeCharacter(manualRepCharName)
-                        }
-                    }) {
-                        HStack {
-                            Text("설정하기")
-                            if isProcessing {
-                                ProgressView()
-                                    .padding(.leading, 8)
-                            }
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(manualRepCharName.isEmpty || isProcessing)
-                }
-                .padding()
             }
             .navigationTitle("대표 캐릭터 설정")
             .navigationBarTitleDisplayMode(.inline)
@@ -88,31 +61,36 @@ struct RepCharacterEditorView: View {
         }
     }
     
-    // 대표 캐릭터 설정 - 비동기 처리로 개선
-    private func setRepresentativeCharacter(_ name: String) {
+    // 대표 캐릭터 설정 - 캐릭터 모델 직접 전달
+    private func setRepresentativeCharacter(_ character: CharacterModel) {
         isProcessing = true
-        errorMessage = nil
         
         // 즉시 UI 업데이트를 위해 로컬 상태 먼저 변경
         let oldCharacterName = authManager.representativeCharacter
-        authManager.representativeCharacter = name
+        authManager.representativeCharacter = character.name
         
         Task {
             do {
-                // 서버에 저장 시도
-                let success = try await authManager.setRepresentativeCharacterAsync(characterName: name)
+                // 서버에 저장 시도 (캐릭터 모델과 함께)
+                let success = try await authManager.setRepresentativeCharacterWithDetails(
+                    characterName: character.name,
+                    server: character.server,
+                    characterClass: character.characterClass,
+                    level: character.level
+                )
                 
                 await MainActor.run {
                     isProcessing = false
                     
                     if success {
-                        alertMessage = "대표 캐릭터가 '\(name)'(으)로 설정되었습니다."
+                        alertMessage = "대표 캐릭터가 '\(character.name)'(으)로 설정되었습니다."
                         isShowingAlert = true
                         showRepCharacterEditor = false
                     } else {
                         // 실패 시 이전 값으로 되돌림
                         authManager.representativeCharacter = oldCharacterName
-                        errorMessage = "'\(name)'은(는) 이미 다른 사용자가 사용 중인 이름입니다."
+                        alertMessage = "'\(character.name)'은(는) 이미 다른 사용자가 사용 중인 이름입니다."
+                        isShowingAlert = true
                     }
                 }
             } catch {
@@ -120,7 +98,8 @@ struct RepCharacterEditorView: View {
                     // 실패 시 이전 값으로 되돌림
                     authManager.representativeCharacter = oldCharacterName
                     isProcessing = false
-                    errorMessage = "오류가 발생했습니다: \(error.localizedDescription)"
+                    alertMessage = "오류가 발생했습니다: \(error.localizedDescription)"
+                    isShowingAlert = true
                 }
             }
         }
