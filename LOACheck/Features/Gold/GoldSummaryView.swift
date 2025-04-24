@@ -93,24 +93,6 @@ struct GoldSummaryHeader: View {
                 }
                 .padding(.vertical, 10)
                 
-                if bonusCost > 0 {
-                    Rectangle()
-                        .fill(Color(.systemGray5))
-                        .frame(height: 0.5)
-                        .padding(.leading, -16)
-                        .padding(.trailing, -16)
-                    
-                    HStack {
-                        Text("더보기 소모 골드")
-                            .font(.headline)
-                        Spacer()
-                        Text("-\(bonusCost)G")
-                            .font(.headline)
-                            .foregroundColor(.orange)
-                    }
-                    .padding(.vertical, 10)
-                }
-                
                 Rectangle()
                     .fill(Color(.systemGray5))
                     .frame(height: 0.5)
@@ -123,7 +105,7 @@ struct GoldSummaryHeader: View {
                     Spacer()
                     Text("\(totalGold)G")
                         .font(.headline)
-                        .foregroundColor(.blue)
+                        .foregroundColor(.orange)
                 }
                 .padding(.vertical, 10)
             }
@@ -178,14 +160,6 @@ struct CharacterGoldRow: View {
             Text("\(character.server) • \(character.characterClass) • Lv.\(String(format: "%.0f", character.level))")
                 .font(.caption)
                 .foregroundColor(.secondary)
-            
-            // 더보기 사용 정보 표시
-            if let bonusCount = character.raidGates?.filter({ $0.bonusUsed }).count, bonusCount > 0 {
-                Text("더보기 사용: \(bonusCount)회 (-\(character.calculateBonusLootCost())G)")
-                    .font(.caption)
-                    .foregroundColor(.orange)
-                    .padding(.top, 2)
-            }
             
             // 레이드별 골드 내역
             if let gates = character.raidGates, !gates.isEmpty {
@@ -292,7 +266,7 @@ struct RaidInfoRow: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 // 레이드 이름 + 클리어 표시
-                HStack(spacing: 4) {
+                HStack(spacing: 2) {
                     // 모든 관문 완료 여부
                     let allCompleted = isRaidCompleted()
                     
@@ -308,6 +282,15 @@ struct RaidInfoRow: View {
                             .font(.system(size: 12))
                             .fontWeight(.bold)
                             .foregroundColor(.green)
+                    }
+                    // 더보기 사용 횟수만큼 체크마크 추가
+                    if bonusGatesCount > 0 {
+                        ForEach(0..<bonusGatesCount, id: \.self) { _ in
+                            Image(systemName: "checkmark")
+                                .foregroundColor(.orange)
+                                .font(.system(size: 12))
+                                .fontWeight(.bold)
+                        }
                     }
                 }
                 

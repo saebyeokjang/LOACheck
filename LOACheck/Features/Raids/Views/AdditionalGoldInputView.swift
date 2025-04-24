@@ -71,28 +71,12 @@ struct AdditionalGoldInputView: View {
                         .background(colorScheme == .dark ? Color.green.opacity(0.15) : Color.green.opacity(0.1))
                         .cornerRadius(8)
                     }
-                    
-                    HStack {
-                        Text("합계")
-                            .font(.headline)
-                            .fontWeight(.bold)
-                        
-                        Spacer()
-                        
-                        // 합계 계산 (상위 3개 레이드가 아니면 추가 수익만 표시)
-                        let addGold = Int(additionalGold) ?? 0
-                        let totalGold = isTopRaid ? (baseGold + addGold) : addGold
-                        Text("\(totalGold)G")
-                            .font(.headline)
-                            .fontWeight(.bold)
-                            .foregroundColor(.blue)
-                    }
                 }
                 
                 // 더보기 섹션
                 if !completedGates.isEmpty {
                     Section(header: Text("더보기 설정")) {
-                        ForEach(completedGates) { gate in
+                        ForEach(completedGates.sorted(by: { $0.gate < $1.gate })) { gate in
                             let bonusCost = RaidData.getBonusLootCost(raid: raidName, difficulty: gate.difficulty, gate: gate.gate)
                             
                             if bonusCost > 0 { // 더보기 비용이 있는 경우만 표시
@@ -122,12 +106,33 @@ struct AdditionalGoldInputView: View {
                         }
                     }
                 }
-                
-                Section(footer: Text("더보기 사용 시 지정된 골드가 소모됩니다. 더보기 설정은 되돌릴 수 없으며, 소모된 골드는 주간 수익에서 차감됩니다.")) {
-                    EmptyView()
+                // 합계 섹션
+                Section(header: Text("합계")) {
+                    // 더보기 비용 계산
+                    let bonusCost = calculateBonusCost()
+                    let addGold = Int(additionalGold) ?? 0
+                    
+                    // 최종 합계 행 (더보기 비용 차감)
+                    HStack {
+                        Text("최종 획득 골드")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                        
+                        Spacer()
+                        
+                        // 합계 계산 (기본 골드 + 추가 수익 - 더보기 비용)
+                        let totalBeforeBonus = isTopRaid ? (baseGold + addGold) : addGold
+                        let finalTotal = totalBeforeBonus - bonusCost
+                        
+                        Text("\(finalTotal)G")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                            .foregroundColor(.orange)
+                    }
+                    .padding(.vertical, 4)
                 }
             }
-            .navigationTitle("레이드 골드 관리")
+            .navigationTitle("추가 수익 및 더보기 설정")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -167,6 +172,13 @@ struct AdditionalGoldInputView: View {
     private func loadCompletedGates() {
         if let gates = character.raidGates {
             completedGates = gates.filter { $0.raid == raidName && $0.isCompleted }
+        }
+    }
+    
+    // 더보기 비용 계산
+    private func calculateBonusCost() -> Int {
+        return completedGates.filter { $0.bonusUsed }.reduce(0) { total, gate in
+            total + RaidData.getBonusLootCost(raid: raidName, difficulty: gate.difficulty, gate: gate.gate)
         }
     }
     

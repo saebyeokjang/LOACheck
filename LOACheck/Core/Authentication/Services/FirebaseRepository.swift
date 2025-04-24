@@ -79,7 +79,8 @@ class FirebaseRepository {
                         "goldReward": gate.goldReward,
                         "isCompleted": gate.isCompleted,
                         "additionalGold": gate.additionalGold,
-                        "isGoldDisabled": gate.isGoldDisabled
+                        "isGoldDisabled": gate.isGoldDisabled,
+                        "bonusUsed": gate.bonusUsed
                     ]
                     if let lastCompletedAt = gate.lastCompletedAt {
                         gateData["lastCompletedAt"] = lastCompletedAt
@@ -244,6 +245,9 @@ class FirebaseRepository {
                         if let additionalGold = gateData["additionalGold"] as? Int {
                             raidGate.additionalGold = additionalGold
                         }
+                        
+                        // 더보기 사용 여부 설정
+                        raidGate.bonusUsed = gateData["bonusUsed"] as? Bool ?? false
                         
                         raidGates.append(raidGate)
                     }
@@ -667,6 +671,8 @@ class FirebaseRepository {
                         if let additionalGold = gateData["additionalGold"] as? Int {
                             raidGate.additionalGold = additionalGold
                         }
+                        
+                        raidGate.bonusUsed = gateData["bonusUsed"] as? Bool ?? false
                         
                         raidGates.append(raidGate)
                     }

@@ -100,14 +100,6 @@ struct FriendCharacterGoldRow: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
             
-            // 더보기 사용 정보 표시
-            if let bonusCount = character.raidGates?.filter({ $0.bonusUsed }).count, bonusCount > 0 {
-                Text("더보기 사용: \(bonusCount)회 (-\(character.calculateBonusLootCost())G)")
-                    .font(.caption)
-                    .foregroundColor(.orange)
-                    .padding(.top, 2)
-            }
-            
             // 레이드별 골드 내역
             if let gates = character.raidGates, !gates.isEmpty {
                 Divider()
@@ -201,7 +193,7 @@ struct FriendRaidInfoRow: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 // 레이드 이름 + 클리어 표시
-                HStack(spacing: 4) {
+                HStack(spacing: 2) {
                     // 모든 관문 완료 여부
                     let allCompleted = isRaidCompleted()
                     
@@ -222,9 +214,10 @@ struct FriendRaidInfoRow: View {
                     // 더보기 사용 횟수만큼 체크마크 추가
                     if bonusGatesCount > 0 {
                         ForEach(0..<bonusGatesCount, id: \.self) { _ in
-                            Image(systemName: "checkmark.circle.fill")
+                            Image(systemName: "checkmark")
                                 .foregroundColor(.orange)
                                 .font(.system(size: 12))
+                                .fontWeight(.bold)
                         }
                     }
                 }
@@ -234,13 +227,6 @@ struct FriendRaidInfoRow: View {
                 Text("\(completedGates)/\(raidGates.count) 관문 완료")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                
-                // 더보기 정보 추가
-                if bonusGatesCount > 0 {
-                    Text("더보기: \(bonusGatesCount)회 (-\(bonusGoldCost)G)")
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                }
             }
             
             Spacer()
