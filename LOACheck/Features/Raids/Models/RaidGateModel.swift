@@ -19,6 +19,7 @@ final class RaidGate {
     var lastCompletedAt: Date?
     var additionalGold: Int = 0 // 추가 수익
     var isGoldDisabled: Bool = false
+    var bonusUsed: Bool = false
     
     @Relationship(deleteRule: .nullify)
     var character: CharacterModel?

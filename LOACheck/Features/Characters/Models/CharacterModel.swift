@@ -139,6 +139,20 @@ final class CharacterModel {
         }
     }
     
+    func calculateBonusLootCost() -> Int {
+        guard let gates = raidGates else { return 0 }
+        
+        return gates.filter { $0.bonusUsed }
+            .reduce(0) { total, gate in
+                total + RaidData.getBonusLootCost(raid: gate.raid, difficulty: gate.difficulty, gate: gate.gate)
+            }
+    }
+    
+    // 실제 획득 골드에서 더보기 비용 차감
+    func calculateNetEarnedGoldReward() -> Int {
+        return calculateEarnedGoldReward() - calculateBonusLootCost()
+    }
+    
     // 특정 레이드의 추가 수익 설정
     func setAdditionalGold(_ amount: Int, for raid: String) {
         var currentMap = additionalGoldForRaids

@@ -13,7 +13,7 @@ struct FriendRaidSummaryView: View {
     
     var body: some View {
         List {
-            GoldSummaryHeader(totalGold: totalExpectedGold, earnedGold: totalEarnedGold)
+            GoldSummaryHeader(totalGold: totalExpectedGold, earnedGold: totalEarnedGold, bonusCost: totalBonusCost)
             
             // 캐릭터별 골드 내역 섹션
             Section(header: Text("캐릭터별 골드 내역")) {
@@ -29,6 +29,27 @@ struct FriendRaidSummaryView: View {
         .listStyle(InsetGroupedListStyle())
         .navigationTitle("\(friend.displayName)의 레이드 현황")
         .navigationBarTitleDisplayMode(.inline)
+    }
+    
+    // 총 더보기 비용 계산
+    private var totalBonusCost: Int {
+        var total = 0
+        
+        for character in characters {
+            if let gates = character.raidGates {
+                let bonusGates = gates.filter { $0.bonusUsed }
+                
+                for gate in bonusGates {
+                    total += RaidData.getBonusLootCost(
+                        raid: gate.raid,
+                        difficulty: gate.difficulty,
+                        gate: gate.gate
+                    )
+                }
+            }
+        }
+        
+        return total
     }
     
     // 총 예상 골드

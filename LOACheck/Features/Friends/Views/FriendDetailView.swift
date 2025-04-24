@@ -48,9 +48,17 @@ struct FriendCharacterDetailView: View {
                                 
                                 Spacer()
                                 
-                                Text("\(character.calculateEarnedGoldReward()) / \(character.calculateWeeklyGoldReward()) G")
-                                    .font(.headline)
-                                    .foregroundColor(.orange)
+                                // 더보기 비용 반영한 골드 표시
+                                let bonusCost = calculateBonusCost(for: character)
+                                if bonusCost > 0 {
+                                    Text("\(character.calculateEarnedGoldReward() - bonusCost) / \(character.calculateWeeklyGoldReward()) G")
+                                        .font(.headline)
+                                        .foregroundColor(.orange)
+                                } else {
+                                    Text("\(character.calculateEarnedGoldReward()) / \(character.calculateWeeklyGoldReward()) G")
+                                        .font(.headline)
+                                        .foregroundColor(.orange)
+                                }
                             }
                             .padding(.horizontal)
                             .padding(.bottom, 4)
@@ -82,6 +90,11 @@ struct FriendCharacterDetailView: View {
                     .background(Color(.systemBackground))
                     .cornerRadius(12)
                     .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+                    
+                    // 더보기 정보 섹션 추가
+                    if character.raidGates?.contains(where: { $0.bonusUsed }) == true {
+                        bonusInfoSection(for: character)
+                    }
                 } else {
                     // 레이드 정보가 없는 경우
                     VStack {
@@ -99,6 +112,100 @@ struct FriendCharacterDetailView: View {
             .padding()
         }
         .background(Color(.systemGroupedBackground))
+    }
+    
+    // 더보기 정보 섹션
+    private func bonusInfoSection(for character: CharacterModel) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // 더보기 헤더
+            HStack {
+                Text("더보기 사용 정보")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                
+                Spacer()
+                
+                // 더보기 총 비용 계산
+                let bonusCost = calculateBonusCost(for: character)
+                Text("-\(bonusCost)G")
+                    .font(.headline)
+                    .foregroundColor(.orange)
+            }
+            .padding(.horizontal)
+            .padding(.top, 8)
+            
+            Divider()
+            
+            // 레이드별 더보기 정보
+            let groupedGates = Dictionary(grouping: character.raidGates?.filter { $0.bonusUsed } ?? []) { $0.raid }
+            
+            if !groupedGates.isEmpty {
+                ForEach(groupedGates.keys.sorted(), id: \.self) { raid in
+                    if let gates = groupedGates[raid] {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(raid)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            
+                            HStack {
+                                // 관문별 더보기 표시
+                                ForEach(gates.sorted(by: { $0.gate < $1.gate })) { gate in
+                                    let cost = RaidData.getBonusLootCost(
+                                        raid: raid,
+                                        difficulty: gate.difficulty,
+                                        gate: gate.gate
+                                    )
+                                    
+                                    VStack(spacing: 2) {
+                                        Text("\(gate.gate + 1)관문")
+                                            .font(.caption)
+                                        
+                                        Text("-\(cost)G")
+                                            .font(.caption)
+                                            .foregroundColor(.orange)
+                                    }
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.orange.opacity(0.1))
+                                    .cornerRadius(6)
+                                }
+                                
+                                Spacer()
+                            }
+                        }
+                        .padding(.horizontal)
+                        .padding(.vertical, 4)
+                        
+                        if raid != groupedGates.keys.sorted().last {
+                            Divider()
+                                .padding(.vertical, 2)
+                        }
+                    }
+                }
+            } else {
+                Text("더보기를 사용한 관문이 없습니다")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .padding()
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+    }
+    
+    // 더보기 비용 계산
+    private func calculateBonusCost(for character: CharacterModel) -> Int {
+        guard let gates = character.raidGates else { return 0 }
+        
+        return gates.filter { $0.bonusUsed }.reduce(0) { sum, gate in
+            sum + RaidData.getBonusLootCost(
+                raid: gate.raid,
+                difficulty: gate.difficulty,
+                gate: gate.gate
+            )
+        }
     }
 }
 
@@ -172,8 +279,22 @@ struct FriendRaidView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             // 레이드 이름
-            Text(raid)
-                .font(.headline)
+            HStack {
+                Text(raid)
+                    .font(.headline)
+                
+                // 더보기 사용 정보 추가
+                let bonusCount = gates.filter { $0.bonusUsed }.count
+                if bonusCount > 0 {
+                    Text("(더보기: \(bonusCount)회)")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(4)
+                }
+            }
             
             // 관문 그리드
             LazyVGrid(
@@ -212,6 +333,13 @@ struct FriendRaidGateView: View {
             Image(systemName: gate.isCompleted ? "checkmark.circle.fill" : "circle")
                 .foregroundColor(gate.isCompleted ? .green : .gray)
                 .font(.system(size: 14))
+            
+            // 더보기 표시 추가
+            if gate.bonusUsed {
+                Image(systemName: "plus.circle.fill")
+                    .foregroundColor(.orange)
+                    .font(.system(size: 10))
+            }
         }
         .frame(height: 60)
         .frame(maxWidth: .infinity)

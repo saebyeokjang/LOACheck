@@ -20,7 +20,11 @@ struct GoldSummaryView: View {
     var body: some View {
         List {
             // 총 예상 골드 섹션
-            GoldSummaryHeader(totalGold: totalGold, earnedGold: earnedGold)
+            GoldSummaryHeader(
+                totalGold: totalGold,
+                earnedGold: earnedGold,
+                bonusCost: totalBonusCost
+            )
             
             // 골드 획득 캐릭터별 상세 내역
             Section(header: Text("캐릭터별 골드 내역")) {
@@ -57,12 +61,35 @@ struct GoldSummaryView: View {
         
         return total
     }
+    
+    // 더보기 총 비용
+    private var totalBonusCost: Int {
+        var total = 0
+        
+        for character in goldEarners {
+            // 각 캐릭터의 더보기 비용 합산
+            if let gates = character.raidGates {
+                let bonusGates = gates.filter { $0.bonusUsed }
+                
+                for gate in bonusGates {
+                    total += RaidData.getBonusLootCost(
+                        raid: gate.raid,
+                        difficulty: gate.difficulty,
+                        gate: gate.gate
+                    )
+                }
+            }
+        }
+        
+        return total
+    }
 }
 
 // 골드 요약 헤더 컴포넌트
 struct GoldSummaryHeader: View {
     let totalGold: Int
     let earnedGold: Int
+    let bonusCost: Int // 추가 매개변수
     
     var body: some View {
         Section(header: Text("주간 예상 골드 수익")) {
@@ -71,11 +98,29 @@ struct GoldSummaryHeader: View {
                     Text("현재 획득 골드")
                         .font(.headline)
                     Spacer()
-                    Text("\(earnedGold) G")
+                    Text("\(earnedGold)G")
                         .font(.headline)
                         .foregroundColor(.green)
                 }
                 .padding(.vertical, 10)
+                
+                if bonusCost > 0 {
+                    Rectangle()
+                        .fill(Color(.systemGray5))
+                        .frame(height: 0.5)
+                        .padding(.leading, -16)
+                        .padding(.trailing, -16)
+                    
+                    HStack {
+                        Text("더보기 소모 골드")
+                            .font(.headline)
+                        Spacer()
+                        Text("-\(bonusCost)G")
+                            .font(.headline)
+                            .foregroundColor(.orange)
+                    }
+                    .padding(.vertical, 10)
+                }
                 
                 Rectangle()
                     .fill(Color(.systemGray5))
@@ -87,9 +132,27 @@ struct GoldSummaryHeader: View {
                     Text("총 예상 골드")
                         .font(.headline)
                     Spacer()
-                    Text("\(totalGold) G")
+                    Text("\(totalGold)G")
                         .font(.headline)
-                        .foregroundColor(.orange)
+                        .foregroundColor(.blue)
+                }
+                .padding(.vertical, 10)
+                
+                Rectangle()
+                    .fill(Color(.systemGray5))
+                    .frame(height: 0.5)
+                    .padding(.leading, -16)
+                    .padding(.trailing, -16)
+                
+                HStack {
+                    Text("최종 순수익")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                    Spacer()
+                    Text("\(earnedGold - bonusCost)G")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.blue)
                 }
                 .padding(.vertical, 10)
             }
@@ -124,15 +187,33 @@ struct CharacterGoldRow: View {
                 Spacer()
                 
                 VStack(alignment: .trailing) {
-                    Text("\(character.calculateEarnedGoldReward()) / \(character.calculateWeeklyGoldReward()) G")
-                        .font(.headline)
-                        .foregroundColor(.orange)
+                    let bonusCost = calculateCharacterBonusCost()
+                    
+                    if bonusCost > 0 {
+                        // 더보기 비용이 있는 경우 순수익 표시
+                        Text("\(character.calculateEarnedGoldReward() - bonusCost) / \(character.calculateWeeklyGoldReward())G")
+                            .font(.headline)
+                            .foregroundColor(.orange)
+                    } else {
+                        // 기존 골드 표시
+                        Text("\(character.calculateEarnedGoldReward()) / \(character.calculateWeeklyGoldReward())G")
+                            .font(.headline)
+                            .foregroundColor(.orange)
+                    }
                 }
             }
             
             Text("\(character.server) • \(character.characterClass) • Lv.\(String(format: "%.0f", character.level))")
                 .font(.caption)
                 .foregroundColor(.secondary)
+            
+            // 더보기 사용 정보 표시
+            if let bonusCount = character.raidGates?.filter({ $0.bonusUsed }).count, bonusCount > 0 {
+                Text("더보기 사용: \(bonusCount)회 (-\(calculateCharacterBonusCost())G)")
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                    .padding(.top, 2)
+            }
             
             // 레이드별 골드 내역
             if let gates = character.raidGates, !gates.isEmpty {
@@ -173,6 +254,18 @@ struct CharacterGoldRow: View {
         }
         .padding(.vertical, 4)
     }
+    // 캐릭터의 더보기 비용 계산
+    private func calculateCharacterBonusCost() -> Int {
+        guard let gates = character.raidGates else { return 0 }
+        
+        return gates.filter { $0.bonusUsed }.reduce(0) { total, gate in
+            return total + RaidData.getBonusLootCost(
+                raid: gate.raid,
+                difficulty: gate.difficulty,
+                gate: gate.gate
+            )
+        }
+    }
 }
 
 // 레이드 정보 행 개선
@@ -183,7 +276,7 @@ struct RaidInfoRow: View {
     let isTopRaid: Bool
     let isLastRaid: Bool
     
-    // 계산 변수들 추가
+    // 계산 변수들
     private var isGoldDisabled: Bool {
         return raidGates.first?.isGoldDisabled ?? false
     }
@@ -208,12 +301,27 @@ struct RaidInfoRow: View {
         return raidGates.contains { $0.isCompleted }
     }
     
+    // 새로 추가: 더보기 사용 관문 수와 비용
+    private var bonusGatesCount: Int {
+        return raidGates.filter { $0.bonusUsed }.count
+    }
+    
+    private var bonusGoldCost: Int {
+        return raidGates.filter { $0.bonusUsed }.reduce(0) { total, gate in
+            return total + RaidData.getBonusLootCost(
+                raid: raidName,
+                difficulty: gate.difficulty,
+                gate: gate.gate
+            )
+        }
+    }
+    
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 // 레이드 이름 + 클리어 표시
                 HStack(spacing: 4) {
-                    // 레이드 이름에 취소선 추가 (모든 관문 완료 시)
+                    // 모든 관문 완료 여부
                     let allCompleted = isRaidCompleted()
                     
                     // 레이드 명칭 앞에 막 표시 추가
@@ -221,13 +329,6 @@ struct RaidInfoRow: View {
                         .font(.subheadline)
                         .foregroundColor(allCompleted ? .gray : .primary)
                         .strikethrough(allCompleted)
-                    
-//                    // 골드 비활성화된 경우 표시
-//                    if isGoldDisabled {
-//                        Image(systemName: "g.circle.slash")
-//                            .font(.caption)
-//                            .foregroundColor(.gray)
-//                    }
                     
                     // 완료 시 체크마크 추가
                     if allCompleted {
@@ -243,6 +344,13 @@ struct RaidInfoRow: View {
                 Text("\(completedGates)/\(raidGates.count) 관문 완료")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                
+                // 더보기 정보 추가
+                if bonusGatesCount > 0 {
+                    Text("더보기: \(bonusGatesCount)회")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
             }
             
             Spacer()
@@ -287,6 +395,13 @@ struct RaidInfoRow: View {
                     Text("클리어 골드 보상 미획득")
                         .font(.caption2)
                         .foregroundColor(.gray)
+                }
+                
+                // 더보기 비용 표시
+                if bonusGoldCost > 0 {
+                    Text("-\(bonusGoldCost)G (더보기)")
+                        .font(.caption)
+                        .foregroundColor(.orange)
                 }
             }
         }
