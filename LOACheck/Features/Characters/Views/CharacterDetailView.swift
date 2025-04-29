@@ -24,55 +24,90 @@ struct CharacterDetailView: View {
     var goToPreviousPage: (() -> Void)?
     var goToNextPage: (() -> Void)?
     
+    // 캐릭터 유효성 검사 계산 프로퍼티 추가
+    private var isValidCharacter: Bool {
+        return !character.name.isEmpty && character.level > 0
+    }
+    
     // 스크롤 위치 추적을 위한 네임스페이스
     private enum ScrollToTop {
         case top
     }
     
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 16) {
-                    // 스크롤 최상단 위치 식별을 위한 빈 뷰
-                    Color.clear
-                        .frame(height: 0)
-                        .id(ScrollToTop.top)
-                    
-                    // 캐릭터 정보 헤더
-                    characterHeaderView()
-                    
-                    // 일일 숙제 섹션
-                    if let dailyTasks = character.dailyTasks, !dailyTasks.isEmpty {
-                        DailyTasksView(
-                            tasks: dailyTasks,
-                            character: character,
-                            isActiveView: isCurrentlyActive
-                        )
+        // 유효성 검사 추가
+        Group {
+            if isValidCharacter {
+                ScrollViewReader { proxy in
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: 16) {
+                            // 스크롤 최상단 위치 식별을 위한 빈 뷰
+                            Color.clear
+                                .frame(height: 0)
+                                .id(ScrollToTop.top)
+                            
+                            // 캐릭터 정보 헤더
+                            characterHeaderView()
+                            
+                            // 일일 숙제 섹션 - 안전한 헬퍼 메소드 사용
+                            let safeTasks = character.getSafeDailyTasks()
+                            if !safeTasks.isEmpty {
+                                DailyTasksView(
+                                    tasks: safeTasks,
+                                    character: character,
+                                    isActiveView: isCurrentlyActive
+                                )
+                            }
+                            
+                            // 주간 레이드 섹션 - 다크모드 개선 버전 사용
+                            // 안전한 헬퍼 메소드 사용
+                            if !character.getSafeRaidGates().isEmpty {
+                                WeeklyRaidsView(character: character)
+                            }
+                            
+                            Spacer()
+                        }
+                        .padding(.bottom, 20)
                     }
-                    
-                    // 주간 레이드 섹션 - 다크모드 개선 버전 사용
-                    WeeklyRaidsView(character: character)
-                    
-                    Spacer()
-                }
-                .padding(.bottom, 20)
-            }
-            .id(scrollViewID)
-            .onAppear {
-                // 뷰가 나타날 때 최상단으로 이동
-                proxy.scrollTo(ScrollToTop.top, anchor: .top)
-            }
-            .onChange(of: isCurrentlyActive) { _, newValue in
-                if newValue {
-                    // 페이지가 활성화될 때 스크롤 위치 재설정
-                    scrollViewID = UUID()
-                    DispatchQueue.main.async {
-                        proxy.scrollTo(ScrollToTop.top, anchor: .top)
+                    .id(scrollViewID)
+                    .onAppear {
+                        // 뷰가 나타날 때 최상단으로 이동 - 지연 추가
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            withAnimation {
+                                proxy.scrollTo(ScrollToTop.top, anchor: .top)
+                            }
+                        }
                     }
+                    .onChange(of: isCurrentlyActive) { _, newValue in
+                        if newValue {
+                            // 페이지가 활성화될 때 스크롤 위치 재설정 - 지연 추가
+                            scrollViewID = UUID()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                withAnimation {
+                                    proxy.scrollTo(ScrollToTop.top, anchor: .top)
+                                }
+                            }
+                        }
+                    }
+                    // 배경색을 다크모드 대응 색상으로 변경
+                    .background(Color.backgroundPrimary)
                 }
+            } else {
+                // 유효하지 않은 캐릭터일 경우 대체 뷰
+                VStack {
+                    Text("유효하지 않은 캐릭터 정보입니다")
+                        .font(.headline)
+                        .padding()
+                    
+                    Button("돌아가기") {
+                        goToPreviousPage?()
+                    }
+                    .padding()
+                    .buttonStyle(.bordered)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.backgroundPrimary)
             }
-            // 배경색을 다크모드 대응 색상으로 변경
-            .background(Color.backgroundPrimary)
         }
         .alert("알림", isPresented: $showAlert) {
             Button("확인") {}

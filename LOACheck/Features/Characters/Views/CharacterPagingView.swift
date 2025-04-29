@@ -277,15 +277,12 @@ struct CharacterPagingView: View {
         }
     }
     
-    // SwiftData 수동 로드 기능 - 개선된 버전
     func loadCharacters() {
         // 이전 작업이 있으면 취소하여 동시 실행 방지
         loadingTask?.cancel()
         
         // 로딩 상태 활성화
         isCharacterLoading = true
-        
-        print("캐릭터 데이터 로딩 시작")
         
         // 새 작업 시작
         loadingTask = Task {
@@ -296,20 +293,13 @@ struct CharacterPagingView: View {
                     descriptor.predicate = #Predicate<CharacterModel> { !$0.isHidden }
                     descriptor.sortBy = [SortDescriptor(\CharacterModel.level, order: .reverse)]
                     
-                    do {
-                        return try modelContext.fetch(descriptor)
-                    } catch {
-                        print("Fetch 실패: \(error)")
-                        throw error
-                    }
+                    return try modelContext.fetch(descriptor)
                 }
                 
                 // 작업이 취소되었는지 확인
                 if Task.isCancelled { return }
                 
                 await MainActor.run {
-                    print("캐릭터 \(newCharacters.count)개 로드 완료")
-                    
                     // 캐릭터 목록 업데이트
                     characters = newCharacters
                     
@@ -331,8 +321,6 @@ struct CharacterPagingView: View {
                 }
             } catch {
                 if !Task.isCancelled {
-                    print("캐릭터 로드 오류: \(error.localizedDescription)")
-                    
                     await MainActor.run {
                         isCharacterLoading = false
                     }

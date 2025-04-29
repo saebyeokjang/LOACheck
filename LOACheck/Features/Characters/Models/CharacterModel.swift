@@ -66,8 +66,12 @@ final class CharacterModel {
         }
     }
     
-    @Relationship(deleteRule: .cascade, inverse: \RaidGate.character) var raidGates: [RaidGate]?
-    @Relationship(deleteRule: .cascade, inverse: \DailyTask.character) var dailyTasks: [DailyTask]?
+    // 관계 속성에 안전 로직 추가
+    @Relationship(deleteRule: .cascade, inverse: \RaidGate.character)
+    var raidGates: [RaidGate]? = []
+    
+    @Relationship(deleteRule: .cascade, inverse: \DailyTask.character)
+    var dailyTasks: [DailyTask]? = []
     
     init(
         name: String,
@@ -87,7 +91,7 @@ final class CharacterModel {
         self.isGoldEarner = isGoldEarner
         self.lastUpdated = Date()
         
-        // 기본 일일 숙제 추가 - isCompleted 대신 completionCount 사용
+        // 기본 일일 숙제 추가 - nil이 아닌 빈 배열로 초기화
         self.dailyTasks = [
             DailyTask(type: .eponaQuest, completionCount: 0),
             DailyTask(type: .chaosGate, completionCount: 0),
@@ -96,6 +100,16 @@ final class CharacterModel {
         
         // 레이드 관문은 빈 배열로 초기화 (사용자가 직접 설정)
         self.raidGates = []
+    }
+    
+    // 안전하게 DailyTasks 접근하는 헬퍼 메소드 추가
+    func getSafeDailyTasks() -> [DailyTask] {
+        return dailyTasks ?? []
+    }
+    
+    // 안전하게 RaidGates 접근하는 헬퍼 메소드 추가
+    func getSafeRaidGates() -> [RaidGate] {
+        return raidGates ?? []
     }
     
     // 특정 레이드의 추가 수익 가져오기
@@ -207,7 +221,7 @@ final class CharacterModel {
     
     // 레이드 이름 목록 가져오기 (골드 보상 순)
     func getTopRaidNames() -> [String] {
-        guard isGoldEarner, let gates = raidGates else { return [] }
+        guard isGoldEarner, let gates = raidGates, !gates.isEmpty else { return [] }
         
         // 레이드별로 그룹화
         let groupedGates = Dictionary(grouping: gates) { $0.raid }

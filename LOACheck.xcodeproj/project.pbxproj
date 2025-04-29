@@ -85,6 +85,7 @@
 				D81BC5CB2D8C1173007913E6 /* Sources */,
 				D81BC5CC2D8C1173007913E6 /* Frameworks */,
 				D81BC5CD2D8C1173007913E6 /* Resources */,
+				D88C91DD2DBF807E00FF797E /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -154,6 +155,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		D88C91DD2DBF807E00FF797E /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n# Firebase Crashlytics 업로드 스크립트\nSCRIPT=`find \"${SRCROOT}\" -name upload-symbols -type f | head -1`\nif [ -f \"${SCRIPT}\" ]; then\n    \"${SCRIPT}\" -gsp \"${PROJECT_DIR}/GoogleService-Info.plist\" -p ios \"${DWARF_DSYM_FOLDER_PATH}\"\nelse\n    echo \"warning: Firebase Crashlytics 업로드 스크립트를 찾을 수 없습니다.\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		D81BC5CB2D8C1173007913E6 /* Sources */ = {
@@ -313,7 +334,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.3.4;
+				MARKETING_VERSION = 1.3.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jangsaebyeok.LOACheck;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -355,7 +376,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.3.4;
+				MARKETING_VERSION = 1.3.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jangsaebyeok.LOACheck;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

@@ -15,8 +15,9 @@ class DataSyncManager: ObservableObject {
     static let shared = DataSyncManager()
     private var syncTimer: Timer?
     private var lastChangeTimestamp: Date?
-    private var isSyncInProgress = false // 동기화 중복 실행 방지
-    private var syncLock = NSLock() // 동시성 제어를 위한 락
+    
+    // 상태 관리용 변수
+    private var isSyncInProgress = false
     
     @Published var useAutoSync: Bool = true
     
@@ -61,66 +62,26 @@ class DataSyncManager: ObservableObject {
         UserDefaults.standard.set(value, forKey: "useAutoSync")
     }
     
-    // 실제 데이터 충돌 감지 (데이터 비교)
-    private func detectRealConflicts(localCharacters: [CharacterModel], cloudCharacters: [CharacterModel]) -> Bool {
-        // 캐릭터 이름 기준으로 비교할 수 있는 딕셔너리 생성
-        let localDict = Dictionary(grouping: localCharacters, by: { $0.name })
-        let cloudDict = Dictionary(grouping: cloudCharacters, by: { $0.name })
-        
-        // 같은 캐릭터가 로컬과 클라우드에 모두 있고, 데이터가 다른 경우 충돌
-        for (name, localChars) in localDict {
-            guard let localChar = localChars.first,
-                  let cloudChars = cloudDict[name],
-                  let cloudChar = cloudChars.first else {
-                continue
-            }
-            
-            // 마지막 업데이트 시간 기준으로 비교
-            // 변경 일자가 다르고, 데이터가 다른 경우 충돌로 판단
-            if abs(localChar.lastUpdated.timeIntervalSince(cloudChar.lastUpdated)) > 1.0 {
-                // 주요 데이터가 다른지 확인 (여기서는 레이드 완료 상태를 예로 들었습니다)
-                if hasCompletionDifferences(localChar: localChar, cloudChar: cloudChar) {
-                    return true
-                }
-            }
-        }
-        
-        return false
+    // MARK: - MainActor를 활용한 상태 관리 메서드
+    
+    // 동기화 상태 확인
+    @MainActor
+    private func isCurrentlySyncing() -> Bool {
+        return isSyncInProgress
     }
     
-    // 완료 상태 차이 감지
-    private func hasCompletionDifferences(localChar: CharacterModel, cloudChar: CharacterModel) -> Bool {
-        guard let localGates = localChar.raidGates, let cloudGates = cloudChar.raidGates else {
-            return false
-        }
-        
-        // 관문 ID로 매핑
-        let localMap = Dictionary(grouping: localGates, by: { "\($0.raid)-\($0.gate)-\($0.difficulty)" })
-        let cloudMap = Dictionary(grouping: cloudGates, by: { "\($0.raid)-\($0.gate)-\($0.difficulty)" })
-        
-        // 완료 상태 비교
-        for (key, localGateArray) in localMap {
-            guard let localGate = localGateArray.first,
-                  let cloudGateArray = cloudMap[key],
-                  let cloudGate = cloudGateArray.first else {
-                continue
-            }
-            
-            if localGate.isCompleted != cloudGate.isCompleted {
-                return true
-            }
-        }
-        
-        return false
+    // 동기화 상태 설정
+    @MainActor
+    private func setIsSyncing(_ value: Bool) {
+        isSyncInProgress = value
     }
     
     // 백그라운드에서 안전하게 동기화를 실행하는 메소드 개선
     func safeBackgroundSync() async -> Bool {
-        
         Logger.debug("safeBackgroundSync 호출됨")
         
-        // 이미 동기화 중이면 중복 실행 방지
-        if isSyncInProgress {
+        // 이미 동기화 중인지 확인
+        if await MainActor.run(body: { self.isSyncInProgress }) {
             return false
         }
         
@@ -133,19 +94,30 @@ class DataSyncManager: ObservableObject {
         
         lastSyncAttempt = now
         
-        // 락 획득
-        syncLock.lock()
-        isSyncInProgress = true
-        
-        defer {
-            // 함수 종료 시 락 해제 및 상태 초기화
-            isSyncInProgress = false
-            syncLock.unlock()
+        // 동기화 상태 설정
+        await MainActor.run {
+            self.isSyncInProgress = true
         }
         
-        // 로그인 상태 및 변경사항 있는 경우에만 실행
-        if AuthManager.shared.isLoggedIn && hasPendingChanges && NetworkMonitorService.shared.isConnected {
-            return await uploadToServer() // 직접 uploadToServer 호출
+        // 함수 종료 시 상태 초기화를 위한 defer
+        defer {
+            Task { @MainActor in
+                self.isSyncInProgress = false
+            }
+        }
+        
+        // 로그인 상태 확인
+        let isLoggedIn = AuthManager.shared.isLoggedIn
+        
+        // 변경사항 있는지 확인
+        let hasPendingChanges = await MainActor.run { self.hasPendingChanges }
+        
+        // 네트워크 연결 확인
+        let isConnected = NetworkMonitorService.shared.isConnected
+        
+        // 모든 조건이 충족되는 경우에만 실행
+        if isLoggedIn && hasPendingChanges && isConnected {
+            return await uploadToServer()
         }
         
         return false
@@ -153,7 +125,9 @@ class DataSyncManager: ObservableObject {
     
     // 서버로 데이터 업로드 메소드 개선
     func uploadToServer() async -> Bool {
-        guard let modelContext = self.modelContext else {
+        // ModelContext 확인
+        let hasContext = await MainActor.run { self.modelContext != nil }
+        guard hasContext else {
             await MainActor.run {
                 self.syncError = DataSyncError.contextNotSet
             }
@@ -167,18 +141,22 @@ class DataSyncManager: ObservableObject {
             return false
         }
         
-        // 이미 동기화 중이면 중복 실행 방지
-        if !syncLock.try() {
+        // 이미 동기화 중인지 확인
+        let isSyncing = await MainActor.run { self.isSyncInProgress }
+        if isSyncing {
             return false
         }
         
-        // 락 관리를 위한 플래그 설정
-        isSyncInProgress = true
+        // 동기화 상태 설정
+        await MainActor.run {
+            self.isSyncInProgress = true
+        }
         
-        // 함수 종료 시 상태 정리를 위한 defer 블록
+        // 함수 종료 시 상태 초기화를 위한 defer
         defer {
-            isSyncInProgress = false
-            syncLock.unlock()
+            Task { @MainActor in
+                self.isSyncInProgress = false
+            }
         }
         
         // 로컬 데이터를 서버에 업로드하는 로직 (로컬 우선 방식)
@@ -188,9 +166,15 @@ class DataSyncManager: ObservableObject {
                 self.syncError = nil
             }
             
-            // 로컬 캐릭터 가져오기
-            let descriptor = FetchDescriptor<CharacterModel>()
-            let localCharacters = try modelContext.fetch(descriptor)
+            // 로컬 캐릭터 가져오기 - 메인 액터에서 실행
+            let localCharacters = try await MainActor.run {
+                guard let modelContext = self.modelContext else {
+                    throw DataSyncError.contextNotSet
+                }
+                
+                let descriptor = FetchDescriptor<CharacterModel>()
+                return try modelContext.fetch(descriptor)
+            }
             
             if !localCharacters.isEmpty {
                 // 서버에 업로드
@@ -223,10 +207,11 @@ class DataSyncManager: ObservableObject {
     
     // 데이터 병합 처리
     private func mergeData() async -> Bool {
-        guard let modelContext = self.modelContext else {
+        // 메인 액터에서 ModelContext 확인
+        let hasContext = await MainActor.run { self.modelContext != nil }
+        guard hasContext else {
             await MainActor.run {
                 self.syncError = DataSyncError.contextNotSet
-                self.isSyncInProgress = false
             }
             return false
         }
@@ -237,28 +222,52 @@ class DataSyncManager: ObservableObject {
                 self.syncError = nil
             }
             
-            // 로컬 캐릭터 가져오기
-            let descriptor = FetchDescriptor<CharacterModel>()
-            let localCharacters = try modelContext.fetch(descriptor)
+            // 로컬 캐릭터 가져오기 - 메인 액터에서 실행
+            let localCharacters = try await MainActor.run {
+                guard let modelContext = self.modelContext else {
+                    throw DataSyncError.contextNotSet
+                }
+                
+                let descriptor = FetchDescriptor<CharacterModel>()
+                return try modelContext.fetch(descriptor)
+            }
             
             // 클라우드 캐릭터 가져오기
             let cloudCharacters = try await FirebaseRepository.shared.fetchCharacters()
             
-            // 병합 수행
-            let mergedCharacters = mergeCharacters(localCharacters: localCharacters, cloudCharacters: cloudCharacters)
-            
-            // 로컬 데이터 업데이트
-            for character in localCharacters {
-                modelContext.delete(character)
+            // 병합 수행 - 메인 액터에서 로컬 데이터 업데이트
+            await MainActor.run {
+                guard let modelContext = self.modelContext else { return }
+                
+                // 병합 작업
+                let mergedCharacters = self.mergeCharacters(localCharacters: localCharacters, cloudCharacters: cloudCharacters)
+                
+                // 로컬 데이터 업데이트
+                for character in localCharacters {
+                    modelContext.delete(character)
+                }
+                
+                for character in mergedCharacters {
+                    modelContext.insert(character)
+                }
+                
+                do {
+                    try modelContext.save()
+                } catch {
+                    Logger.error("데이터 병합 중 로컬 저장 실패", error: error)
+                }
             }
-            
-            for character in mergedCharacters {
-                modelContext.insert(character)
-            }
-            
-            try modelContext.save()
             
             // 병합된 데이터를 클라우드에 업로드
+            let mergedCharacters = try await MainActor.run {
+                guard let modelContext = self.modelContext else {
+                    throw DataSyncError.contextNotSet
+                }
+                
+                let descriptor = FetchDescriptor<CharacterModel>()
+                return try modelContext.fetch(descriptor)
+            }
+            
             try await FirebaseRepository.shared.saveCharacters(mergedCharacters)
             
             await MainActor.run {
@@ -267,7 +276,6 @@ class DataSyncManager: ObservableObject {
                 self.hasPendingChanges = false
                 self.hasConflicts = false
                 self.conflictsResolved = true
-                self.isSyncInProgress = false
                 Logger.info("데이터 병합 및 업로드 완료: \(mergedCharacters.count)개 캐릭터")
             }
             
@@ -276,7 +284,6 @@ class DataSyncManager: ObservableObject {
             await MainActor.run {
                 self.syncError = error
                 self.isSyncing = false
-                self.isSyncInProgress = false
                 Logger.error("데이터 병합 실패", error: error)
             }
             return false
@@ -346,7 +353,7 @@ class DataSyncManager: ObservableObject {
         }
     }
     
-    // 클라우드 캐릭터 수 카운트
+    // 클라우드 캐릭터 가져오기
     private func fetchCloudCharacters() async throws -> [CharacterModel] {
         do {
             return try await FirebaseRepository.shared.fetchCharacters()
@@ -369,10 +376,11 @@ class DataSyncManager: ObservableObject {
     
     /// 서버에서 데이터 복구 (사용자가 수동으로 호출)
     func pullFromCloud() async -> Bool {
-        guard let modelContext = self.modelContext else {
+        // 메인 액터에서 ModelContext 확인
+        let hasContext = await MainActor.run { self.modelContext != nil }
+        guard hasContext else {
             await MainActor.run {
                 self.syncError = DataSyncError.contextNotSet
-                self.isSyncInProgress = false
             }
             return false
         }
@@ -380,21 +388,27 @@ class DataSyncManager: ObservableObject {
         guard AuthManager.shared.isLoggedIn else {
             await MainActor.run {
                 self.syncError = DataSyncError.notAuthenticated
-                self.isSyncInProgress = false
             }
             return false
         }
         
-        // 동기화 중복 실행 방지
-        if syncLock.try() == false {
+        // 이미 동기화 중인지 확인
+        let isSyncing = await MainActor.run { self.isSyncInProgress }
+        if isSyncing {
             return false
         }
         
-        defer {
-            syncLock.unlock()
+        // 동기화 상태 설정
+        await MainActor.run {
+            self.isSyncInProgress = true
         }
         
-        isSyncInProgress = true
+        // 함수 종료 시 상태 초기화를 위한 defer
+        defer {
+            Task { @MainActor in
+                self.isSyncInProgress = false
+            }
+        }
         
         do {
             await MainActor.run {
@@ -406,8 +420,12 @@ class DataSyncManager: ObservableObject {
             let serverCharacters = try await FirebaseRepository.shared.fetchCharacters()
             
             if !serverCharacters.isEmpty {
-                // 안전한 데이터 교체를 위해 먼저 관련 객체부터 삭제
+                // 안전한 데이터 교체를 위해 메인 액터에서 처리
                 try await MainActor.run {
+                    guard let modelContext = self.modelContext else {
+                        throw DataSyncError.contextNotSet
+                    }
+                    
                     // 1. 하위 객체(DailyTask, RaidGate)부터 삭제
                     let taskDescriptor = FetchDescriptor<DailyTask>()
                     let tasks = try modelContext.fetch(taskDescriptor)
@@ -443,14 +461,12 @@ class DataSyncManager: ObservableObject {
                     self.hasPendingChanges = false
                     self.hasConflicts = false
                     self.conflictsResolved = true
-                    self.isSyncInProgress = false
                     Logger.info("서버에서 복구 완료: \(serverCharacters.count)개 캐릭터")
                 }
                 return true
             } else {
                 await MainActor.run {
                     self.isSyncing = false
-                    self.isSyncInProgress = false
                     Logger.info("서버에 복구할 캐릭터가 없음")
                 }
                 return false
@@ -459,7 +475,6 @@ class DataSyncManager: ObservableObject {
             await MainActor.run {
                 self.syncError = error
                 self.isSyncing = false
-                self.isSyncInProgress = false
                 Logger.error("서버에서 복구 실패", error: error)
             }
             return false
@@ -495,7 +510,7 @@ class DataSyncManager: ObservableObject {
             return
         }
         
-        DispatchQueue.main.async {
+        Task { @MainActor in
             self.hasPendingChanges = true
             self.lastChangeTimestamp = now
             
@@ -506,7 +521,7 @@ class DataSyncManager: ObservableObject {
         }
     }
     
-    // 자동 동기화 타이머 (개선)
+    // 자동 동기화 타이머
     private func startSyncTimer() {
         syncTimer?.invalidate()
         syncTimer = nil
@@ -518,8 +533,15 @@ class DataSyncManager: ObservableObject {
             Task { [weak self] in
                 guard let self = self else { return }
                 
-                // 네트워크 연결 확인
-                if self.hasPendingChanges && NetworkMonitorService.shared.isConnected && AuthManager.shared.isLoggedIn {
+                // 변경사항 있는지 확인
+                let hasPendingChanges = await MainActor.run { self.hasPendingChanges }
+                
+                // 네트워크 연결과 로그인 상태 확인
+                let isConnected = NetworkMonitorService.shared.isConnected
+                let isLoggedIn = AuthManager.shared.isLoggedIn
+                
+                // 모든 조건이 충족되는 경우에만 실행
+                if hasPendingChanges && isConnected && isLoggedIn {
                     _ = await self.safeBackgroundSync()
                 }
                 
@@ -549,25 +571,49 @@ class DataSyncManager: ObservableObject {
     }
     
     func setModelContext(_ context: ModelContext) {
-        self.modelContext = context
+        Task { @MainActor in
+            self.modelContext = context
+        }
     }
     
     // 처음 로그인 시에만 데이터 다운로드
     func performInitialSync() {
-        guard let modelContext = modelContext else { return }
-        
-        Task { @MainActor in
-            do {
-                isSyncing = true
-                syncError = nil
+        Task {
+            // 동기화 상태 확인
+            let isSyncing = await MainActor.run { self.isSyncInProgress }
+            if isSyncing {
+                return
+            }
+            
+            // 동기화 상태 설정
+            await MainActor.run {
+                self.isSyncInProgress = true
+                self.isSyncing = true
+                self.syncError = nil
                 
                 // 동기화 전략 명시적 설정
-                syncStrategy = .localOverCloud
-                hasConflicts = false
-                conflictsResolved = true
-                
+                self.syncStrategy = .localOverCloud
+                self.hasConflicts = false
+                self.conflictsResolved = true
+            }
+            
+            defer {
+                Task { @MainActor in
+                    self.isSyncInProgress = false
+                    self.isSyncing = false
+                }
+            }
+            
+            do {
                 // 로컬 데이터 존재 여부 확인
-                let localCharacterCount = try countLocalCharacters(modelContext: modelContext)
+                let localCharacterCount = try await MainActor.run {
+                    guard let modelContext = self.modelContext else {
+                        throw DataSyncError.contextNotSet
+                    }
+                    
+                    let descriptor = FetchDescriptor<CharacterModel>()
+                    return try modelContext.fetchCount(descriptor)
+                }
                 
                 if localCharacterCount > 0 {
                     // 로컬 데이터가 있는 경우, 항상 서버에 업로드
@@ -581,32 +627,39 @@ class DataSyncManager: ObservableObject {
                     }
                 }
                 
-                AuthManager.shared.markInitialSyncComplete()
-                lastSyncTime = Date()
-                isSyncing = false
-                hasPendingChanges = false
+                await MainActor.run {
+                    AuthManager.shared.markInitialSyncComplete()
+                    self.lastSyncTime = Date()
+                    self.hasPendingChanges = false
+                }
             } catch {
-                syncError = error
-                isSyncing = false
+                await MainActor.run {
+                    self.syncError = error
+                }
             }
         }
     }
     
-    // 로컬 캐릭터 개수 카운트
-    private func countLocalCharacters(modelContext: ModelContext) throws -> Int {
+    // 로컬 캐릭터 개수 카운트 - 메인 액터에서 실행
+    @MainActor
+    private func countLocalCharacters() throws -> Int {
+        guard let modelContext = self.modelContext else {
+            throw DataSyncError.contextNotSet
+        }
+        
         let descriptor = FetchDescriptor<CharacterModel>()
         return try modelContext.fetchCount(descriptor)
     }
     
     // 오류 지우기
     func clearError() {
-        DispatchQueue.main.async {
+        Task { @MainActor in
             self.syncError = nil
         }
     }
 }
 
-// 동기화 관련 오류 정의 (이전과 동일)
+// 동기화 관련 오류 정의
 enum DataSyncError: Error, LocalizedError {
     case contextNotSet
     case notAuthenticated
