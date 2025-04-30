@@ -61,7 +61,7 @@ struct CharacterDetailView: View {
                             
                             // 주간 레이드 섹션 - 다크모드 개선 버전 사용
                             // 안전한 헬퍼 메소드 사용
-                            if !character.getSafeRaidGates().isEmpty {
+                            if character.level >= 1370 {
                                 WeeklyRaidsView(character: character)
                             }
                             

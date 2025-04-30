@@ -109,6 +109,9 @@ final class CharacterModel {
     
     // 안전하게 RaidGates 접근하는 헬퍼 메소드 추가
     func getSafeRaidGates() -> [RaidGate] {
+        if raidGates == nil {
+            raidGates = []
+        }
         return raidGates ?? []
     }
     
