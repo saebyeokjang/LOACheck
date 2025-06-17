@@ -9,11 +9,11 @@ import SwiftUI
 
 struct DeveloperInfoSectionView: View {
     var body: some View {
-        Section(header: Text("만든 사람")) {
+        Section(header: Text("문의 및 피드백")) {
             Link("개발자에게 피드백 보내기", destination: URL(string: "mailto:dev.saebyeok@gmail.com?subject=LOACheck 피드백")!)
-            Text("실리안 • 기상술사김새벽")
-                .font(.caption)
-                .foregroundColor(.secondary)
+//            Text("실리안 • 기상술사김새벽")
+//                .font(.caption)
+//                .foregroundColor(.secondary)
         }
     }
 }

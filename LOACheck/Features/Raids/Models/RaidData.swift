@@ -11,7 +11,7 @@ import Foundation
 struct RaidData {
     // 레이드 타입 열거형
     enum RaidType: String, CaseIterable {
-        case assaultRaid = "강습 타르칼"
+        //case assaultRaid = "강습 타르칼"
         case mordum = "모르둠"
         case abrelshud2 = "2막 아브렐슈드"
         case aegir = "에기르"
@@ -30,7 +30,7 @@ struct RaidData {
         // 레이드 정렬 우선순위
         var sortOrder: Int {
             switch self {
-            case .assaultRaid: return 15
+            //case .assaultRaid: return 15
             case .mordum: return 14
             case .abrelshud2: return 13
             case .aegir: return 12
@@ -51,8 +51,8 @@ struct RaidData {
         // 각 레이드의 가능한 난이도 배열
         func difficulties() -> [Difficulty] {
             switch self {
-            case .assaultRaid:
-                return [.normal, .hard]
+//            case .assaultRaid:
+//                return [.normal, .hard]
             case .mordum:
                 return [.normal, .hard]
             case .abrelshud2:
@@ -87,8 +87,8 @@ struct RaidData {
         // 각 레이드의 관문 수
         func gateCount() -> Int {
             switch self {
-            case .assaultRaid:
-                return 1
+//            case .assaultRaid:
+//                return 1
             case .mordum:
                 return 3
             case .abrelshud2:
@@ -139,8 +139,8 @@ struct RaidData {
     // 레이드 레벨 요구사항 (최대 레벨 기준)
     static let raidLevelRequirements: [String: Double] = [
         // 강습 레이드
-        "강습 타르칼-노말": 1680,
-        "강습 타르칼-하드": 1720,
+//        "강습 타르칼-노말": 1680,
+//        "강습 타르칼-하드": 1720,
         
         // 모르둠
         "모르둠-노말": 1680,
@@ -208,8 +208,8 @@ struct RaidData {
     // 레이드 관문별 골드 보상
     static let gateGoldRewards: [String: [Int]] = [
         // 강습 레이드
-        "강습 타르칼-노말": [10000],
-        "강습 타르칼-하드": [18000],
+//        "강습 타르칼-노말": [10000],
+//        "강습 타르칼-하드": [18000],
         
         // 모르둠
         "모르둠-노말": [6000, 9500, 12500],
@@ -276,8 +276,8 @@ struct RaidData {
     
     static let bonusLootCosts: [String: [Int]] = [
         // 강습
-        "강습 타르칼-하드": [6000],
-        "강습 타르칼-노말": [4000],
+//        "강습 타르칼-하드": [6000],
+//        "강습 타르칼-노말": [4000],
         
         // 모르둠
         "모르둠-하드": [2700, 4100, 5800],
@@ -340,7 +340,7 @@ struct RaidData {
         
         // 아르고스는 더보기 없음
     ]
-
+    
     // 더보기 비용 가져오는 메소드 추가
     static func getBonusLootCost(raid: String, difficulty: String, gate: Int) -> Int {
         let key = "\(raid)-\(difficulty)"
@@ -379,15 +379,15 @@ struct RaidData {
         
         // 레벨 요구사항 기준으로 내림차순 정렬
         return availableRaidGroups.sorted { group1, group2 in
-                // RaidType 찾기
-                guard let type1 = RaidType.allCases.first(where: { $0.rawValue == group1.name }),
-                      let type2 = RaidType.allCases.first(where: { $0.rawValue == group2.name }) else {
-                    return false
-                }
-                
-                // sortOrder 기준으로 내림차순 정렬 (높은 숫자가 먼저 나오도록)
-                return type1.sortOrder > type2.sortOrder
+            // RaidType 찾기
+            guard let type1 = RaidType.allCases.first(where: { $0.rawValue == group1.name }),
+                  let type2 = RaidType.allCases.first(where: { $0.rawValue == group2.name }) else {
+                return false
             }
+            
+            // sortOrder 기준으로 내림차순 정렬 (높은 숫자가 먼저 나오도록)
+            return type1.sortOrder > type2.sortOrder
+        }
     }
     
     // 특정 레이드와 난이도의 관문별 골드 반환
