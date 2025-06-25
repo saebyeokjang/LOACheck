@@ -728,7 +728,7 @@ class FirebaseRepository {
                     Logger.debug("SwiftData에 캐릭터 정보가 없음, API로 조회 시도: \(characterName)")
                     
                     do {
-                        if let character = try await LostArkAPIService.shared.fetchCharacter(name: characterName, apiKey: apiKey) {
+                        if let character = try await LostArkAPIService.shared.fetchSingleCharacterInfo(name: characterName, apiKey: apiKey) {
                             // API로 조회 성공시 Firebase에 저장
                             try await db.collection("characterNames").document(characterName).setData([
                                 "userId": userId,

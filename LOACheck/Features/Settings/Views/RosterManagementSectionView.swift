@@ -130,8 +130,10 @@ struct RosterManagementSectionView: View {
             
             var request = URLRequest(url: url)
             request.httpMethod = "GET"
-            request.addValue("application/json", forHTTPHeaderField: "accept")
-            request.addValue("bearer \(apiKey)", forHTTPHeaderField: "authorization")
+            // 개선된 헤더 형식 사용
+            request.addValue("application/json", forHTTPHeaderField: "Accept")
+            request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+            request.addValue("LOACheck/1.0 (iOS)", forHTTPHeaderField: "User-Agent")
             
             let (data, response) = try await URLSession.shared.data(for: request)
             
@@ -139,35 +141,79 @@ struct RosterManagementSectionView: View {
                 return .failure(.invalidResponse)
             }
             
+            // 응답 디버깅
+            if let responseString = String(data: data, encoding: .utf8) {
+                Logger.debug("API 응답: \(responseString.prefix(500))...")
+            }
+            
             // API 응답 처리
             switch httpResponse.statusCode {
             case 200:
                 let decoder = JSONDecoder()
-                let charactersData = try decoder.decode([CharacterResponse].self, from: data)
                 
-                // 대표 캐릭터가 있는지 확인
-                var hasRepresentativeCharacter = false
-                for character in charactersData {
-                    if character.characterName == characterName {
-                        hasRepresentativeCharacter = true
-                        break
+                do {
+                    let charactersData = try decoder.decode([CharacterResponse].self, from: data)
+                    
+                    // 대표 캐릭터가 있는지 확인
+                    var hasRepresentativeCharacter = false
+                    for character in charactersData {
+                        if character.characterName == characterName {
+                            hasRepresentativeCharacter = true
+                            break
+                        }
                     }
-                }
-                
-                var allCharactersData = charactersData
-                
-                // 대표 캐릭터가 없으면 따로 추가
-                if !hasRepresentativeCharacter {
-                    Logger.debug("대표 캐릭터가 응답에 없음, 직접 요청 시도: \(characterName)")
-                    if let singleCharacter = try? await LostArkAPIService.shared.fetchCharacter(name: characterName, apiKey: apiKey) {
-                        allCharactersData.append(singleCharacter)
+                    
+                    var allCharactersData = charactersData
+                    
+                    // 대표 캐릭터가 없으면 따로 추가 시도
+                    if !hasRepresentativeCharacter {
+                        Logger.debug("대표 캐릭터가 응답에 없음, 직접 요청 시도: \(characterName)")
+                        
+                        // 단일 캐릭터 API 호출
+                        let singleCharacterUrl = URL(string: "\(LostArkAPIService.shared.baseURL)/characters/\(encodedName)")!
+                        var singleRequest = URLRequest(url: singleCharacterUrl)
+                        singleRequest.httpMethod = "GET"
+                        singleRequest.addValue("application/json", forHTTPHeaderField: "Accept")
+                        singleRequest.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+                        singleRequest.addValue("LOACheck/1.0 (iOS)", forHTTPHeaderField: "User-Agent")
+                        
+                        if let (singleData, singleResponse) = try? await URLSession.shared.data(for: singleRequest),
+                           let singleHttpResponse = singleResponse as? HTTPURLResponse,
+                           singleHttpResponse.statusCode == 200,
+                           let singleCharacter = try? decoder.decode(CharacterResponse.self, from: singleData) {
+                            allCharactersData.append(singleCharacter)
+                            Logger.debug("단일 캐릭터 추가 성공: \(characterName)")
+                        } else {
+                            Logger.warning("단일 캐릭터 요청 실패: \(characterName)")
+                        }
                     }
+                    
+                    // 기존 데이터 유지하면서 캐릭터 정보만 업데이트
+                    await updateExistingCharacters(charactersData: allCharactersData)
+                    
+                    return .success(allCharactersData.count)
+                    
+                } catch let decodingError {
+                    Logger.error("JSON 디코딩 실패", error: decodingError)
+                    
+                    // 상세한 디코딩 오류 분석
+                    if let error = decodingError as? DecodingError {
+                        switch error {
+                        case .keyNotFound(let key, let context):
+                            Logger.error("누락된 키: \(key.stringValue), 경로: \(context.codingPath.map { $0.stringValue }.joined(separator: " -> "))")
+                        case .typeMismatch(let type, let context):
+                            Logger.error("타입 불일치: 예상 \(type), 경로: \(context.codingPath.map { $0.stringValue }.joined(separator: " -> "))")
+                        case .valueNotFound(let type, let context):
+                            Logger.error("값 없음: \(type), 경로: \(context.codingPath.map { $0.stringValue }.joined(separator: " -> "))")
+                        case .dataCorrupted(let context):
+                            Logger.error("데이터 손상: \(context.debugDescription)")
+                        @unknown default:
+                            Logger.error("알 수 없는 디코딩 오류: \(error)")
+                        }
+                    }
+                    
+                    return .failure(.networkError(decodingError))
                 }
-                
-                // 기존 데이터 유지하면서 캐릭터 정보만 업데이트
-                await updateExistingCharacters(charactersData: allCharactersData)
-                
-                return .success(allCharactersData.count)
                 
             case 401:
                 Logger.error("Authorization failed: Invalid API key or format")
@@ -213,37 +259,35 @@ struct RosterManagementSectionView: View {
             
             if let existingCharacters = try? modelContext.fetch(fetchDescriptor),
                let existingCharacter = existingCharacters.first {
-                // 기존 캐릭터의 서버, 클래스, 레벨 정보만 업데이트
-                let hasChanged = existingCharacter.server != characterData.serverName ||
-                                existingCharacter.characterClass != characterData.characterClassName ||
-                                abs(existingCharacter.level - characterData.itemLevel) > 0.01
+                // 기존 캐릭터 업데이트 (일일 숙제 및 레이드 설정 유지)
+                existingCharacter.server = characterData.serverName
+                existingCharacter.characterClass = characterData.characterClassName
+                existingCharacter.level = characterData.itemLevel
+                existingCharacter.lastUpdated = Date()
                 
-                if hasChanged {
-                    existingCharacter.server = characterData.serverName
-                    existingCharacter.characterClass = characterData.characterClassName
-                    existingCharacter.level = characterData.itemLevel
-                    existingCharacter.lastUpdated = Date()
-                    updatedCount += 1
-                }
-                
-                Logger.debug("Updated character info: \(characterData.characterName)")
+                updatedCount += 1
+                Logger.debug("기존 캐릭터 업데이트: \(characterName)")
             } else {
                 // 새 캐릭터 추가
                 let newCharacter = CharacterModel(
-                    name: characterData.characterName,
+                    name: characterName,
                     server: characterData.serverName,
                     characterClass: characterData.characterClassName,
                     level: characterData.itemLevel
                 )
                 modelContext.insert(newCharacter)
-                newCount += 1
                 
-                Logger.debug("Added new character: \(characterData.characterName)")
+                newCount += 1
+                Logger.debug("새 캐릭터 추가: \(characterName)")
             }
         }
         
-        Logger.info("캐릭터 정보 업데이트 완료: \(updatedCount)개 업데이트, \(newCount)개 추가")
-        
-        try? modelContext.save()
+        // 변경사항 저장
+        do {
+            try modelContext.save()
+            Logger.debug("캐릭터 데이터 업데이트 완료 - 업데이트: \(updatedCount)개, 신규: \(newCount)개")
+        } catch {
+            Logger.error("캐릭터 데이터 저장 오류", error: error)
+        }
     }
 }
