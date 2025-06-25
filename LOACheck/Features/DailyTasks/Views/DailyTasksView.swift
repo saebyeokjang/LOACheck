@@ -17,8 +17,11 @@ struct DailyTasksView: View {
     @Environment(\.colorScheme) private var colorScheme
     
     private var sortedTasks: [DailyTask] {
-        tasks.sorted { task1, task2 in
-            let order: [DailyTask.TaskType] = [.eponaQuest, .chaosGate, .guardianRaid]
+        // 에포나 의뢰 제외하고 표시
+        let filteredTasks = tasks.filter { $0.type != .eponaQuest }
+        
+        return filteredTasks.sorted { task1, task2 in
+            let order: [DailyTask.TaskType] = [.chaosGate, .guardianRaid]
             let index1 = order.firstIndex(of: task1.type) ?? Int.max
             let index2 = order.firstIndex(of: task2.type) ?? Int.max
             return index1 < index2
@@ -32,9 +35,6 @@ struct DailyTasksView: View {
     private var alertMessage: String {
         let message = """
         컨텐츠 미완료 시 다음 날 오전 6시에 휴식보너스가 충전됩니다
-        
-        • 에포나 의뢰: 미완료 1회당 10포인트
-        클리어 시 1회당 20포인트 소모
         
         • \(chaosContentName): 미완료 시 20포인트
         클리어 시 40포인트 소모
