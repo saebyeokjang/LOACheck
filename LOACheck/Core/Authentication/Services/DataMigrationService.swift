@@ -113,7 +113,7 @@ class DataMigrationService {
             }
         }
     }
-
+    
     /// 단일 캐릭터 이름 파이어베이스 등록 - 대표 캐릭터를 위한 로직
     private func registerCharacterNameToFirebase(_ characterName: String) async {
         guard !characterName.isEmpty, AuthManager.shared.isLoggedIn, let userId = AuthManager.shared.currentUser?.id else {
@@ -127,7 +127,7 @@ class DataMigrationService {
             let snapshot = try await db.collection("characterNames")
                 .whereField("userId", isEqualTo: userId)
                 .getDocuments()
-                
+            
             // 기존 문서 삭제 (대표 캐릭터만 남기기 위함)
             if !snapshot.documents.isEmpty {
                 let batch = db.batch()
@@ -187,6 +187,10 @@ class DataMigrationService {
             migrateFrom1_0_To1_1(modelContext: modelContext)
         }
         
+        if lastMigratedVersion.starts(with: "1.3") && currentAppVersion.starts(with: "1.4") {
+            migrateFrom1_3_To1_4(modelContext: modelContext)
+        }
+        
         // 추가 버전 마이그레이션은 여기에 추가
         
         // 마이그레이션 완료 후 버전 업데이트
@@ -228,6 +232,45 @@ class DataMigrationService {
             Logger.info("버전 1.0.0에서 1.1.0으로 마이그레이션 완료")
         } catch {
             Logger.error("버전 1.0.0에서 1.1.0으로 마이그레이션 실패", error: error)
+        }
+    }
+    
+    private func migrateFrom1_3_To1_4(modelContext: ModelContext) {
+        do {
+            Logger.info("버전 1.3.9에서 1.4.0으로 마이그레이션 중... (전투력 필드 추가)")
+            
+            // 모든 캐릭터 가져오기
+            let descriptor = FetchDescriptor<CharacterModel>()
+            let characters = try modelContext.fetch(descriptor)
+            
+            var migratedCount = 0
+            
+            // combatPower 필드 초기화
+            for character in characters {
+                // 전투력 필드가 없거나 0.0인 경우 초기화
+                if character.combatPower == 0.0 {
+                    character.combatPower = 0.0
+                    migratedCount += 1
+                    Logger.debug("캐릭터 '\(character.name)'의 전투력 필드 초기화 완료")
+                }
+            }
+            
+            // 변경사항 저장
+            try modelContext.save()
+            
+            // 마이그레이션 완료 플래그 설정
+            UserDefaults.standard.set(true, forKey: "combatPowerMigrationCompleted")
+            
+            Logger.info("버전 1.3.9에서 1.4.0으로 마이그레이션 완료 - \(migratedCount)개 캐릭터 업데이트")
+            
+            // 앱 업데이트 알림 표시 (선택사항)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                // 사용자에게 새로운 전투력 기능 안내
+                Logger.info("전투력 기능이 추가되었습니다. 캐릭터 정보를 새로고침하여 전투력을 확인하세요.")
+            }
+            
+        } catch {
+            Logger.error("버전 1.3.9에서 1.4.0으로 마이그레이션 실패", error: error)
         }
     }
 }

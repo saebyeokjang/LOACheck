@@ -16,6 +16,7 @@ struct CharacterResponse: Decodable {
     let CharacterClassName: String?
     let ItemAvgLevel: String?
     let ItemMaxLevel: String?
+    let CombatPower: String?
     
     // 편의를 위한 계산 프로퍼티 (안전한 기본값 제공)
     var serverName: String { ServerName ?? "Unknown Server" }
@@ -32,6 +33,11 @@ struct CharacterResponse: Decodable {
         Logger.debug("변환된 아이템 레벨: \(parsedLevel)")
         return parsedLevel
     }
+    var combatPower: Double {
+        let powerString = CombatPower ?? "0"
+        let cleanPower = powerString.replacingOccurrences(of: ",", with: "")
+        return Double(cleanPower) ?? 0.0
+    }
     var characterImage: String? { nil } // API에서 제공하지 않음
     
     // 커스텀 디코딩 초기화 (필수 필드만 체크)
@@ -45,6 +51,7 @@ struct CharacterResponse: Decodable {
         CharacterClassName = try container.decodeIfPresent(String.self, forKey: .CharacterClassName)
         ItemAvgLevel = try container.decodeIfPresent(String.self, forKey: .ItemAvgLevel)
         ItemMaxLevel = try container.decodeIfPresent(String.self, forKey: .ItemMaxLevel)
+        CombatPower = try container.decodeIfPresent(String.self, forKey: .CombatPower)
         
         // 디버깅용 로그
         Logger.debug("디코딩된 캐릭터: \(CharacterName ?? "nil")")
@@ -52,7 +59,7 @@ struct CharacterResponse: Decodable {
     }
     
     private enum CodingKeys: String, CodingKey {
-        case ServerName, CharacterName, CharacterLevel, CharacterClassName, ItemAvgLevel, ItemMaxLevel
+        case ServerName, CharacterName, CharacterLevel, CharacterClassName, ItemAvgLevel, ItemMaxLevel, CombatPower
     }
 }
 
@@ -63,12 +70,14 @@ struct CharacterProfileResponse: Decodable {
     let characterClassName: String?
     let itemAvgLevel: String?
     let itemMaxLevel: String?
+    let combatPower: String?
     
     // 안전한 접근을 위한 계산 프로퍼티
     var safeServerName: String { serverName ?? "Unknown Server" }
     var safeCharacterName: String { characterName ?? "Unknown Character" }
     var safeCharacterClassName: String { characterClassName ?? "Unknown Class" }
     var safeItemMaxLevel: String { itemMaxLevel ?? itemAvgLevel ?? "0" }
+    var safeCombatPower: String { combatPower ?? "0" }
     
     enum CodingKeys: String, CodingKey {
         case serverName = "ServerName"
@@ -76,6 +85,7 @@ struct CharacterProfileResponse: Decodable {
         case characterClassName = "CharacterClassName"
         case itemAvgLevel = "ItemAvgLevel"
         case itemMaxLevel = "ItemMaxLevel"
+        case combatPower = "CombatPower"
     }
     
     // 커스텀 디코딩으로 필드 누락 대응
@@ -87,6 +97,7 @@ struct CharacterProfileResponse: Decodable {
         characterClassName = try container.decodeIfPresent(String.self, forKey: .characterClassName)
         itemAvgLevel = try container.decodeIfPresent(String.self, forKey: .itemAvgLevel)
         itemMaxLevel = try container.decodeIfPresent(String.self, forKey: .itemMaxLevel)
+        combatPower = try container.decodeIfPresent(String.self, forKey: .combatPower)
         
         // 사용 가능한 모든 키 로깅 (API 구조 변경 감지용)
         Logger.debug("프로필 API 응답 키들: \(container.allKeys.map { $0.stringValue })")
@@ -414,21 +425,6 @@ class LostArkAPIService {
                 return .failure(.invalidResponse)
             }
             
-            // 응답 내용 디버깅 로그
-            let responseString = String(data: data, encoding: .utf8) ?? "Unable to decode response"
-            Logger.debug("아머리 API 응답: \(responseString.prefix(200))...")
-            
-            // HTML 응답인지 확인
-            if responseString.contains("<!DOCTYPE html>") || responseString.contains("<html") {
-                Logger.error("API가 HTML 응답을 반환함 - 서버 점검 또는 오류 상태일 수 있습니다")
-                
-                if responseString.contains("점검") || responseString.contains("maintenance") {
-                    return .failure(.serviceUnavailable)
-                } else {
-                    return .failure(.invalidResponse)
-                }
-            }
-            
             switch httpResponse.statusCode {
             case 200:
                 let decoder = JSONDecoder()
@@ -436,22 +432,29 @@ class LostArkAPIService {
                 do {
                     let profileData = try decoder.decode(CharacterProfileResponse.self, from: data)
                     
-                    // 아이템 레벨 문자열에서 숫자만 추출
+                    // 아이템 레벨 업데이트
                     let levelString = profileData.safeItemMaxLevel.replacingOccurrences(of: ",", with: "")
                     let level = Double(levelString) ?? character.level
                     
-                    // 안전하게 모델 업데이트
+                    // 전투력 업데이트
+                    let combatPowerString = profileData.safeCombatPower.replacingOccurrences(of: ",", with: "")
+                    let combatPower = Double(combatPowerString) ?? character.combatPower
+                    
+                    // 캐릭터 정보 업데이트
                     character.server = profileData.safeServerName
                     character.characterClass = profileData.safeCharacterClassName
                     character.level = level
+                    character.combatPower = combatPower
                     character.lastUpdated = Date()
                     
                     try modelContext.save()
                     
-                    Logger.debug("캐릭터 정보 업데이트 성공: \(name)")
+                    Logger.debug("캐릭터 '\(name)' 업데이트 완료 - 레벨: \(level), 전투력: \(combatPower)")
+                    
                     return .success(true)
+                    
                 } catch {
-                    Logger.error("프로필 JSON 디코딩 오류", error: error)
+                    Logger.error("아머리 API 디코딩 실패", error: error)
                     return .failure(.networkError(error))
                 }
                 
@@ -466,8 +469,9 @@ class LostArkAPIService {
             default:
                 return .failure(.unknown(httpResponse.statusCode))
             }
+            
         } catch {
-            Logger.error("단일 캐릭터 업데이트 오류", error: error)
+            Logger.error("아머리 API 요청 실패", error: error)
             return .failure(.networkError(error))
         }
     }
@@ -484,7 +488,7 @@ class LostArkAPIService {
             request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
             request.addValue("LOACheck/1.0 (iOS)", forHTTPHeaderField: "User-Agent")
             
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (_, response) = try await URLSession.shared.data(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse else {
                 return .failure(.invalidResponse)
@@ -570,51 +574,42 @@ class LostArkAPIService {
     
     // 기존 캐릭터 데이터 업데이트
     @MainActor
-    private func updateExistingCharacters(charactersData: [CharacterResponse], modelContext: ModelContext, clearExisting: Bool) async {
-        var updatedCount = 0
-        var newCount = 0
+    private func updateExistingCharacters(charactersData: [CharacterResponse], modelContext: ModelContext, clearExisting: Bool = false) async {
         
+        // 기존 캐릭터 가져오기
+        let fetchDescriptor = FetchDescriptor<CharacterModel>()
+        let existingCharacters = (try? modelContext.fetch(fetchDescriptor)) ?? []
+        
+        // 새 캐릭터 추가 또는 업데이트
         for characterData in charactersData {
             let characterName = characterData.characterName
             
-            // 이미 존재하는 캐릭터인지 확인
-            let fetchDescriptor = FetchDescriptor<CharacterModel>(
-                predicate: #Predicate<CharacterModel> { character in
-                    character.name == characterName
-                }
-            )
-            
-            if let existingCharacters = try? modelContext.fetch(fetchDescriptor),
-               let existingCharacter = existingCharacters.first {
-                // 기존 캐릭터 업데이트 (일일 숙제 및 레이드 설정 유지)
+            // 기존 캐릭터 검색
+            if let existingCharacter = existingCharacters.first(where: { $0.name == characterName }) {
+                // 기존 캐릭터 업데이트
                 existingCharacter.server = characterData.serverName
                 existingCharacter.characterClass = characterData.characterClassName
                 existingCharacter.level = characterData.itemLevel
+                existingCharacter.combatPower = characterData.combatPower
                 existingCharacter.lastUpdated = Date()
                 
-                updatedCount += 1
-                Logger.debug("기존 캐릭터 업데이트: \(characterName)")
+                Logger.debug("기존 캐릭터 업데이트: \(characterName), 전투력: \(characterData.combatPower)")
             } else {
                 // 새 캐릭터 추가
                 let newCharacter = CharacterModel(
                     name: characterName,
                     server: characterData.serverName,
                     characterClass: characterData.characterClassName,
-                    level: characterData.itemLevel
+                    level: characterData.itemLevel,
+                    combatPower: characterData.combatPower
                 )
                 modelContext.insert(newCharacter)
                 
-                newCount += 1
-                Logger.debug("새 캐릭터 추가: \(characterName)")
+                Logger.debug("새 캐릭터 추가: \(characterName), 전투력: \(characterData.combatPower)")
             }
         }
         
         // 변경사항 저장
-        do {
-            try modelContext.save()
-            Logger.debug("캐릭터 데이터 업데이트 완료 - 업데이트: \(updatedCount)개, 신규: \(newCount)개")
-        } catch {
-            Logger.error("캐릭터 데이터 저장 오류", error: error)
-        }
+        try? modelContext.save()
     }
 }

@@ -15,6 +15,7 @@ final class CharacterModel {
     var server: String
     var characterClass: String
     var level: Double
+    var combatPower: Double = 0.0
     var imageURL: String?
     var isHidden: Bool
     var isGoldEarner: Bool
@@ -78,6 +79,7 @@ final class CharacterModel {
         server: String,
         characterClass: String,
         level: Double,
+        combatPower: Double = 0.0,
         imageURL: String? = nil,
         isHidden: Bool = false,
         isGoldEarner: Bool = false
@@ -86,6 +88,7 @@ final class CharacterModel {
         self.server = server
         self.characterClass = characterClass
         self.level = level
+        self.combatPower = combatPower
         self.imageURL = imageURL
         self.isHidden = isHidden
         self.isGoldEarner = isGoldEarner

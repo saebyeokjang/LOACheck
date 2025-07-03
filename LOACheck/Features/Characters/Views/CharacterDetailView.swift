@@ -160,6 +160,16 @@ struct CharacterDetailView: View {
                             .foregroundColor(colorScheme == .dark ? .blue.opacity(0.9) : .blue)
                             .cornerRadius(8)
                         
+                        if character.combatPower > 0 {
+                            Text("전투력: \(String(format: "%.2f", character.combatPower))")
+                                .font(.headline)
+                                .padding(.vertical, 4)
+                                .padding(.horizontal, 12)
+                                .background(Color.orange.opacity(colorScheme == .dark ? 0.15 : 0.1))
+                                .foregroundColor(colorScheme == .dark ? .red.opacity(0.9) : .red)
+                                .cornerRadius(8)
+                        }
+                        
                         // 골드 획득 캐릭터 표시
                         if character.isGoldEarner {
                             Text("골드 획득 캐릭터")
@@ -183,7 +193,7 @@ struct CharacterDetailView: View {
                             .scaledToFit()
                             .frame(width: 20, height: 20)
                             .foregroundColor(goToNextPage != nil ?
-                                            (colorScheme == .dark ? .blue.opacity(0.9) : .blue) :
+                                             (colorScheme == .dark ? .blue.opacity(0.9) : .blue) :
                                                 (colorScheme == .dark ? .gray.opacity(0.7) : .gray))
                             .frame(width: 44, height: 44)
                             .background(Color.clear)
