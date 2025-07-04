@@ -80,39 +80,57 @@ struct RosterManagementSectionView: View {
                     let result = await updateCharactersInfoOnly(apiKey: apiKey)
                     
                     await MainActor.run {
-                        isRefreshing = false
-                        
                         switch result {
                         case .success(let count):
-                            alertMessage = "캐릭터 정보를 성공적으로 업데이트했습니다. (\(count)개)"
-                            
-                            // 로그인 상태면 데이터 동기화 필요 표시
-                            if authManager.isLoggedIn {
-                                dataSyncManager.markLocalChanges()
+                            // 3. 모든 캐릭터 전투력 갱신 시작
+                            Task {
+                                let combatPowerResult = await LostArkAPIService.shared.updateAllCharactersCombatPower(
+                                    apiKey: apiKey,
+                                    modelContext: modelContext
+                                )
+                                
+                                await MainActor.run {
+                                    isRefreshing = false
+                                    
+                                    // 결과 메시지 생성
+                                    var message = "원정대 갱신 완료! (\(count)개)\n"
+                                    
+                                    if combatPowerResult.successCount > 0 {
+                                        message += "전투력 갱신 성공: \(combatPowerResult.successCount)개\n"
+                                    }
+                                    
+                                    if combatPowerResult.failureCount > 0 {
+                                        message += "전투력 갱신 실패: \(combatPowerResult.failureCount)개"
+                                    }
+                                    
+                                    alertMessage = message
+                                    
+                                    // 로그인 상태면 데이터 동기화 필요 표시
+                                    if authManager.isLoggedIn {
+                                        dataSyncManager.markLocalChanges()
+                                    }
+                                    
+                                    isShowingAlert = true
+                                }
                             }
                             
                         case .failure(let error):
-                            errorService.handleError(error, source: .api) {
-                                // 재시도 액션
-                                testAndFetchCharacters()
-                            }
-                            alertMessage = "오류가 발생했습니다: \(error.userFriendlyMessage)"
+                            isRefreshing = false
+                            handleRefreshError(error)
                         }
-                        
-                        isShowingAlert = true
                     }
                     
                 case .failure(let error):
                     await MainActor.run {
                         isRefreshing = false
-                        alertMessage = "API 오류: \(error.userFriendlyMessage)"
-                        isShowingAlert = true
+                        handleRefreshError(error)
                     }
                 }
             } catch {
                 await MainActor.run {
                     isRefreshing = false
-                    errorService.handleError(error, source: .api)
+                    alertMessage = "네트워크 오류가 발생했습니다."
+                    isShowingAlert = true
                 }
             }
         }
@@ -289,5 +307,21 @@ struct RosterManagementSectionView: View {
         } catch {
             Logger.error("캐릭터 데이터 저장 오류", error: error)
         }
+    }
+    
+    private func handleRefreshError(_ error: APIError) {
+        switch error {
+        case .serviceUnavailable:
+            alertMessage = "로스트아크 API 서비스가 현재 점검 중입니다."
+        case .rateLimit:
+            alertMessage = "API 호출 한도를 초과했습니다. 잠시 후 다시 시도해주세요."
+        case .unauthorized:
+            alertMessage = "API 키가 유효하지 않습니다."
+        case .forbidden:
+            alertMessage = "API 접근 권한이 없습니다."
+        default:
+            alertMessage = "원정대 갱신 중 오류가 발생했습니다."
+        }
+        isShowingAlert = true
     }
 }

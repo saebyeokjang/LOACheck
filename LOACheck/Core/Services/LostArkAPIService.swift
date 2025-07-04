@@ -476,6 +476,40 @@ class LostArkAPIService {
         }
     }
     
+    // MARK: - 모든 캐릭터 전투력 일괄 갱신
+    @MainActor
+    func updateAllCharactersCombatPower(apiKey: String, modelContext: ModelContext) async -> (successCount: Int, failureCount: Int) {
+        // 기존 캐릭터 가져오기
+        let fetchDescriptor = FetchDescriptor<CharacterModel>()
+        let existingCharacters = (try? modelContext.fetch(fetchDescriptor)) ?? []
+        
+        var successCount = 0
+        var failureCount = 0
+        
+        // 각 캐릭터별로 전투력 갱신
+        for character in existingCharacters {
+            let result = await updateSingleCharacterViaArmory(
+                name: character.name,
+                apiKey: apiKey,
+                modelContext: modelContext
+            )
+            
+            switch result {
+            case .success:
+                successCount += 1
+                Logger.debug("캐릭터 '\(character.name)' 전투력 갱신 성공")
+            case .failure(let error):
+                failureCount += 1
+                Logger.error("캐릭터 '\(character.name)' 전투력 갱신 실패", error: error)
+            }
+            
+            // API 호출 간격 조절 (Rate Limit 방지)
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5초 대기
+        }
+        
+        return (successCount, failureCount)
+    }
+    
     // MARK: - 캐릭터 존재 여부 확인
     func validateCharacter(name: String, apiKey: String) async -> Result<Bool, APIError> {
         do {
