@@ -147,6 +147,10 @@ struct CharacterDetailView: View {
                             .font(.title)
                             .fontWeight(.bold)
                             .foregroundColor(Color.textPrimary)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                            .truncationMode(.tail)
                         
                         Text("\(character.server) • \(character.characterClass)")
                             .font(.subheadline)
