@@ -265,6 +265,13 @@ struct SettingsView: View {
                 try modelContext.safeDeleteAll(of: RaidGate.self)
                 try modelContext.safeDeleteAll(of: CharacterModel.self)
                 
+                authManager.representativeCharacter = ""
+                UserDefaults.standard.removeObject(forKey: "representativeCharacter")
+                
+                if authManager.isLoggedIn, let userId = authManager.currentUser?.id {
+                    UserDefaults.standard.removeObject(forKey: "representativeCharacter_\(userId)")
+                }
+                
                 if authManager.isLoggedIn && networkMonitor.isConnected {
                     let repository = DataRepositoryFactory.getRepository(modelContext: modelContext)
                     try await repository.deleteAllCharacters()
