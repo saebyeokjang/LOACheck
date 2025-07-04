@@ -168,6 +168,14 @@ struct CharacterDetailView: View {
                                 .background(Color.orange.opacity(colorScheme == .dark ? 0.15 : 0.1))
                                 .foregroundColor(colorScheme == .dark ? .red.opacity(0.9) : .red)
                                 .cornerRadius(8)
+                        } else {
+                            Text("전투력: 갱신 필요")
+                                .font(.headline)
+                                .padding(.vertical, 4)
+                                .padding(.horizontal, 12)
+                                .background(Color.gray.opacity(colorScheme == .dark ? 0.15 : 0.1))
+                                .foregroundColor(colorScheme == .dark ? .gray.opacity(0.9) : .gray)
+                                .cornerRadius(8)
                         }
                         
                         // 골드 획득 캐릭터 표시
