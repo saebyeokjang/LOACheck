@@ -21,8 +21,8 @@ struct RosterManagementSectionView: View {
     
     var body: some View {
         Section(header: Text("원정대 관리")) {
-            // 기본 원정대 불러오기
             if !authManager.representativeCharacter.isEmpty {
+                // 기존 원정대 갱신 버튼
                 Button(action: testAndFetchCharacters) {
                     HStack {
                         Text("원정대 갱신하기")
@@ -34,6 +34,12 @@ struct RosterManagementSectionView: View {
                     }
                 }
                 .disabled(apiKey.isEmpty || isRefreshing || !networkMonitor.isConnected)
+            } else {
+                // 대표 캐릭터 미설정 안내 (간단 버전)
+                Text("대표 캐릭터를 설정해주세요")
+                    .foregroundColor(.secondary)
+                    .font(.subheadline)
+                    .padding(.vertical, 4)
             }
         }
     }

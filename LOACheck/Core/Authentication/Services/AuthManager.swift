@@ -31,7 +31,7 @@ class AuthManager: ObservableObject {
     
     private init() {
         // 대표 캐릭터 이름 로드 - 기본 값은 전역 설정에서 가져옴
-        self.representativeCharacter = UserDefaults.standard.string(forKey: "representativeCharacter") ?? ""
+        loadRepresentativeCharacter()
         
         setupFirebase()
         setupAuthStateListener()
@@ -45,6 +45,21 @@ class AuthManager: ObservableObject {
         }
     }
     
+    // 대표 캐릭터 로드 함수 추가
+    private func loadRepresentativeCharacter() {
+        // 현재 로그인된 사용자가 있다면 사용자별 설정 우선
+        if let currentUserUid = Auth.auth().currentUser?.uid {
+            let userRepChar = UserDefaults.standard.string(forKey: "representativeCharacter_\(currentUserUid)") ?? ""
+            if !userRepChar.isEmpty {
+                self.representativeCharacter = userRepChar
+                return
+            }
+        }
+        
+        // 사용자별 설정이 없다면 전역 설정 사용
+        self.representativeCharacter = UserDefaults.standard.string(forKey: "representativeCharacter") ?? ""
+    }
+    
     // 인증 상태 변경 리스너 설정
     private func setupAuthStateListener() {
         authStateHandler = Auth.auth().addStateDidChangeListener { [weak self] (_, firebaseUser) in
@@ -56,10 +71,18 @@ class AuthManager: ObservableObject {
                         self.currentUser = User(from: firebaseUser)
                         self.isLoggedIn = true
                         
-                        // 사용자별 대표 캐릭터 로드
+                        // 사용자별 대표 캐릭터 로드 - 기존 값이 있으면 유지
                         let userRepChar = UserDefaults.standard.string(forKey: "representativeCharacter_\(firebaseUser.uid)") ?? ""
                         if !userRepChar.isEmpty {
                             self.representativeCharacter = userRepChar
+                        } else if self.representativeCharacter.isEmpty {
+                            // 현재 값이 비어있고 사용자별 설정도 없을 때만 전역 설정 사용
+                            let globalRepChar = UserDefaults.standard.string(forKey: "representativeCharacter") ?? ""
+                            if !globalRepChar.isEmpty {
+                                self.representativeCharacter = globalRepChar
+                                // 사용자별 설정에도 저장
+                                UserDefaults.standard.set(globalRepChar, forKey: "representativeCharacter_\(firebaseUser.uid)")
+                            }
                         }
                         
                         if UserDefaults.standard.object(forKey: "hasCompletedInitialSync_\(firebaseUser.uid)") == nil {
@@ -71,9 +94,6 @@ class AuthManager: ObservableObject {
                     } else {
                         self.currentUser = nil
                         self.isLoggedIn = false
-                        
-                        // 로그아웃 시 대표 캐릭터는 전역 설정으로 돌아감
-                        self.representativeCharacter = UserDefaults.standard.string(forKey: "representativeCharacter") ?? ""
                         
                         // 친구 서비스 리스너 해제
                         FriendsService.shared.handleAuthStateChanged(isLoggedIn: false)
