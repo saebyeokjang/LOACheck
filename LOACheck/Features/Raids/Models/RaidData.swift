@@ -11,7 +11,8 @@ import Foundation
 struct RaidData {
     // 레이드 타입 열거형
     enum RaidType: String, CaseIterable {
-        //case assaultRaid = "강습 타르칼"
+        case kazeroth = "카제로스"
+        case armoche = "아르모체"
         case mordum = "모르둠"
         case abrelshud2 = "2막 아브렐슈드"
         case aegir = "에기르"
@@ -30,7 +31,8 @@ struct RaidData {
         // 레이드 정렬 우선순위
         var sortOrder: Int {
             switch self {
-            //case .assaultRaid: return 15
+            case .kazeroth: return 16
+            case .armoche: return 15
             case .mordum: return 14
             case .abrelshud2: return 13
             case .aegir: return 12
@@ -51,8 +53,10 @@ struct RaidData {
         // 각 레이드의 가능한 난이도 배열
         func difficulties() -> [Difficulty] {
             switch self {
-//            case .assaultRaid:
-//                return [.normal, .hard]
+            case .kazeroth:
+                return [.normal, .hard]
+            case .armoche:
+                return [.normal, .hard]
             case .mordum:
                 return [.normal, .hard]
             case .abrelshud2:
@@ -87,8 +91,10 @@ struct RaidData {
         // 각 레이드의 관문 수
         func gateCount() -> Int {
             switch self {
-//            case .assaultRaid:
-//                return 1
+            case .kazeroth:
+                return 2
+            case .armoche:
+                return 2
             case .mordum:
                 return 3
             case .abrelshud2:
@@ -138,9 +144,13 @@ struct RaidData {
     
     // 레이드 레벨 요구사항 (최대 레벨 기준)
     static let raidLevelRequirements: [String: Double] = [
-        // 강습 레이드
-//        "강습 타르칼-노말": 1680,
-//        "강습 타르칼-하드": 1720,
+        // 카제로스
+        "카제로스-노말": 1710,
+        "카제로스-하드": 1730,
+        
+        // 아르모체
+        "아르모체-노말": 1700,
+        "아르모체-하드": 1720,
         
         // 모르둠
         "모르둠-노말": 1680,
@@ -207,9 +217,13 @@ struct RaidData {
     
     // 레이드 관문별 골드 보상
     static let gateGoldRewards: [String: [Int]] = [
-        // 강습 레이드
-//        "강습 타르칼-노말": [10000],
-//        "강습 타르칼-하드": [18000],
+        // 카제로스
+        "카제로스-노말": [14000, 26000],
+        "카제로스-하드": [17000, 35000],
+        
+        // 아르모체
+        "아르모체-노말": [12500, 20500],
+        "아르모체-하드": [15000, 27000],
         
         // 모르둠
         "모르둠-노말": [6000, 9500, 12500],
@@ -275,9 +289,13 @@ struct RaidData {
     ]
     
     static let bonusLootCosts: [String: [Int]] = [
-        // 강습
-//        "강습 타르칼-하드": [6000],
-//        "강습 타르칼-노말": [4000],
+        // 카제로스
+        "카제로스-하드": [5440, 11200],
+        "카제로스-노말": [4480, 8320],
+        
+        // 아르모체
+        "아르모체-하드": [4800, 8640],
+        "아르모체-노말": [4000, 6560],
         
         // 모르둠
         "모르둠-하드": [2700, 4100, 5800],

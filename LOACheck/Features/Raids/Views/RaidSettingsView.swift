@@ -300,9 +300,11 @@ struct RaidSettingCardView: View {
     }
     
     private func getOrderString(for raidName: String) -> String {
-        if raidName.contains("모르둠") { return "3막" }
-        if raidName.contains("아브렐슈드") && raidName.contains("2막") { return "" }
-        if raidName.contains("에기르") { return "1막" }
+        if raidName.contains("카제로스") { return "종막 " }
+        if raidName.contains("아르모체") { return "4막 " }
+        if raidName.contains("모르둠") { return "3막 " }
+        if raidName.contains("아브렐슈드") && raidName.contains("2막 ") { return "" }
+        if raidName.contains("에기르") { return "1막 " }
         return ""
     }
     
