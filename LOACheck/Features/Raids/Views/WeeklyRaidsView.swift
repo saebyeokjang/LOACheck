@@ -532,6 +532,8 @@ struct GateButton: View {
     private func getDifficultyColor() -> Color {
         let baseColor: Color
         switch gate.difficulty {
+        case "나이트메어":
+            baseColor = .purple
         case "하드":
             baseColor = .red
         case "노말":
@@ -629,6 +631,8 @@ struct GateButton: View {
             // 난이도에 따른 테두리 색상 - 다크모드에서 더 잘 보이도록 투명도 조정
             let color: Color
             switch gate.difficulty {
+            case "나이트메어":
+                color = .purple
             case "하드":
                 color = .red
             case "노말":

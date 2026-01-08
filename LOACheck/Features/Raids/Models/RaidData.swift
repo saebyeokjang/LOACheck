@@ -11,6 +11,7 @@ import Foundation
 struct RaidData {
     // 레이드 타입 열거형
     enum RaidType: String, CaseIterable {
+        case serca = "세르카"
         case kazeroth = "카제로스"
         case armoche = "아르모체"
         case mordum = "모르둠"
@@ -31,6 +32,7 @@ struct RaidData {
         // 레이드 정렬 우선순위
         var sortOrder: Int {
             switch self {
+            case .serca: return 17
             case .kazeroth: return 16
             case .armoche: return 15
             case .mordum: return 14
@@ -53,6 +55,8 @@ struct RaidData {
         // 각 레이드의 가능한 난이도 배열
         func difficulties() -> [Difficulty] {
             switch self {
+            case .serca:
+                return [.normal, .hard, .nightmare]
             case .kazeroth:
                 return [.normal, .hard]
             case .armoche:
@@ -91,6 +95,8 @@ struct RaidData {
         // 각 레이드의 관문 수
         func gateCount() -> Int {
             switch self {
+            case .serca:
+                return 2
             case .kazeroth:
                 return 2
             case .armoche:
@@ -140,10 +146,17 @@ struct RaidData {
         case single = "싱글"
         case normal = "노말"
         case hard = "하드"
+        case nightmare = "나이트메어"
     }
     
     // 레이드 레벨 요구사항 (최대 레벨 기준)
     static let raidLevelRequirements: [String: Double] = [
+        
+        // 세르카
+        "세르카-노말": 1710,
+        "세르카-하드": 1730,
+        "세르카-나이트메어": 1740,
+        
         // 카제로스
         "카제로스-노말": 1710,
         "카제로스-하드": 1730,
@@ -220,6 +233,12 @@ struct RaidData {
     
     // 레이드 관문별 골드 보상
     static let gateGoldRewards: [String: [Int]] = [
+        
+        // 세르카
+        "세르카-노말": [14000, 21000],
+        "세르카-하드": [17500, 26500],
+        "세르카-나이트메어": [21000, 33000],
+        
         // 카제로스
         "카제로스-노말": [14000, 26000],
         "카제로스-하드": [17000, 35000],
@@ -295,6 +314,12 @@ struct RaidData {
     ]
     
     static let bonusLootCosts: [String: [Int]] = [
+        
+        // 세르카
+        "세르카-노말": [4480, 6720],
+        "세르카-하드": [5600, 8480],
+        "세르카-나이트메어": [6720, 10560],
+        
         // 카제로스
         "카제로스-하드": [5440, 11200],
         "카제로스-노말": [4480, 8320],
