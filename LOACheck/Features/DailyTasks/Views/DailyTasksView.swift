@@ -29,7 +29,13 @@ struct DailyTasksView: View {
     }
     
     private var chaosContentName: String {
-        return character.level >= 1640 ? "쿠르잔 전선" : "카오스 던전"
+        if character.level >= 1730 {
+            return "혼돈의 균열"
+        } else if character.level >= 1640 {
+            return "쿠르잔 전선"
+        } else {
+            return "카오스 던전"
+        }
     }
     
     private var alertMessage: String {

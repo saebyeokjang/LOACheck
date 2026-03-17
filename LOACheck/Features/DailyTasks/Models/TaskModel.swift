@@ -16,11 +16,17 @@ final class DailyTask {
         case chaosGate = "쿠르잔 전선"
         case guardianRaid = "가디언 토벌"
         
-        // 캐릭터 레벨에 따른 컨텐츠 이름 반환 (새로 추가)
+        // 캐릭터 레벨에 따른 컨텐츠 이름 반환
         func displayName(for level: Double) -> String {
             switch self {
             case .chaosGate:
-                return level >= 1640 ? "쿠르잔 전선" : "카오스 던전"
+                if level >= 1730 {
+                    return "혼돈의 균열"
+                } else if level >= 1640 {
+                    return "쿠르잔 전선"
+                } else {
+                    return "카오스 던전"
+                }
             default:
                 return rawValue
             }
