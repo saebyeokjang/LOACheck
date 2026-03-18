@@ -614,14 +614,20 @@ struct DifficultyHeaderCell: View {
     // 난이도에 따른 색상 반환
     private func getDifficultyColor() -> Color {
         switch difficulty {
-        case "나이트메어":
-            return .purple
-        case "하드":
-            return .red
-        case "노말":
-            return .blue
         case "싱글":
             return .green
+        case "노말":
+            return .blue
+        case "하드":
+            return .red
+        case "나이트메어":
+            return .purple
+        case "1단계":
+            return .blue
+        case "2단계":
+            return .red
+        case "3단계":
+            return .purple
         default:
             return .gray
         }
@@ -664,14 +670,20 @@ struct GateCell: View {
     // 난이도에 따른 색상 반환
     private func getDifficultyColor() -> Color {
         switch selectedDifficulty {
-        case "나이트메어":
-            return .purple
-        case "하드":
-            return .red
-        case "노말":
-            return .blue
         case "싱글":
             return .green
+        case "노말":
+            return .blue
+        case "하드":
+            return .red
+        case "나이트메어":
+            return .purple
+        case "1단계":
+            return .blue
+        case "2단계":
+            return .red
+        case "3단계":
+            return .purple
         default:
             return .gray
         }

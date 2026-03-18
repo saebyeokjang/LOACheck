@@ -19,14 +19,20 @@ extension Color {
     // 난이도별 색상
     static func difficultyColor(_ difficulty: String) -> Color {
         switch difficulty {
-        case "나이트메어":
-            return .purple
-        case "하드":
-            return .red
-        case "노말":
-            return .blue
         case "싱글":
             return .green
+        case "노말":
+            return .blue
+        case "하드":
+            return .red
+        case "1단계":
+            return .blue
+        case "2단계":
+            return .red
+        case "3단계":
+            return .purple
+        case "나이트메어":
+            return .purple
         default:
             return .gray
         }

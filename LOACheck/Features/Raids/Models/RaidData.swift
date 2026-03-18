@@ -11,6 +11,7 @@ import Foundation
 struct RaidData {
     // 레이드 타입 열거형
     enum RaidType: String, CaseIterable {
+        case cathedral = "지평의 성당"
         case serca = "세르카"
         case kazeroth = "카제로스"
         case armoche = "아르모체"
@@ -32,6 +33,7 @@ struct RaidData {
         // 레이드 정렬 우선순위
         var sortOrder: Int {
             switch self {
+            case .cathedral: return 18
             case .serca: return 17
             case .kazeroth: return 16
             case .armoche: return 15
@@ -55,6 +57,8 @@ struct RaidData {
         // 각 레이드의 가능한 난이도 배열
         func difficulties() -> [Difficulty] {
             switch self {
+            case .cathedral:
+                return [.step1, .step2, .step3]
             case .serca:
                 return [.normal, .hard, .nightmare]
             case .kazeroth:
@@ -95,6 +99,8 @@ struct RaidData {
         // 각 레이드의 관문 수
         func gateCount() -> Int {
             switch self {
+            case .cathedral:
+                return 2
             case .serca:
                 return 2
             case .kazeroth:
@@ -146,11 +152,19 @@ struct RaidData {
         case single = "싱글"
         case normal = "노말"
         case hard = "하드"
+        case step1 = "1단계"
+        case step2 = "2단계"
+        case step3 = "3단계"
         case nightmare = "나이트메어"
     }
     
     // 레이드 레벨 요구사항 (최대 레벨 기준)
     static let raidLevelRequirements: [String: Double] = [
+        
+        // 지평의 성당
+        "지평의 성당-1단계": 1700,
+        "지평의 성당-2단계": 1720,
+        "지평의 성당-3단계": 1750,
         
         // 세르카
         "세르카-노말": 1710,
@@ -234,6 +248,11 @@ struct RaidData {
     // 레이드 관문별 골드 보상
     static let gateGoldRewards: [String: [Int]] = [
         
+        //지평의 성당
+        "지평의 성당-1단계": [13500, 16500],
+        "지평의 성당-2단계": [16000, 24000],
+        "지평의 성당-3단계": [20000, 30000],
+        
         // 세르카
         "세르카-노말": [14000, 21000],
         "세르카-하드": [17500, 26500],
@@ -313,7 +332,13 @@ struct RaidData {
         "아르고스-노말": [1000]
     ]
     
+    // 더보기 비용
     static let bonusLootCosts: [String: [Int]] = [
+        
+        // 지평의 성당
+        "지평의 성당-1단계": [4320, 5280],
+        "지평의 성당-2단계": [5120, 7680],
+        "지평의 성당-3단계": [6400, 9600],
         
         // 세르카
         "세르카-노말": [4480, 6720],
