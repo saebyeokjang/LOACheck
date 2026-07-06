@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import SwiftUICore
+import SwiftUI
 
 // MARK: - 연마효과 정보 관리자 (하드코딩 버전)
 class EngraveEffectManager {

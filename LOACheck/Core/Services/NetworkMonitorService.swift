@@ -8,7 +8,7 @@
 import Foundation
 import Network
 import Combine
-import SwiftUICore
+import SwiftUI
 
 /// 네트워크 연결 상태를 모니터링하는 서비스
 class NetworkMonitorService: ObservableObject {
