@@ -11,6 +11,7 @@ import Foundation
 struct RaidData {
     // 레이드 타입 열거형
     enum RaidType: String, CaseIterable {
+        case belgardin = "벨가르딘"
         case cathedral = "지평의 성당"
         case serca = "세르카"
         case kazeroth = "카제로스"
@@ -33,6 +34,7 @@ struct RaidData {
         // 레이드 정렬 우선순위
         var sortOrder: Int {
             switch self {
+            case .belgardin: return 19
             case .cathedral: return 18
             case .serca: return 17
             case .kazeroth: return 16
@@ -57,6 +59,8 @@ struct RaidData {
         // 각 레이드의 가능한 난이도 배열
         func difficulties() -> [Difficulty] {
             switch self {
+            case .belgardin:
+                return [.normal, .hard, .nightmare]
             case .cathedral:
                 return [.step1, .step2, .step3]
             case .serca:
@@ -99,6 +103,8 @@ struct RaidData {
         // 각 레이드의 관문 수
         func gateCount() -> Int {
             switch self {
+            case .belgardin:
+                return 2
             case .cathedral:
                 return 2
             case .serca:
@@ -160,6 +166,12 @@ struct RaidData {
     
     // 레이드 레벨 요구사항 (최대 레벨 기준)
     static let raidLevelRequirements: [String: Double] = [
+        
+        // 벨가르딘
+        "벨가르딘-노말": 1750,
+        "벨가르딘-하드": 1770,
+        "벨가르딘-나이트메어": 1780,
+        
         
         // 지평의 성당
         "지평의 성당-1단계": 1700,
@@ -250,7 +262,12 @@ struct RaidData {
     // 레이드 관문별 골드 보상
     static let gateGoldRewards: [String: [Int]] = [
         
-        //지평의 성당
+        // 벨가르딘
+        "벨가르딘-노말": [20000, 30000],
+        "벨가르딘-하드": [25000, 37000],
+        "벨가르딘-나이트메어": [30000, 45000],
+        
+        // 지평의 성당
         "지평의 성당-1단계": [13500, 16500],
         "지평의 성당-2단계": [16000, 24000],
         "지평의 성당-3단계": [20000, 30000],
@@ -338,6 +355,11 @@ struct RaidData {
     
     // 더보기 비용
     static let bonusLootCosts: [String: [Int]] = [
+        
+        // 벨가르딘
+        "벨가르딘-노말": [6400, 9600],
+        "벨가르딘-하드": [8000, 11840],
+        "벨가르딘-나이트메어": [9600, 14400],
         
         // 지평의 성당
         "지평의 성당-1단계": [4320, 5280],
